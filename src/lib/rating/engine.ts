@@ -165,9 +165,16 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
 
   if (input.featureVector) {
     const fv = input.featureVector;
-    quality = fv.qualityGate;
+    const framingScore = 'framing' in fv.qualityGate ? (fv.qualityGate as unknown as { framing: number }).framing : fv.qualityGate.framingCoverage;
+    quality = {
+      passed: fv.qualityGate.passed,
+      sharpness: fv.qualityGate.sharpness,
+      exposure: fv.qualityGate.exposure,
+      framing: framingScore,
+      rejectionReason: (fv.qualityGate as unknown as { rejectionReason?: string }).rejectionReason,
+    };
     photoCraftSharpness = fv.qualityGate.sharpness;
-    photoCraftFraming = fv.qualityGate.framing;
+    photoCraftFraming = framingScore;
     photoCraftLighting = Math.min(100, Math.max(0, fv.lightingBalance));
     faceHarmony = Math.min(100, Math.max(0, 100 - fv.goldenRatioDeviation));
     faceSymmetry = Math.min(100, Math.max(0, fv.symmetry));

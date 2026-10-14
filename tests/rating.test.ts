@@ -22,13 +22,15 @@ describe('Phase 4: AI Rating Engine & Fairness Gates', () => {
       goldenRatioDeviation: 5,
       skinTextureUniformity: 92,
       lightingBalance: 90,
+      eyeCanthalTiltAngle: 4,
       jawlineDefinition: 95,
       qualityGate: {
         passed: true,
         sharpness: 90,
         exposure: 88,
-        framing: 92,
+        framingCoverage: 92,
       },
+      clientEngine: 'MEDIAPIPE_WASM',
     };
 
     const res = await scoreFace({
@@ -48,18 +50,19 @@ describe('Phase 4: AI Rating Engine & Fairness Gates', () => {
       goldenRatioDeviation: 40,
       skinTextureUniformity: 40,
       lightingBalance: 30,
+      eyeCanthalTiltAngle: 0,
       jawlineDefinition: 40,
       qualityGate: {
         passed: false,
         sharpness: 35,
         exposure: 20,
-        framing: 40,
-        rejectionReason: 'Blurry frame detected. Please hold the phone steady.',
+        framingCoverage: 40,
       },
+      clientEngine: 'MEDIAPIPE_WASM',
     };
 
     await expect(scoreFace({ featureVector: failingVector })).rejects.toThrow(
-      /Blurry frame detected/i
+      /failed quality gate check/i
     );
   });
 

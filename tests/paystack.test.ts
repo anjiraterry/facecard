@@ -16,7 +16,7 @@ describe('Phase 11: Monetization & Paystack Payment Gateway', () => {
         reference: 'fc-points-illegal',
         metadata: {
           userId: 'usr-1',
-          itemType: 'POINTS' as any,
+          itemType: 'POINTS' as unknown as 'COSMETIC',
           itemSlug: '500-points',
         },
       })
