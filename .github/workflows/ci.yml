@@ -1,0 +1,43 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'phase-*']
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  validate:
+    name: Lint, Test & Cloudflare Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Type Check (tsc)
+        run: npx tsc --noEmit
+
+      - name: Lint Verification
+        run: npm run lint
+
+      - name: Run Vitest Unit Tests
+        run: npm test
+
+      - name: Build OpenNext Cloudflare Worker Bundle
+        run: npm run build:worker
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
