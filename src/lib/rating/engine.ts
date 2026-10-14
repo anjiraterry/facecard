@@ -9,8 +9,11 @@ export interface QualityGateResult {
   rejectionReason?: string;
 }
 
+import { ClientFeatureVector } from '@/lib/spikes/spikes';
+
 export interface ScoreFaceInput {
   imageBuffer?: Buffer | string; // base64 or buffer
+  featureVector?: ClientFeatureVector;
   toneMode?: ToneMode;
   userTier?: Tier;
 }
@@ -147,30 +150,54 @@ export function evaluateQualityGate(_imageBuffer?: Buffer | string): QualityGate
  * The core scoreFace() rating pipeline per Phase 4 of PLAN.md
  */
 export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult> {
-  const quality = evaluateQualityGate(input.imageBuffer);
   const tone = input.toneMode || 'HYPE';
 
-  // Seeded / calibrated evaluation simulating vision model extraction
-  // Structured Category Breakdown:
-  const photoCraftLighting = 90;
-  const photoCraftSharpness = quality.sharpness;
-  const photoCraftFraming = quality.framing;
+  let quality: QualityGateResult;
+  let photoCraftLighting = 88;
+  let photoCraftSharpness = 85;
+  let photoCraftFraming = 90;
+  let faceHarmony = 86;
+  let faceSkinClarity = 84;
+  let faceFeatureDefinition = 85;
+  let faceSymmetry = 82;
+  let expressionScoreVal = 85;
+  let auraScoreVal = 88;
 
+  if (input.featureVector) {
+    const fv = input.featureVector;
+    quality = fv.qualityGate;
+    photoCraftSharpness = fv.qualityGate.sharpness;
+    photoCraftFraming = fv.qualityGate.framing;
+    photoCraftLighting = Math.min(100, Math.max(0, fv.lightingBalance));
+    faceHarmony = Math.min(100, Math.max(0, 100 - fv.goldenRatioDeviation));
+    faceSymmetry = Math.min(100, Math.max(0, fv.symmetry));
+    faceSkinClarity = Math.min(100, Math.max(0, fv.skinTextureUniformity));
+    faceFeatureDefinition = Math.min(100, Math.max(0, fv.jawlineDefinition));
+    expressionScoreVal = 88;
+    auraScoreVal = Math.round((faceHarmony + faceFeatureDefinition) / 2);
+  } else {
+    quality = evaluateQualityGate(input.imageBuffer);
+    photoCraftSharpness = quality.sharpness;
+    photoCraftFraming = quality.framing;
+  }
+
+  // Check Quality Gate: throw error if rejected
+  if (!quality.passed) {
+    throw new Error(quality.rejectionReason || 'Selfie failed quality gate check. Please align face clearly.');
+  }
+
+  // Photo Craft (30%): Lighting (15%), Sharpness (8%), Framing (7%)
   const photoCraftScore = Math.round(
     photoCraftLighting * 0.15 + photoCraftSharpness * 0.08 + photoCraftFraming * 0.07
   );
 
-  const faceHarmony = 88;
-  const faceSkinClarity = 86;
-  const faceFeatureDefinition = 84;
-  const faceSymmetry = 82;
-
+  // Face (45%): Harmony (18%), Skin Clarity (12%), Feature Definition (10%), Symmetry (5%)
   const faceScore = Math.round(
     faceHarmony * 0.18 + faceSkinClarity * 0.12 + faceFeatureDefinition * 0.10 + faceSymmetry * 0.05
   );
 
-  const expressionScore = Math.round(85 * EconomyConfig.WEIGHTS.EXPRESSION);
-  const auraScore = Math.round(90 * EconomyConfig.WEIGHTS.AURA);
+  const expressionScore = Math.round(expressionScoreVal * EconomyConfig.WEIGHTS.EXPRESSION);
+  const auraScore = Math.round(auraScoreVal * EconomyConfig.WEIGHTS.AURA);
 
   const totalScore = Math.min(100, Math.max(0, photoCraftScore + faceScore + expressionScore + auraScore));
 
@@ -183,11 +210,13 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
   const verdictOptions = TONE_VERDICTS[tone][band];
   const verdictLine = verdictOptions[Math.floor(Math.random() * verdictOptions.length)];
 
-  // Pick top 2 relevant tips
-  const tips = [
-    ACTIONABLE_TIPS[Math.floor(Math.random() * 3)],
-    ACTIONABLE_TIPS[3 + Math.floor(Math.random() * 3)],
-  ];
+  // Pick top 2 relevant tips based on lowest subscore
+  const tips: string[] = [];
+  if (photoCraftLighting < 80) tips.push(ACTIONABLE_TIPS[0]); // position light 45deg
+  if (photoCraftSharpness < 80) tips.push(ACTIONABLE_TIPS[1]); // wipe lens
+  if (faceFeatureDefinition < 80) tips.push(ACTIONABLE_TIPS[2]); // elevate phone
+  if (tips.length < 2) tips.push(ACTIONABLE_TIPS[3]); // diffused window light
+  if (tips.length < 2) tips.push(ACTIONABLE_TIPS[4]); // direct eye contact
 
   return {
     score: totalScore,
@@ -204,11 +233,11 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
         featureDefinition: faceFeatureDefinition,
         symmetry: faceSymmetry,
       },
-      expression: 85,
-      aura: 90,
+      expression: expressionScoreVal,
+      aura: auraScoreVal,
     },
     verdictLine,
-    tips,
+    tips: tips.slice(0, 2),
     qualityGate: quality,
     evaluatedAt: new Date().toISOString(),
   };
