@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { randomUUID } from 'crypto';
+import { verifyOtpCode } from '@/lib/auth/otp';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +15,16 @@ export async function POST(req: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // 1. Find or create user in Neon Lakebase Postgres
+    // Verify OTP against hashed token
+    const verification = verifyOtpCode(normalizedEmail, code);
+    if (!verification.valid) {
+      return NextResponse.json(
+        { error: verification.reason || 'Invalid or expired verification code' },
+        { status: 401 }
+      );
+    }
+
+    // 1. Find or create user in Neon Postgres
     let user = await db.user.findUnique({
       where: { email: normalizedEmail },
       include: { streak: true, cards: true },
@@ -98,7 +110,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: 'Verification failed', message: error instanceof Error ? error.message : 'Error' },
-      { status: 400 }
+      { status: 500 }
     );
   }
 }
