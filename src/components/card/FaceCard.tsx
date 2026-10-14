@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Sparkles, Flame } from 'lucide-react';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { FaceCardData } from '@/types';
@@ -150,79 +150,145 @@ export function FaceCard({ card, className, interactive = true }: FaceCardProps)
     }
   }
 
+  // 3D Tilt motion values
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const mouseX = useSpring(x, { stiffness: 200, damping: 20 });
+  const mouseY = useSpring(y, { stiffness: 200, damping: 20 });
+  const rotateX = useTransform(mouseY, [-0.5, 0.5], [10, -10]);
+  const rotateY = useTransform(mouseX, [-0.5, 0.5], [-10, 10]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!interactive) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseXPos = (e.clientX - rect.left) / width - 0.5;
+    const mouseYPos = (e.clientY - rect.top) / height - 0.5;
+    x.set(mouseXPos);
+    y.set(mouseYPos);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
   return (
-    <motion.div
-      whileHover={interactive ? { scale: 1.02, translateY: -3 } : undefined}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      style={{
-        background: cardBg,
-        color: style.textColor,
-        boxShadow: cardShadow,
-        border: cardBorder,
-      }}
-      className={cn(
-        'relative w-full aspect-[1.586/1] rounded-[24px] p-5 sm:p-6 overflow-hidden flex flex-col justify-between select-none backdrop-blur-2xl transition-all',
-        className
-      )}
-    >
-      {/* Specular Diagonal Frosted Glass Sheen Highlight */}
-      <div 
-        className="absolute inset-0 pointer-events-none"
+    <div style={{ perspective: 1000 }} className="w-full">
+      <motion.div
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        whileHover={interactive ? { scale: 1.02 } : undefined}
+        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         style={{
-          background: style.sheen,
+          background: cardBg,
+          color: style.textColor,
+          boxShadow: cardShadow,
+          border: cardBorder,
+          rotateX: interactive ? rotateX : 0,
+          rotateY: interactive ? rotateY : 0,
+          transformStyle: 'preserve-3d',
         }}
-      />
-
-      {/* Subtle Geometric Card Watermark in Background */}
-      <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full opacity-[0.04] pointer-events-none border-[18px] border-current" />
-      <div className="absolute right-10 bottom-10 w-28 h-28 rounded-full opacity-[0.03] pointer-events-none border-[8px] border-current" />
-
-      {/* Black Card Sweeping Silver Sheen Beam Animation */}
-      {card.tier === 'BLACK' && (
+        className={cn(
+          'relative w-full aspect-[1.586/1] rounded-[24px] p-5 sm:p-6 overflow-hidden flex flex-col justify-between select-none backdrop-blur-2xl transition-all',
+          className
+        )}
+      >
+        {/* Specular Diagonal Frosted Glass Sheen Highlight */}
         <div 
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.25) 50%, transparent 60%)',
-            backgroundSize: '200% 100%',
-            animation: 'sheen 6s ease-in-out infinite',
+            background: style.sheen,
           }}
         />
-      )}
 
-      {/* Top Row: App Brand Name (left) & Tier Badge Pill (right) */}
-      <div className="relative z-10 flex items-center justify-between">
-        <span className="text-[12px] sm:text-[13px] font-black tracking-widest uppercase leading-none opacity-90">
-          FACECARD
-        </span>
+        {/* Subtle Geometric Card Watermark in Background */}
+        <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full opacity-[0.04] pointer-events-none border-[18px] border-current" />
+        <div className="absolute right-10 bottom-10 w-28 h-28 rounded-full opacity-[0.03] pointer-events-none border-[8px] border-current" />
 
-        {/* Tier Badge Pill */}
-        <div
-          style={{ 
-            background: style.badgeBg,
-            color: style.badgeText,
-          }}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase backdrop-blur-md border border-black/5 dark:border-white/10 shadow-sm"
-        >
-          {card.tier === 'BLACK' && <Sparkles className="w-3 h-3 text-white" />}
-          <span>{style.name}</span>
-        </div>
-      </div>
+        {/* Black Card Sweeping Silver Sheen Beam Animation */}
+        {card.tier === 'BLACK' && (
+          <div 
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: 'linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.25) 50%, transparent 60%)',
+              backgroundSize: '200% 100%',
+              animation: 'sheen 6s ease-in-out infinite',
+            }}
+          />
+        )}
 
-      {/* Middle Spacer Area */}
-      <div className="relative z-10 my-auto" />
-
-      {/* Bottom Row: Cardholder, Title, Streak & Score Readout */}
-      <div className="relative z-10 flex items-end justify-between gap-3">
-        <div className="flex flex-col">
-          {card.title && (
-            <span className="text-[10px] sm:text-[11px] tracking-wider uppercase font-extrabold opacity-70">
-              {card.title}
-            </span>
-          )}
-          <span className="text-base sm:text-lg font-black tracking-tight leading-tight mt-0.5">
-            {card.cardholderName}
+        {/* Top Row: App Brand Name (left) & Tier Badge Pill (right) */}
+        <div className="relative z-10 flex items-center justify-between">
+          <span className="text-[12px] sm:text-[13px] font-black tracking-widest uppercase leading-none opacity-90">
+            FACECARD
           </span>
-          {card.streakDays !== undefined && card.streakDays > 0 && (
+
+          {/* Tier Badge Pill */}
+          <div
+            style={{ 
+              background: style.badgeBg,
+              color: style.badgeText,
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase backdrop-blur-md border border-black/5 dark:border-white/10 shadow-sm"
+          >
+            {card.tier === 'BLACK' && <Sparkles className="w-3 h-3 text-white" />}
+            <span>{style.name}</span>
+          </div>
+        </div>
+
+        {/* Middle Area: Metallic EMV Chip & Contactless Indicator */}
+        <div className="relative z-10 my-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Authentic Metallic EMV Smart Chip */}
+            <div className="relative w-10 h-7 sm:w-11 sm:h-8 rounded-[5px] overflow-hidden border border-black/15 dark:border-white/20 shadow-inner flex items-center justify-center shrink-0"
+              style={{
+                background: card.tier === 'GOLD' 
+                  ? 'linear-gradient(135deg, #F0C45C 0%, #FDE08E 45%, #D4A030 100%)' 
+                  : 'linear-gradient(135deg, #D6DCE7 0%, #F1F4F9 45%, #B8C2D3 100%)'
+              }}
+            >
+              {/* Microcircuit contact dividing lines */}
+              <div className="absolute inset-x-0 top-1/2 h-[1px] bg-black/25 dark:bg-black/35" />
+              <div className="absolute inset-y-0 left-1/3 w-[1px] bg-black/25 dark:bg-black/35" />
+              <div className="absolute inset-y-0 right-1/3 w-[1px] bg-black/25 dark:bg-black/35" />
+              <div className="w-3 h-3 rounded-full border border-black/25 dark:bg-black/10" />
+            </div>
+
+            {/* Contactless NFC Waves */}
+            <svg 
+              className="w-4 h-4 sm:w-5 sm:h-5 opacity-40 shrink-0" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2.5" 
+              strokeLinecap="round"
+            >
+              <path d="M8.5 6a9 9 0 0 1 0 12" />
+              <path d="M12.5 4a13 13 0 0 1 0 16" />
+              <path d="M16.5 2a17 17 0 0 1 0 20" />
+            </svg>
+          </div>
+
+          {/* Tabular Card Identification Number */}
+          <span className="font-mono text-[10px] sm:text-[11px] font-semibold tracking-widest opacity-60 tabular-nums">
+            {card.cardNumber || 'FC •••• •••• 2026'}
+          </span>
+        </div>
+
+        {/* Bottom Row: Cardholder, Title, Streak & Score Readout */}
+        <div className="relative z-10 flex items-end justify-between gap-3">
+          <div className="flex flex-col">
+            {card.title && (
+              <span className="text-[10px] sm:text-[11px] tracking-wider uppercase font-extrabold opacity-70">
+                {card.title}
+              </span>
+            )}
+            <span className="text-base sm:text-lg font-black tracking-tight leading-tight mt-0.5">
+              {card.cardholderName}
+            </span>
+            {card.streakDays !== undefined && card.streakDays > 0 && (
             <span className="text-[10px] sm:text-[11px] font-semibold opacity-80 mt-1 flex items-center gap-1">
               <Flame className="w-3 h-3 text-[#FF7A50] fill-[#FF7A50] shrink-0" />
               <span>{card.streakDays} Day Streak</span>
@@ -259,5 +325,6 @@ export function FaceCard({ card, className, interactive = true }: FaceCardProps)
         )}
       </div>
     </motion.div>
+  </div>
   );
 }
