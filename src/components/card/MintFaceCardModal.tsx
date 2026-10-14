@@ -43,7 +43,7 @@ export function MintFaceCardModal({ isOpen, onClose, defaultMode = 'mint' }: Min
     band: 'HARMLESS',
     streakDays: 1,
     multiplier: 1.0,
-    cardNumber: `FC-••••-2026`,
+    cardNumber: 'FC •••• •••• 2026',
   };
 
   const handleMintSubmit = async (e: React.FormEvent) => {
@@ -130,7 +130,7 @@ export function MintFaceCardModal({ isOpen, onClose, defaultMode = 'mint' }: Min
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative z-10 w-full max-w-xl bg-white dark:bg-[#151518] text-[#1A1A1A] dark:text-[#F9FAFB] rounded-[28px] border border-black/10 dark:border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.25)] dark:shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden my-auto"
+          className="relative z-10 w-full max-w-2xl sm:max-w-3xl bg-white dark:bg-[#151518] text-[#1A1A1A] dark:text-[#F9FAFB] rounded-[28px] border border-black/10 dark:border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.25)] dark:shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden my-auto"
         >
           {/* Top Warm Gold Accent Line */}
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#E8D744] via-[#F2A6A2] to-[#B3BFF0]" />
@@ -192,11 +192,11 @@ export function MintFaceCardModal({ isOpen, onClose, defaultMode = 'mint' }: Min
             )}
 
             {mode === 'mint' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-center">
                 {/* Live Card Preview Column */}
-                <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-100 dark:border-white/5 space-y-3">
-                  <div className="w-full max-w-[230px] transform hover:scale-[1.02] transition-transform duration-300 pointer-events-none drop-shadow-md">
-                    <FaceCard card={previewCard} interactive={false} />
+                <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-neutral-50/80 dark:bg-white/[0.03] border border-neutral-100 dark:border-white/5 space-y-3 w-full">
+                  <div className="w-full max-w-[340px] sm:max-w-[380px] drop-shadow-md">
+                    <FaceCard card={previewCard} interactive={true} />
                   </div>
                   <div className="text-center">
                     <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">

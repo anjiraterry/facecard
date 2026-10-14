@@ -191,7 +191,7 @@ export function FaceCard({ card, className, interactive = true }: FaceCardProps)
           transformStyle: 'preserve-3d',
         }}
         className={cn(
-          'relative w-full aspect-[1.586/1] rounded-[24px] p-5 sm:p-6 overflow-hidden flex flex-col justify-between select-none backdrop-blur-2xl transition-all',
+          'relative w-full aspect-[1.586/1] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 md:p-6 overflow-hidden flex flex-col justify-between select-none backdrop-blur-2xl transition-all',
           className
         )}
       >
@@ -221,7 +221,7 @@ export function FaceCard({ card, className, interactive = true }: FaceCardProps)
 
         {/* Top Row: App Brand Name (left) & Tier Badge Pill (right) */}
         <div className="relative z-10 flex items-center justify-between">
-          <span className="text-[12px] sm:text-[13px] font-black tracking-widest uppercase leading-none opacity-90">
+          <span className="text-[11px] sm:text-[13px] font-black tracking-widest uppercase leading-none opacity-90">
             FACECARD
           </span>
 
@@ -231,18 +231,18 @@ export function FaceCard({ card, className, interactive = true }: FaceCardProps)
               background: style.badgeBg,
               color: style.badgeText,
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase backdrop-blur-md border border-black/5 dark:border-white/10 shadow-sm"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold tracking-wider uppercase backdrop-blur-md border border-black/5 dark:border-white/10 shadow-sm"
           >
-            {card.tier === 'BLACK' && <Sparkles className="w-3 h-3 text-white" />}
+            {card.tier === 'BLACK' && <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />}
             <span>{style.name}</span>
           </div>
         </div>
 
         {/* Middle Area: Metallic EMV Chip & Contactless Indicator */}
-        <div className="relative z-10 my-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="relative z-10 my-1 sm:my-auto flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Authentic Metallic EMV Smart Chip */}
-            <div className="relative w-10 h-7 sm:w-11 sm:h-8 rounded-[5px] overflow-hidden border border-black/15 dark:border-white/20 shadow-inner flex items-center justify-center shrink-0"
+            <div className="relative w-9 h-6 sm:w-11 sm:h-8 rounded-[4px] sm:rounded-[5px] overflow-hidden border border-black/15 dark:border-white/20 shadow-inner flex items-center justify-center shrink-0"
               style={{
                 background: card.tier === 'GOLD' 
                   ? 'linear-gradient(135deg, #F0C45C 0%, #FDE08E 45%, #D4A030 100%)' 
@@ -253,12 +253,12 @@ export function FaceCard({ card, className, interactive = true }: FaceCardProps)
               <div className="absolute inset-x-0 top-1/2 h-[1px] bg-black/25 dark:bg-black/35" />
               <div className="absolute inset-y-0 left-1/3 w-[1px] bg-black/25 dark:bg-black/35" />
               <div className="absolute inset-y-0 right-1/3 w-[1px] bg-black/25 dark:bg-black/35" />
-              <div className="w-3 h-3 rounded-full border border-black/25 dark:bg-black/10" />
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-black/25 dark:bg-black/10" />
             </div>
 
             {/* Contactless NFC Waves */}
             <svg 
-              className="w-4 h-4 sm:w-5 sm:h-5 opacity-40 shrink-0" 
+              className="w-3.5 h-3.5 sm:w-5 sm:h-5 opacity-40 shrink-0" 
               viewBox="0 0 24 24" 
               fill="none" 
               stroke="currentColor" 
@@ -272,58 +272,58 @@ export function FaceCard({ card, className, interactive = true }: FaceCardProps)
           </div>
 
           {/* Tabular Card Identification Number */}
-          <span className="font-mono text-[10px] sm:text-[11px] font-semibold tracking-widest opacity-60 tabular-nums">
+          <span className="font-mono text-[9px] sm:text-[11px] font-semibold tracking-widest opacity-60 tabular-nums">
             {card.cardNumber || 'FC •••• •••• 2026'}
           </span>
         </div>
 
         {/* Bottom Row: Cardholder, Title, Streak & Score Readout */}
-        <div className="relative z-10 flex items-end justify-between gap-3">
-          <div className="flex flex-col">
+        <div className="relative z-10 flex items-end justify-between gap-2 sm:gap-3">
+          <div className="flex flex-col min-w-0">
             {card.title && (
-              <span className="text-[10px] sm:text-[11px] tracking-wider uppercase font-extrabold opacity-70">
+              <span className="text-[9px] sm:text-[11px] tracking-wider uppercase font-extrabold opacity-70 truncate">
                 {card.title}
               </span>
             )}
-            <span className="text-base sm:text-lg font-black tracking-tight leading-tight mt-0.5">
+            <span className="text-sm sm:text-base md:text-lg font-black tracking-tight leading-tight mt-0.5 truncate">
               {card.cardholderName}
             </span>
             {card.streakDays !== undefined && card.streakDays > 0 && (
-            <span className="text-[10px] sm:text-[11px] font-semibold opacity-80 mt-1 flex items-center gap-1">
-              <Flame className="w-3 h-3 text-[#FF7A50] fill-[#FF7A50] shrink-0" />
-              <span>{card.streakDays} Day Streak</span>
-              {card.multiplier && <span>• ×{card.multiplier.toFixed(1)}</span>}
-            </span>
-          )}
-        </div>
-
-        {/* Lethality Score & Verdict Chip */}
-        {card.score !== undefined && (
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] tracking-wider uppercase font-bold opacity-70">
-              Lethality
-            </span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-2xl sm:text-3xl font-black tracking-tighter leading-none">
-                {card.score}
-              </span>
-              <span className="text-xs opacity-65 font-bold">/100</span>
-            </div>
-            {verdictConfig && (
-              <span
-                style={{
-                  background: verdictConfig.chipBg,
-                  color: verdictConfig.chipText,
-                  boxShadow: verdictConfig.glow,
-                }}
-                className="mt-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider shadow-sm backdrop-blur-md"
-              >
-                {verdictConfig.label}
+              <span className="text-[9px] sm:text-[11px] font-semibold opacity-80 mt-0.5 sm:mt-1 flex items-center gap-1">
+                <Flame className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#FF7A50] fill-[#FF7A50] shrink-0" />
+                <span>{card.streakDays} Day Streak</span>
+                {card.multiplier && <span>• ×{card.multiplier.toFixed(1)}</span>}
               </span>
             )}
           </div>
-        )}
-      </div>
+
+          {/* Lethality Score & Verdict Chip */}
+          {card.score !== undefined && (
+            <div className="flex flex-col items-end shrink-0">
+              <span className="text-[9px] sm:text-[10px] tracking-wider uppercase font-bold opacity-70">
+                Lethality
+              </span>
+              <div className="flex items-baseline gap-0.5 sm:gap-1">
+                <span className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter leading-none">
+                  {card.score}
+                </span>
+                <span className="text-[10px] sm:text-xs opacity-65 font-bold">/100</span>
+              </div>
+              {verdictConfig && (
+                <span
+                  style={{
+                    background: verdictConfig.chipBg,
+                    color: verdictConfig.chipText,
+                    boxShadow: verdictConfig.glow,
+                  }}
+                  className="mt-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-extrabold uppercase tracking-wider shadow-sm backdrop-blur-md"
+                >
+                  {verdictConfig.label}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
     </motion.div>
   </div>
   );
