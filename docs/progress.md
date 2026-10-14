@@ -9,8 +9,8 @@ Last Updated: October 14, 2026
 | **1.1** | Platform Foundation & OpenNext Cloudflare Setup | **Completed** | `phase-1-step-1` | 4/4 Vitest, tsc 0 errors, eslint 0 errors, opennextjs-cloudflare build ok | Configured `@opennextjs/cloudflare`, `wrangler.jsonc` (2025-05-05, nodejs_compat), `open-next.config.ts`, `vitest`, removed Node middleware, verified Next.js 16.4 + OpenNext build. |
 | **1.2** | Database & Prisma Integration with Hyperdrive / `@prisma/adapter-pg` | **Completed** | `phase-1-step-2` | 7/7 Vitest, tsc 0 errors, eslint 0 errors, opennextjs-cloudflare build ok | Configured `@prisma/adapter-pg` for Cloudflare Hyperdrive, `prisma/migrations/0_init/migration.sql` baseline established, Prisma 7 client regenerated. |
 | **1.3** | CI/CD & Branch Previews | **Completed** | `phase-1-step-3` | 9/9 Vitest, tsc 0 errors, eslint 0 errors, opennextjs-cloudflare build ok | Configured `.github/workflows/ci.yml` running lint, tsc, Vitest, and opennextjs-cloudflare build. |
-| **1.4** | Technical Spikes S1–S5 | **In Progress** | `phase-1-step-4` | Pending | S1 (Workers bundle), S2 (On-device MediaPipe Face Landmarker), S3 (Rate limiting), S4 (Dynamic OG), S5 (Brevo OTP). |
-| **1.5** | Observability & Zero-Image Scrubber | **Pending** | - | - | Structured logger with regex image data scrubber and Sentry. |
+| **1.4** | Technical Spikes S1–S5 | **Completed** | `phase-1-step-4` | 16/16 Vitest, tsc 0 errors, eslint 0 errors, opennextjs-cloudflare build ok | Implemented and validated Spikes S1 (Worker sizing & limits), S2 (On-device MediaPipe contract & server recomputation), S3 (Lagos rate limiting dayKey), S4 (Dynamic SVG OG generator), S5 (Brevo HTTP fetch client). |
+| **1.5** | Observability & Zero-Image Scrubber | **In Progress** | `phase-1-step-5` | Pending | Structured JSON logger with regex-based image data scrubber and Sentry integration. |
 
 ## Open Questions & Decisions
 - None currently blocking Phase 1, Step 1.1. Locked decisions rule Cloudflare Workers + Hyperdrive + on-device MediaPipe scoring.
