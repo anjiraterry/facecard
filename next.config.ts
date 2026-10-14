@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  serverExternalPackages: ['pg-cloudflare'],
   turbopack: {
     rules: {
       "*.css": {

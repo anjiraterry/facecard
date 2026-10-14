@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "scripts/**",
     "prisma.config.js",
+    ".open-next/**",
+    ".wrangler/**",
   ]),
 ]);
 
