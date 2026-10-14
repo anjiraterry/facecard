@@ -1,0 +1,366 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Tier {
+  CLASSIC
+  GOLD
+  PLATINUM
+  BLACK
+}
+
+enum Band {
+  HARMLESS
+  SUSPICIOUS
+  DANGEROUS
+  LETHAL
+}
+
+enum UserStatus {
+  ACTIVE
+  FLAGGED
+  BANNED
+  DELETED
+}
+
+enum ScanSource {
+  SOLO
+  FACEOFF
+  PRACTICE
+}
+
+enum ScanSlotState {
+  RESERVED
+  COMMITTED
+  RELEASED
+}
+
+enum LedgerType {
+  SCAN
+  FACEOFF_STAKE_HOLD
+  FACEOFF_PAYOUT
+  FACEOFF_REFUND
+  FACEOFF_FEE
+  FACEOFF_WIN_BONUS
+  SHOP_PURCHASE
+  ADJUSTMENT
+}
+
+enum BalanceKind {
+  LIFETIME
+  SPENDABLE
+}
+
+enum ItemKind {
+  SKIN
+  TITLE
+  FRAME
+  BADGE
+  CONSUMABLE
+  FEATURE
+}
+
+enum FaceOffMode {
+  STAKED
+  FRIENDLY
+}
+
+enum FaceOffStatus {
+  WAITING
+  ACTIVE
+  TIE_REMATCH
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+model User {
+  id                 String       @id @default(uuid()) @db.Uuid
+  email              String?      @unique
+  displayName        String
+  handle             String?      @unique
+  ageConfirmedAt     DateTime?
+  consentVersion     String?
+  consentAt          DateTime?
+  lifetimePoints     Int          @default(0)
+  spendableBalance   Int          @default(0)
+  tier               Tier         @default(CLASSIC)
+  status             UserStatus   @default(ACTIVE)
+  createdAt          DateTime     @default(now())
+  unlockedAt         DateTime?
+  invitedByFaceOffId String?
+  pinHash            String?
+
+  scans              Scan[]
+  scanSlots          ScanSlot[]
+  ledgerEntries      PointsLedger[]
+  streak             Streak?
+  cards              Card[]
+  items              UserItem[]
+  purchases          Purchase[]
+  faceOffsChallenged FaceOff[]    @relation("ChallengerFaceOffs")
+  faceOffsOpposed    FaceOff[]    @relation("OpponentFaceOffs")
+  faceOffsWon        FaceOff[]    @relation("WinnerFaceOffs")
+  faceOffAttempts    FaceOffAttempt[]
+  shareCards         ShareCard[]
+  abuseFlags         AbuseFlag[]
+  auditLogs          AuditLog[]
+}
+
+model ScanSlot {
+  id         String        @id @default(uuid()) @db.Uuid
+  userId     String        @db.Uuid
+  dayKey     String        // YYYY-MM-DD Africa/Lagos
+  slotIndex  Int           // 1, 2, 3
+  state      ScanSlotState @default(RESERVED)
+  scanId     String?       @db.Uuid
+  reservedAt DateTime      @default(now())
+  expiresAt  DateTime
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scan       Scan?         @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, dayKey, slotIndex])
+  @@index([userId, dayKey])
+}
+
+model Scan {
+  id             String      @id @default(uuid()) @db.Uuid
+  userId         String      @db.Uuid
+  score          Int         // 0 - 100 Lethality
+  band           Band
+  categoryScores Json        // Harmony, Skin Clarity, Feature Definition, Symmetry, Expression, Aura, Photo Craft
+  modelVersion   String
+  promptVersion  String
+  scanIndexOfDay Int
+  dayKey         String      // YYYY-MM-DD Africa/Lagos
+  source         ScanSource  @default(SOLO)
+  faceOffId      String?     @db.Uuid
+  createdAt      DateTime    @default(now())
+
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  faceOff        FaceOff?    @relation("FaceOffScans", fields: [faceOffId], references: [id], onDelete: SetNull)
+  faceOffAttempts FaceOffAttempt[]
+  scanSlots      ScanSlot[]
+  challengerBestInFaceOffs FaceOff[] @relation("ChallengerBestScan")
+  opponentBestInFaceOffs   FaceOff[] @relation("OpponentBestScan")
+  shareCards     ShareCard[]
+
+  @@index([userId, dayKey])
+}
+
+model PointsLedger {
+  id             String      @id @default(uuid()) @db.Uuid
+  userId         String      @db.Uuid
+  type           LedgerType
+  amount         Int
+  balanceKind    BalanceKind
+  refType        String?
+  refId          String?
+  idempotencyKey String
+  createdAt      DateTime    @default(now())
+
+  // Non-cascading FK to prevent deleting financial ledger records on user deletion
+  user           User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([idempotencyKey, balanceKind])
+  @@index([userId, createdAt])
+}
+
+model Streak {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @db.Uuid
+  currentCount   Int      @default(1)
+  longestCount   Int      @default(1)
+  lastScanDayKey String
+  freezesHeld    Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Card {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @db.Uuid
+  cardNumber      String    @unique
+  equippedSkinId  String?   @db.Uuid
+  equippedTitleId String?   @db.Uuid
+  equippedFrameId String?   @db.Uuid
+  slot            Int       @default(1)
+  createdAt       DateTime  @default(now())
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  equippedSkin    ShopItem? @relation("CardSkin", fields: [equippedSkinId], references: [id], onDelete: SetNull)
+  equippedTitle   ShopItem? @relation("CardTitle", fields: [equippedTitleId], references: [id], onDelete: SetNull)
+  equippedFrame   ShopItem? @relation("CardFrame", fields: [equippedFrameId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model ShopItem {
+  id          String     @id @default(uuid()) @db.Uuid
+  slug        String     @unique
+  kind        ItemKind
+  name        String
+  description String?
+  price       Int
+  minTier     Tier       @default(CLASSIC)
+  maxOwned    Int        @default(1)
+  active      Boolean    @default(true)
+  assetRef    String?
+  createdAt   DateTime   @default(now())
+
+  userItems   UserItem[]
+  purchases   Purchase[]
+  cardSkins   Card[]     @relation("CardSkin")
+  cardTitles  Card[]     @relation("CardTitle")
+  cardFrames  Card[]     @relation("CardFrame")
+}
+
+model UserItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  itemId     String   @db.Uuid
+  quantity   Int      @default(1)
+  acquiredAt DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item       ShopItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, itemId])
+}
+
+model Purchase {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  itemId         String   @db.Uuid
+  price          Int
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item           ShopItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+}
+
+model FaceOff {
+  id                   String        @id @default(uuid()) @db.Uuid
+  challengerId         String        @db.Uuid
+  opponentId           String?       @db.Uuid
+  inviteCode           String        @unique
+  mode                 FaceOffMode   @default(STAKED)
+  stake                Int           @default(0)
+  status               FaceOffStatus @default(WAITING)
+  challengerBestScanId String?       @db.Uuid
+  opponentBestScanId   String?       @db.Uuid
+  winnerId             String?       @db.Uuid
+  rematchCount         Int           @default(0)
+  feeAmount            Int           @default(0)
+  expiresAt            DateTime
+  resolvedAt           DateTime?
+  createdAt            DateTime      @default(now())
+
+  challenger           User          @relation("ChallengerFaceOffs", fields: [challengerId], references: [id], onDelete: Restrict)
+  opponent             User?         @relation("OpponentFaceOffs", fields: [opponentId], references: [id], onDelete: Restrict)
+  winner               User?         @relation("WinnerFaceOffs", fields: [winnerId], references: [id], onDelete: SetNull)
+  challengerBestScan   Scan?         @relation("ChallengerBestScan", fields: [challengerBestScanId], references: [id], onDelete: SetNull)
+  opponentBestScan     Scan?         @relation("OpponentBestScan", fields: [opponentBestScanId], references: [id], onDelete: SetNull)
+  scans                Scan[]        @relation("FaceOffScans")
+  attempts             FaceOffAttempt[]
+  shareCards           ShareCard[]
+
+  @@index([inviteCode])
+  @@index([challengerId, status])
+  @@index([opponentId, status])
+  @@index([expiresAt])
+}
+
+model FaceOffAttempt {
+  id            String   @id @default(uuid()) @db.Uuid
+  faceOffId     String   @db.Uuid
+  userId        String   @db.Uuid
+  scanId        String   @db.Uuid
+  attemptNumber Int      // 1 to 3
+  createdAt     DateTime @default(now())
+
+  faceOff       FaceOff  @relation(fields: [faceOffId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scan          Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([faceOffId, userId])
+}
+
+model ShareCard {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  publicId  String    @unique
+  scanId    String?   @db.Uuid
+  faceOffId String?   @db.Uuid
+  blobKey   String
+  expiresAt DateTime
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scan      Scan?     @relation(fields: [scanId], references: [id], onDelete: SetNull)
+  faceOff   FaceOff?  @relation(fields: [faceOffId], references: [id], onDelete: SetNull)
+
+  @@index([publicId])
+  @@index([expiresAt])
+}
+
+model IdempotencyRecord {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  userId      String?  @db.Uuid
+  route       String
+  requestHash String
+  status      Int
+  responseBody Json
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([key])
+  @@index([expiresAt])
+}
+
+model EconomyConfig {
+  version    Int      @id
+  values     Json
+  activeFrom DateTime @default(now())
+}
+
+model AbuseFlag {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  reason     String
+  severity   String
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+  outcome    String?
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  targetType String
+  targetId   String?
+  detail     Json?
+  createdAt  DateTime @default(now())
+
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}

@@ -1,0 +1,361 @@
+'use client';
+
+import React, { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { 
+  ArrowLeft, 
+  Swords, 
+  Gift, 
+  Share2, 
+  Flame, 
+  Check, 
+  Sparkles, 
+  ShieldCheck, 
+  TrendingUp, 
+  UserMinus,
+  Award
+} from 'lucide-react';
+import { FaceCard } from '@/components/card/FaceCard';
+import { BottomNav } from '@/components/navigation/BottomNav';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { FaceCardData, Tier } from '@/types';
+import { friendService } from '@/services/friendService';
+
+function FriendProfileContent() {
+  const params = useParams();
+  const friendId = (params?.id as string) || 'friend-1';
+
+  const [friend, setFriend] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    friendService.getFriendProfile(friendId)
+      .then((res) => {
+        if (isMounted && res.success && res.friend) {
+          const f = res.friend;
+          setFriend({
+            id: f.id,
+            name: f.name || 'Friend',
+            handle: f.handle || '@friend',
+            avatar: f.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+            score: f.score || 85,
+            tier: (f.tier as Tier) || 'GOLD',
+            title: f.tier === 'BLACK' ? 'Lethal Weapon' : f.tier === 'PLATINUM' ? 'Elite Aura' : 'Golden Standard',
+            status: f.status ? f.status.toLowerCase() : 'online',
+            streakDays: f.streak || 7,
+            mutualFriends: 5,
+            breakdown: {
+              photoCraft: 92,
+              harmony: 88,
+              skinClarity: 90,
+              expression: 94,
+              aura: 95,
+            },
+            headToHead: {
+              played: f.duelsPlayed || 0,
+              wins: f.headToHeadWithYou?.wins || 0,
+              losses: f.headToHeadWithYou?.losses || 0,
+              netPoints: ((f.headToHeadWithYou?.wins || 0) - (f.headToHeadWithYou?.losses || 0)) * 100,
+            },
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load friend profile:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [friendId]);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  if (isLoading || !friend) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] flex items-center justify-center p-6">
+        <div className="w-full max-w-md p-6 rounded-[28px] bg-white/50 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-center animate-pulse space-y-3">
+          <div className="w-16 h-16 rounded-full bg-black/10 dark:bg-white/10 mx-auto" />
+          <div className="h-4 w-32 bg-black/10 dark:bg-white/10 rounded-full mx-auto" />
+          <div className="h-48 w-full bg-black/10 dark:bg-white/10 rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
+
+  const friendCard: FaceCardData = {
+    id: `card-${friend.id}`,
+    tier: friend.tier,
+    cardholderName: friend.name.toUpperCase(),
+    title: friend.title,
+    score: friend.score,
+    band: friend.score >= 90 ? 'LETHAL' : friend.score >= 80 ? 'DANGEROUS' : 'SUSPICIOUS',
+    streakDays: friend.streakDays,
+    multiplier: 1.2,
+  };
+
+  const handleShare = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(`${window.location.origin}/friends/${friend.id}`);
+      showToast(`${friend.name}'s Face Card link copied!`);
+    }
+  };
+
+  const handleGiftPoints = () => {
+    showToast(`Gifted 50 PTS to ${friend.name}!`);
+  };
+
+  return (
+    <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32 transition-colors duration-200">
+      {/* Subtle Ethereal Ambient Background */}
+      <div 
+        className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-70 dark:opacity-30"
+        style={{
+          background: `
+            radial-gradient(ellipse at 50% -5%, rgba(99, 102, 241, 0.08) 0%, transparent 55%),
+            radial-gradient(ellipse at 85% 35%, rgba(139, 92, 246, 0.06) 0%, transparent 45%),
+            radial-gradient(ellipse at 20% 75%, rgba(56, 189, 248, 0.06) 0%, transparent 50%)
+          `
+        }}
+      />
+
+      {/* Floating Feedback Toast */}
+      {toastMessage && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-[#140826] text-white text-xs font-bold shadow-xl flex items-center gap-2 border border-purple-400/20 animate-fade-in">
+          <Check className="w-4 h-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      <main className="relative z-10 max-w-md mx-auto px-4 sm:px-5 pt-5 sm:pt-6 space-y-6">
+        
+        {/* Top Header */}
+        <header className="relative flex items-center justify-between h-10 px-1">
+          <Link
+            href="/profile"
+            className="w-9 h-9 flex items-center justify-center text-[var(--text-main)] transition-transform active:scale-95"
+            title="Back to Profile"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2]" />
+          </Link>
+
+          <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
+            <span className="text-lg font-bold tracking-tight text-[var(--text-main)]">
+              friend profile
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <ThemeToggle />
+            <button
+              onClick={handleShare}
+              className="w-9 h-9 flex items-center justify-center text-[var(--text-main)] transition-transform active:scale-95"
+              title="Share Friend Card"
+            >
+              <Share2 className="w-5 h-5 stroke-[2]" />
+            </button>
+          </div>
+        </header>
+
+        {/* Friend Identity Banner */}
+        <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="relative">
+              <img
+                src={friend.avatar}
+                alt={friend.name}
+                className="w-14 h-14 rounded-full object-cover ring-2 ring-black/5 dark:ring-white/10 shadow-sm"
+              />
+              {friend.status === 'online' && (
+                <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#140826]" />
+              )}
+              {friend.status === 'in-duel' && (
+                <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#FF7A50] ring-2 ring-white dark:ring-[#140826]" />
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-extrabold text-[var(--text-main)] leading-tight">
+                  {friend.name}
+                </h1>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase ${
+                  friend.tier === 'BLACK' ? 'bg-black text-white' :
+                  friend.tier === 'PLATINUM' ? 'bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-200' :
+                  friend.tier === 'GOLD' ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200' :
+                  'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-200'
+                }`}>
+                  {friend.tier}
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] font-medium mt-0.5">
+                {friend.handle} • {friend.mutualFriends} mutual friends
+              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-[var(--text-muted)]">
+                  ★ {friend.score}/100 Lethality
+                </span>
+                <span className="text-[10px] font-bold text-[#FF7A50] flex items-center gap-0.5">
+                  <Flame className="w-3 h-3 fill-current" />
+                  {friend.streakDays}D Streak
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Issued Collectible Face Card (Interactive & adapts to dark mode) */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+              Verified Face Card
+            </span>
+            <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              AI Certified
+            </span>
+          </div>
+
+          <FaceCard card={friendCard} interactive={true} />
+        </section>
+
+        {/* Quick Action Buttons */}
+        <section className="grid grid-cols-2 gap-3">
+          <Link
+            href={`/faceoff?opponent=${friend.handle}`}
+            className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-full text-xs font-bold bg-[#140826] hover:bg-[#241040] text-white shadow-[0_8px_24px_rgba(20,8,38,0.3)] border border-purple-400/20 active:scale-[0.99] transition-transform"
+          >
+            <Swords className="w-4 h-4 text-white" />
+            <span>Duel in Arena</span>
+          </Link>
+
+          <button
+            onClick={handleGiftPoints}
+            className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-full text-xs font-bold border border-[#DDD6FE] dark:border-purple-500/30 bg-[#EDE9FE] dark:bg-[#6366F1]/20 hover:bg-[#DDD6FE] text-[#140826] dark:text-purple-200 active:scale-[0.99] transition-all shadow-xs"
+          >
+            <Gift className="w-4 h-4 text-[#140826] dark:text-purple-200" />
+            <span>Send 50 PTS</span>
+          </button>
+        </section>
+
+        {/* Head-to-Head Arena Record */}
+        <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <TrendingUp className="w-3.5 h-3.5 text-purple-500" />
+              <span>Head-to-Head Record</span>
+            </h2>
+            <span className="text-[11px] font-bold text-purple-600 dark:text-purple-300">
+              {friend.headToHead.played} Duels Played
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center pt-1">
+            <div className="p-2.5 rounded-2xl bg-black/5 dark:bg-white/5">
+              <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 block leading-tight">
+                {friend.headToHead.wins}
+              </span>
+              <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Your Wins</span>
+            </div>
+
+            <div className="p-2.5 rounded-2xl bg-black/5 dark:bg-white/5">
+              <span className="text-lg font-black text-rose-500 dark:text-rose-400 block leading-tight">
+                {friend.headToHead.losses}
+              </span>
+              <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Losses</span>
+            </div>
+
+            <div className="p-2.5 rounded-2xl bg-black/5 dark:bg-white/5">
+              <span className={`text-lg font-black block leading-tight ${friend.headToHead.netPoints >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                {friend.headToHead.netPoints > 0 ? `+${friend.headToHead.netPoints}` : friend.headToHead.netPoints}
+              </span>
+              <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Net PTS</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Detailed Diagnostic Sub-scores */}
+        <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-3">
+          <div className="flex items-center justify-between pb-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+              Diagnostic Lethal Formula
+            </h2>
+            <span className="text-[11px] font-semibold text-[var(--text-muted)]">
+              Score: {friend.score}/100
+            </span>
+          </div>
+
+          <div className="space-y-2.5">
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-[var(--text-main)]">
+                <span>Photo Craft & Lighting</span>
+                <span className="font-mono font-bold">{friend.breakdown.photoCraft}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+                <div className="h-full bg-[#0EA5E9] rounded-full" style={{ width: `${friend.breakdown.photoCraft}%` }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-[var(--text-main)]">
+                <span>Facial Harmony & Symmetry</span>
+                <span className="font-mono font-bold">{friend.breakdown.harmony}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+                <div className="h-full bg-[#A855F7] rounded-full" style={{ width: `${friend.breakdown.harmony}%` }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-[var(--text-main)]">
+                <span>Skin Clarity & Glow</span>
+                <span className="font-mono font-bold">{friend.breakdown.skinClarity}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+                <div className="h-full bg-[#38BDF8] rounded-full" style={{ width: `${friend.breakdown.skinClarity}%` }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-[var(--text-main)]">
+                <span>Expression & Eye Contact</span>
+                <span className="font-mono font-bold">{friend.breakdown.expression}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+                <div className="h-full bg-[#6366F1] rounded-full" style={{ width: `${friend.breakdown.expression}%` }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-[var(--text-main)]">
+                <span>Aura & Presence</span>
+                <span className="font-mono font-bold">{friend.breakdown.aura}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+                <div className="h-full bg-[#EC4899] rounded-full" style={{ width: `${friend.breakdown.aura}%` }} />
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <BottomNav />
+    </div>
+  );
+}
+
+export default function FriendProfilePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--bg-page)]" />}>
+      <FriendProfileContent />
+    </Suspense>
+  );
+}
