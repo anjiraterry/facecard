@@ -22,11 +22,37 @@ import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { FaceCardData, Tier } from '@/types';
 import { friendService } from '@/services/friendService';
 
+interface FriendDetail {
+  id: string;
+  name: string;
+  handle: string;
+  avatar: string;
+  score: number;
+  tier: Tier;
+  title: string;
+  status: string;
+  streakDays: number;
+  mutualFriends: number;
+  breakdown: {
+    photoCraft: number;
+    harmony: number;
+    skinClarity: number;
+    expression: number;
+    aura: number;
+  };
+  headToHead: {
+    played: number;
+    wins: number;
+    losses: number;
+    netPoints: number;
+  };
+}
+
 function FriendProfileContent() {
   const params = useParams();
   const friendId = (params?.id as string) || 'friend-1';
 
-  const [friend, setFriend] = useState<any>(null);
+  const [friend, setFriend] = useState<FriendDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -55,10 +81,10 @@ function FriendProfileContent() {
               aura: 95,
             },
             headToHead: {
-              played: f.duelsPlayed || 0,
-              wins: f.headToHeadWithYou?.wins || 0,
-              losses: f.headToHeadWithYou?.losses || 0,
-              netPoints: ((f.headToHeadWithYou?.wins || 0) - (f.headToHeadWithYou?.losses || 0)) * 100,
+              played: (f.duelRecord?.wins || 0) + (f.duelRecord?.losses || 0),
+              wins: f.duelRecord?.wins || 0,
+              losses: f.duelRecord?.losses || 0,
+              netPoints: ((f.duelRecord?.wins || 0) - (f.duelRecord?.losses || 0)) * 100,
             },
           });
         }

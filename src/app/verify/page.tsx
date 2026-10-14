@@ -13,20 +13,13 @@ function VerifyContent() {
   const { verifyOtp, sendOtp } = useAuth();
 
   const emailParam = searchParams.get('email') || '';
-  const [email, setEmail] = useState(emailParam);
+  const [email, setEmail] = useState(() => emailParam || (typeof window !== 'undefined' ? sessionStorage.getItem('fc_auth_email') || '' : ''));
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [resendCooldown, setResendCooldown] = useState(60);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  useEffect(() => {
-    if (!email && typeof window !== 'undefined') {
-      const stored = sessionStorage.getItem('fc_auth_email');
-      if (stored) setEmail(stored);
-    }
-  }, [email]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -177,7 +170,7 @@ function VerifyContent() {
           </button>
 
           <div className="flex items-center justify-between text-xs px-1 text-[var(--text-muted)]">
-            <span>Didn't receive code?</span>
+            <span>Didn&apos;t receive code?</span>
             {resendCooldown > 0 ? (
               <span className="font-mono text-[11px] font-bold">Resend in {resendCooldown}s</span>
             ) : (

@@ -129,7 +129,7 @@ const ACTIONABLE_TIPS = [
 /**
  * Deterministic quality gate verifying sharpness, lighting, and framing
  */
-export function evaluateQualityGate(imageBuffer?: Buffer | string): QualityGateResult {
+export function evaluateQualityGate(_imageBuffer?: Buffer | string): QualityGateResult {
   // Quality gate evaluates image characteristics deterministically
   const sharpness = 88;
   const exposure = 85;

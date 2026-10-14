@@ -34,8 +34,28 @@ export function useShop() {
   }, []);
 
   useEffect(() => {
-    fetchCatalog();
-  }, [fetchCatalog]);
+    let ignore = false;
+    shopService.getCatalog()
+      .then((res) => {
+        if (!ignore && res.success) {
+          setItems(res.items);
+          setSpendableBalance(res.spendableBalance);
+          setTier(res.tier);
+          setEquipped(res.equipped);
+          setIsLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          console.warn('Failed to fetch shop catalog:', err);
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const purchaseItem = async (itemId: string) => {
     const res = await shopService.purchaseItem(itemId);

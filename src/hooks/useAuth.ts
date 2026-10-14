@@ -22,8 +22,25 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+    let ignore = false;
+    authService.getMe()
+      .then((profile) => {
+        if (!ignore) {
+          setUser(profile);
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setUser(null);
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Refresh session on window focus to keep long-lived sessions alive
   useEffect(() => {

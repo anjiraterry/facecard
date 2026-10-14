@@ -43,7 +43,7 @@ export const faceoffService = {
     });
   },
 
-  async getInvite(code: string): Promise<any> {
+  async getInvite(code: string): Promise<{ success: boolean; invite?: Record<string, unknown>; error?: string }> {
     return apiRequest(`/api/faceoffs/invite/${code}`);
   },
 
@@ -53,7 +53,7 @@ export const faceoffService = {
     });
   },
 
-  async getDuelById(id: string): Promise<{ success: boolean; duel: any }> {
+  async getDuelById(id: string): Promise<{ success: boolean; duel: DuelItem | null }> {
     return apiRequest(`/api/faceoffs/${id}`);
   },
 

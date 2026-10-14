@@ -50,8 +50,38 @@ export function useCard() {
   }, []);
 
   useEffect(() => {
-    fetchCardData();
-  }, [fetchCardData]);
+    let ignore = false;
+    Promise.all([
+      cardService.getCardDetails(),
+      cardService.getPointsLedger(),
+    ])
+      .then(([cardRes, pointsRes]) => {
+        if (ignore) return;
+        if (cardRes.success) {
+          setActiveCard(cardRes.activeCard);
+          setTiers(cardRes.tiers);
+          if (cardRes.formula) setFormula(cardRes.formula);
+          setSpendableBalance(cardRes.spendableBalance);
+          setLifetimePoints(cardRes.lifetimePoints);
+          setNextTierPoints(cardRes.nextTierPoints);
+          setProgressPercent(cardRes.progressPercent);
+        }
+        if (pointsRes.success) {
+          setFundingHistory(pointsRes.fundingHistory);
+          setSpendsHistory(pointsRes.spendsHistory);
+        }
+        setIsLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (ignore) return;
+        setError(err instanceof Error ? err.message : 'Unauthorized');
+        setIsLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   return {
     activeCard,

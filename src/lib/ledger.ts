@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { LedgerType, BalanceKind } from '@prisma/client';
 
 export type LedgerEntryType = 
   | 'SCAN' 
@@ -14,9 +15,9 @@ export type LedgerBalanceKind = 'LIFETIME' | 'SPENDABLE';
 
 export interface RecordTransactionParams {
   userId: string;
-  type: LedgerEntryType;
+  type: LedgerType | LedgerEntryType;
   amount: number; // positive for credit, negative for debit
-  balanceKind: LedgerBalanceKind;
+  balanceKind: BalanceKind | LedgerBalanceKind;
   description?: string;
   metadata?: Record<string, unknown>;
   idempotencyKey?: string;
@@ -35,7 +36,7 @@ export async function recordPointsTransaction(params: RecordTransactionParams): 
   newBalance: number;
   transactionId: string;
 }> {
-  const { userId, type, amount, balanceKind, description, metadata, idempotencyKey } = params;
+  const { userId, type, amount, balanceKind, description, idempotencyKey } = params;
 
   try {
     // Attempt database transaction
@@ -76,9 +77,9 @@ export async function recordPointsTransaction(params: RecordTransactionParams): 
       const ledgerRecord = await tx.pointsLedger.create({
         data: {
           userId,
-          type: type as any,
+          type: type as LedgerType,
           amount,
-          balanceKind: balanceKind as any,
+          balanceKind: balanceKind as BalanceKind,
           refType: type,
           refId: description || `${type} transaction of ${amount} PTS`,
           idempotencyKey: idempotencyKey || `${userId}-${type}-${Date.now()}-${Math.random()}`,
@@ -118,12 +119,12 @@ export async function reconcileLedger(userId: string): Promise<{
   }
 
   const lifetimeEntries = await db.pointsLedger.aggregate({
-    where: { userId, balanceKind: 'LIFETIME' as any },
+    where: { userId, balanceKind: BalanceKind.LIFETIME },
     _sum: { amount: true },
   });
 
   const spendableEntries = await db.pointsLedger.aggregate({
-    where: { userId, balanceKind: 'SPENDABLE' as any },
+    where: { userId, balanceKind: BalanceKind.SPENDABLE },
     _sum: { amount: true },
   });
 

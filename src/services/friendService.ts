@@ -14,7 +14,7 @@ export const friendService = {
     });
   },
 
-  async getFriendProfile(id: string): Promise<{ success: boolean; friend: any }> {
+  async getFriendProfile(id: string): Promise<{ success: boolean; friend: FriendItem | null }> {
     return apiRequest(`/api/friends/${id}`);
   },
 };

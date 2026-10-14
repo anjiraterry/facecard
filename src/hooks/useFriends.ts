@@ -25,8 +25,25 @@ export function useFriends(searchQuery?: string) {
   }, [searchQuery]);
 
   useEffect(() => {
-    fetchFriends();
-  }, [fetchFriends]);
+    let ignore = false;
+    friendService.getFriends(searchQuery)
+      .then((res) => {
+        if (!ignore && res.success) {
+          setFriends(res.friends);
+          setIsLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          console.warn('Failed to fetch friends:', err);
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [searchQuery]);
 
   const addFriend = async (handle: string) => {
     return friendService.addFriend(handle);

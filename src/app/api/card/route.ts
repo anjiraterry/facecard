@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     const band = (latestScan?.band as Band) ?? 'HARMLESS';
     const cardRecord = user.cards[0];
 
-    const categoryScores = (latestScan?.categoryScores as any) || null;
+    const categoryScores = (latestScan?.categoryScores as Record<string, unknown> | null) || null;
 
     const equippedTitleName = cardRecord?.equippedTitle?.name;
     const defaultTitle =

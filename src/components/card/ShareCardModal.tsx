@@ -24,6 +24,184 @@ export function ShareCardModal({ isOpen, onClose, card }: ShareCardModalProps) {
 
     let isMounted = true;
 
+    function renderCanvas() {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const width = 1080;
+      const height = 1920;
+      canvas.width = width;
+      canvas.height = height;
+
+      // Background Gradient (Deep Luxury Obsidian Purple)
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+      bgGrad.addColorStop(0, '#0E081A');
+      bgGrad.addColorStop(0.5, '#160B29');
+      bgGrad.addColorStop(1, '#08040F');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      // Ethereal Radial Glow
+      const radGrad = ctx.createRadialGradient(width / 2, 400, 50, width / 2, 400, 700);
+      radGrad.addColorStop(0, 'rgba(168, 85, 247, 0.25)');
+      radGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
+      ctx.fillStyle = radGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      // Header Branding
+      ctx.font = '900 36px sans-serif';
+      ctx.fillStyle = '#EDE9FE';
+      ctx.textAlign = 'center';
+      ctx.letterSpacing = '12px';
+      ctx.fillText('FACECARD', width / 2, 220);
+
+      ctx.font = '700 24px sans-serif';
+      ctx.fillStyle = '#A78BFA';
+      ctx.letterSpacing = '4px';
+      ctx.fillText('OFFICIAL FACECARD', width / 2, 270);
+
+      // The Glass Card Container
+      const cardX = 140;
+      const cardY = 380;
+      const cardW = 800;
+      const cardH = 500;
+      const cardRadius = 40;
+
+      // Card Fill based on Tier
+      const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
+      if (card.tier === 'GOLD') {
+        cardGrad.addColorStop(0, '#F8E7BE');
+        cardGrad.addColorStop(0.5, '#EED192');
+        cardGrad.addColorStop(1, '#E4BE6B');
+      } else if (card.tier === 'PLATINUM') {
+        cardGrad.addColorStop(0, '#E0E7FF');
+        cardGrad.addColorStop(0.5, '#C7D2FE');
+        cardGrad.addColorStop(1, '#A5B4FC');
+      } else if (card.tier === 'BLACK') {
+        cardGrad.addColorStop(0, '#1C1C20');
+        cardGrad.addColorStop(0.5, '#111114');
+        cardGrad.addColorStop(1, '#050507');
+      } else {
+        cardGrad.addColorStop(0, '#EBE5FC');
+        cardGrad.addColorStop(0.5, '#DFD5FA');
+        cardGrad.addColorStop(1, '#D4C5F9');
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(cardX, cardY, cardW, cardH, cardRadius);
+      ctx.fillStyle = cardGrad;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 60;
+      ctx.shadowOffsetY = 25;
+      ctx.fill();
+      ctx.restore();
+
+      // Card Border
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(cardX, cardY, cardW, cardH, cardRadius);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.restore();
+
+      // Card Text Color
+      const textColor = card.tier === 'BLACK' ? '#FFFFFF' : '#140826';
+      const subColor = card.tier === 'BLACK' ? '#A1A1AA' : '#6B7280';
+
+      // Card Brand Title inside Card
+      ctx.font = '900 28px sans-serif';
+      ctx.fillStyle = textColor;
+      ctx.textAlign = 'left';
+      ctx.letterSpacing = '6px';
+      ctx.fillText('FACECARD', cardX + 50, cardY + 70);
+
+      // Tier Chip in Card
+      ctx.font = '800 20px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.letterSpacing = '2px';
+      ctx.fillText(`${card.tier} TIER`, cardX + cardW - 50, cardY + 70);
+
+      // Cardholder Name inside Card
+      ctx.font = '800 20px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = subColor;
+      ctx.fillText('CARDHOLDER', cardX + 50, cardY + 360);
+
+      ctx.font = '900 42px sans-serif';
+      ctx.fillStyle = textColor;
+      ctx.fillText(card.cardholderName.toUpperCase(), cardX + 50, cardY + 420);
+
+      // Lethality inside Card
+      ctx.font = '800 20px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = subColor;
+      ctx.fillText('LETHALITY', cardX + cardW - 50, cardY + 340);
+
+      ctx.font = '900 76px sans-serif';
+      ctx.fillStyle = textColor;
+      ctx.fillText(`${card.score ?? 84}`, cardX + cardW - 130, cardY + 420);
+
+      ctx.font = '700 28px sans-serif';
+      ctx.fillStyle = subColor;
+      ctx.fillText('/100', cardX + cardW - 50, cardY + 420);
+
+      // Story Stats Section Below Card
+      const statsY = 960;
+
+      // Stat 1: Lethality Verdict
+      ctx.textAlign = 'center';
+      ctx.font = '800 28px sans-serif';
+      ctx.fillStyle = '#DDD6FE';
+      ctx.fillText(`VERDICT: ${card.band || 'DANGEROUS'}`, width / 2, statsY);
+
+      if (card.streakDays) {
+        ctx.font = '700 26px sans-serif';
+        ctx.fillStyle = '#FFAE80';
+        ctx.fillText(`🔥 ${card.streakDays}-DAY ACTIVE STREAK (×${card.multiplier ?? 1.25})`, width / 2, statsY + 60);
+      }
+
+      // Callout Box
+      const boxY = 1120;
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(160, boxY, 760, 200, 32);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 2;
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.font = '800 26px sans-serif';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.fillText('Face card never declines.', width / 2, boxY + 70);
+
+      ctx.font = '600 22px sans-serif';
+      ctx.fillStyle = '#C4B5FD';
+      ctx.fillText('Scan your facial geometry & claim your Facecard.', width / 2, boxY + 120);
+
+      // NDPA Privacy Seal
+      ctx.font = '600 18px sans-serif';
+      ctx.fillStyle = '#6EE7B7';
+      ctx.fillText('🛡️ Zero raw selfie storage • NDPA compliant AI Vision', width / 2, 1720);
+
+      // Watermark / Link
+      ctx.font = '800 24px sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillText('facecard.app', width / 2, 1780);
+
+      // Set preview image data
+      try {
+        setPreviewDataUrl(canvas.toDataURL('image/png'));
+      } catch (e) {}
+    }
+
     async function initShare() {
       setIsGenerating(true);
       try {
@@ -64,184 +242,6 @@ export function ShareCardModal({ isOpen, onClose, card }: ShareCardModalProps) {
       isMounted = false;
     };
   }, [isOpen, card]);
-
-  const renderCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const width = 1080;
-    const height = 1920;
-    canvas.width = width;
-    canvas.height = height;
-
-    // Background Gradient (Deep Luxury Obsidian Purple)
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-    bgGrad.addColorStop(0, '#0E081A');
-    bgGrad.addColorStop(0.5, '#160B29');
-    bgGrad.addColorStop(1, '#08040F');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, width, height);
-
-    // Ethereal Radial Glow
-    const radGrad = ctx.createRadialGradient(width / 2, 400, 50, width / 2, 400, 700);
-    radGrad.addColorStop(0, 'rgba(168, 85, 247, 0.25)');
-    radGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
-    ctx.fillStyle = radGrad;
-    ctx.fillRect(0, 0, width, height);
-
-    // Header Branding
-    ctx.font = '900 36px sans-serif';
-    ctx.fillStyle = '#EDE9FE';
-    ctx.textAlign = 'center';
-    ctx.letterSpacing = '12px';
-    ctx.fillText('FACECARD', width / 2, 220);
-
-    ctx.font = '700 24px sans-serif';
-    ctx.fillStyle = '#A78BFA';
-    ctx.letterSpacing = '4px';
-    ctx.fillText('OFFICIAL FACECARD', width / 2, 270);
-
-    // The Glass Card Container
-    const cardX = 140;
-    const cardY = 380;
-    const cardW = 800;
-    const cardH = 500;
-    const cardRadius = 40;
-
-    // Card Fill based on Tier
-    const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
-    if (card.tier === 'GOLD') {
-      cardGrad.addColorStop(0, '#F8E7BE');
-      cardGrad.addColorStop(0.5, '#EED192');
-      cardGrad.addColorStop(1, '#E4BE6B');
-    } else if (card.tier === 'PLATINUM') {
-      cardGrad.addColorStop(0, '#E0E7FF');
-      cardGrad.addColorStop(0.5, '#C7D2FE');
-      cardGrad.addColorStop(1, '#A5B4FC');
-    } else if (card.tier === 'BLACK') {
-      cardGrad.addColorStop(0, '#1C1C20');
-      cardGrad.addColorStop(0.5, '#111114');
-      cardGrad.addColorStop(1, '#050507');
-    } else {
-      cardGrad.addColorStop(0, '#EBE5FC');
-      cardGrad.addColorStop(0.5, '#DFD5FA');
-      cardGrad.addColorStop(1, '#D4C5F9');
-    }
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(cardX, cardY, cardW, cardH, cardRadius);
-    ctx.fillStyle = cardGrad;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-    ctx.shadowBlur = 60;
-    ctx.shadowOffsetY = 25;
-    ctx.fill();
-    ctx.restore();
-
-    // Card Border
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(cardX, cardY, cardW, cardH, cardRadius);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 4;
-    ctx.stroke();
-    ctx.restore();
-
-    // Card Text Color
-    const textColor = card.tier === 'BLACK' ? '#FFFFFF' : '#140826';
-    const subColor = card.tier === 'BLACK' ? '#A1A1AA' : '#6B7280';
-
-    // Card Brand Title inside Card
-    ctx.font = '900 28px sans-serif';
-    ctx.fillStyle = textColor;
-    ctx.textAlign = 'left';
-    ctx.letterSpacing = '6px';
-    ctx.fillText('FACECARD', cardX + 50, cardY + 70);
-
-    // Tier Chip in Card
-    ctx.font = '800 20px sans-serif';
-    ctx.textAlign = 'right';
-    ctx.letterSpacing = '2px';
-    ctx.fillText(`${card.tier} TIER`, cardX + cardW - 50, cardY + 70);
-
-    // Cardholder Name inside Card
-    ctx.font = '800 20px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillStyle = subColor;
-    ctx.fillText('CARDHOLDER', cardX + 50, cardY + 360);
-
-    ctx.font = '900 42px sans-serif';
-    ctx.fillStyle = textColor;
-    ctx.fillText(card.cardholderName.toUpperCase(), cardX + 50, cardY + 420);
-
-    // Lethality inside Card
-    ctx.font = '800 20px sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillStyle = subColor;
-    ctx.fillText('LETHALITY', cardX + cardW - 50, cardY + 340);
-
-    ctx.font = '900 76px sans-serif';
-    ctx.fillStyle = textColor;
-    ctx.fillText(`${card.score ?? 84}`, cardX + cardW - 130, cardY + 420);
-
-    ctx.font = '700 28px sans-serif';
-    ctx.fillStyle = subColor;
-    ctx.fillText('/100', cardX + cardW - 50, cardY + 420);
-
-    // Story Stats Section Below Card
-    const statsY = 960;
-
-    // Stat 1: Lethality Verdict
-    ctx.textAlign = 'center';
-    ctx.font = '800 28px sans-serif';
-    ctx.fillStyle = '#DDD6FE';
-    ctx.fillText(`VERDICT: ${card.band || 'DANGEROUS'}`, width / 2, statsY);
-
-    if (card.streakDays) {
-      ctx.font = '700 26px sans-serif';
-      ctx.fillStyle = '#FFAE80';
-      ctx.fillText(`🔥 ${card.streakDays}-DAY ACTIVE STREAK (×${card.multiplier ?? 1.25})`, width / 2, statsY + 60);
-    }
-
-    // Callout Box
-    const boxY = 1120;
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(160, boxY, 760, 200, 32);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.lineWidth = 2;
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.font = '800 26px sans-serif';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.fillText('Face card never declines.', width / 2, boxY + 70);
-
-    ctx.font = '600 22px sans-serif';
-    ctx.fillStyle = '#C4B5FD';
-    ctx.fillText('Scan your facial geometry & claim your Facecard.', width / 2, boxY + 120);
-
-    // NDPA Privacy Seal
-    ctx.font = '600 18px sans-serif';
-    ctx.fillStyle = '#6EE7B7';
-    ctx.fillText('🛡️ Zero raw selfie storage • NDPA compliant AI Vision', width / 2, 1720);
-
-    // Watermark / Link
-    ctx.font = '800 24px sans-serif';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.fillText('facecard.app', width / 2, 1780);
-
-    // Set preview image data
-    try {
-      setPreviewDataUrl(canvas.toDataURL('image/png'));
-    } catch (e) {}
-  };
 
   const handleDownload = () => {
     const canvas = canvasRef.current;

@@ -10,6 +10,7 @@ function createClient(): PrismaClient {
     throw new Error('DATABASE_URL or DIRECT_URL is required to seed.');
   }
   const adapter = new PrismaNeon({ connectionString });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new PrismaClient({ adapter: adapter as any });
 }
 

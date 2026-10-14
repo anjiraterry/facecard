@@ -36,11 +36,11 @@ export const scanService = {
     });
   },
 
-  async getRecentScans(): Promise<{ success: boolean; scans: any[]; total: number }> {
+  async getRecentScans(): Promise<{ success: boolean; scans: ScanResultResponse[]; total: number }> {
     return apiRequest('/api/scans');
   },
 
-  async getScanById(id: string): Promise<{ success: boolean; scan: any }> {
+  async getScanById(id: string): Promise<{ success: boolean; scan: ScanResultResponse | null }> {
     return apiRequest(`/api/scans/${id}`);
   },
 };

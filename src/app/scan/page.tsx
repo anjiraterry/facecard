@@ -421,7 +421,7 @@ export default function ScanPage() {
             {verdictLine && (
               <div className="p-4 rounded-2xl bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 text-center space-y-1 shadow-xs">
                 <p className="text-xs font-bold text-[var(--text-main)] italic">
-                  "{verdictLine}"
+                  &ldquo;{verdictLine}&rdquo;
                 </p>
                 {tips && tips.length > 0 && (
                   <p className="text-[10px] text-[var(--text-muted)]">

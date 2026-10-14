@@ -24,8 +24,25 @@ export function useFaceoff() {
   }, []);
 
   useEffect(() => {
-    fetchFaceoffs();
-  }, [fetchFaceoffs]);
+    let ignore = false;
+    faceoffService.getFaceoffs()
+      .then((res) => {
+        if (!ignore && res.success) {
+          setFaceoffs(res.faceoffs);
+          setIsLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          console.warn('Failed to fetch faceoffs:', err);
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const createChallenge = async (params: CreateDuelParams) => {
     return faceoffService.createFaceoff(params);

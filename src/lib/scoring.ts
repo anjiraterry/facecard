@@ -1,5 +1,5 @@
 import { Band, Tier, CategoryBreakdown, DetailedBreakdown } from '@/types';
-import { TIER_CONFIG, VERDICT_BANDS } from './tokens';
+import { TIER_CONFIG } from './tokens';
 
 export function calculateRawScore(breakdown: CategoryBreakdown | DetailedBreakdown): number {
   if ('face' in breakdown && typeof breakdown.photoCraft === 'object') {

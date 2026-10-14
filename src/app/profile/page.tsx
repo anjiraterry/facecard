@@ -50,8 +50,22 @@ export default function ProfilePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMenuFriendId, setActiveMenuFriendId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
-  const [activityHistory, setActivityHistory] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<{
+    id: string;
+    name: string;
+    handle: string;
+    avatar: string;
+    score: number;
+  }[]>([]);
+  const [activityHistory, setActivityHistory] = useState<{
+    id: string;
+    title: string;
+    desc: string;
+    timestamp: string;
+    badge: string;
+    badgeColor: string;
+    icon: typeof Sparkles;
+  }[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
   const { friends: apiFriends, isLoading: friendsLoading } = useFriends(searchQuery);
@@ -71,7 +85,7 @@ export default function ProfilePage() {
     scanService.getRecentScans().then((res) => {
       if (res.success && res.scans) {
         const mapped = res.scans.map((s, idx) => ({
-          id: s.id || `act-${idx}`,
+          id: s.evaluatedAt || `act-${idx}`,
           title: `Selfie Scored & Verified (${s.score}/100)`,
           desc: `Lethality score ${s.score}/100 • Credited +${s.pointsEarned} PTS • ${s.tips?.[0] || 'Quality verified'}`,
           timestamp: s.evaluatedAt || 'Recent',
@@ -85,31 +99,27 @@ export default function ProfilePage() {
   }, []);
 
   // User Profile Basic Info State backed by useAuth hook
-  const [userInfo, setUserInfo] = useState({
-    name: user?.displayName || '',
-    handle: user?.handle || '',
-    dob: user?.dob || '',
-    dobFormatted: user?.dobFormatted || 'Unverified',
-    email: user?.email || '',
-    location: user?.location || 'WAT (West Africa)',
-    bio: user?.bio || '',
-    memberSince: user?.memberSince || 'Member',
-  });
+  const [localUserInfo, setLocalUserInfo] = useState<Partial<{
+    name: string;
+    handle: string;
+    dob: string;
+    dobFormatted: string;
+    email: string;
+    location: string;
+    bio: string;
+    memberSince: string;
+  }>>({});
 
-  useEffect(() => {
-    if (user) {
-      setUserInfo({
-        name: user.displayName,
-        handle: user.handle ? (user.handle.startsWith('@') ? user.handle : `@${user.handle}`) : '',
-        dob: user.dob || '',
-        dobFormatted: user.dobFormatted || 'Verified Age (18+)',
-        email: user.email || '',
-        location: user.location || 'WAT (West Africa)',
-        bio: user.bio || '',
-        memberSince: user.memberSince || 'Member',
-      });
-    }
-  }, [user]);
+  const userInfo = {
+    name: localUserInfo.name ?? user?.displayName ?? '',
+    handle: localUserInfo.handle ?? (user?.handle ? (user.handle.startsWith('@') ? user.handle : `@${user.handle}`) : ''),
+    dob: localUserInfo.dob ?? user?.dob ?? '',
+    dobFormatted: localUserInfo.dobFormatted ?? user?.dobFormatted ?? (user ? 'Verified Age (18+)' : 'Unverified'),
+    email: localUserInfo.email ?? user?.email ?? '',
+    location: localUserInfo.location ?? user?.location ?? 'WAT (West Africa)',
+    bio: localUserInfo.bio ?? user?.bio ?? '',
+    memberSince: localUserInfo.memberSince ?? user?.memberSince ?? 'Member',
+  };
 
   const [editForm, setEditForm] = useState({ ...userInfo });
 
@@ -126,7 +136,7 @@ export default function ProfilePage() {
         bio: editForm.bio,
         location: editForm.location,
       });
-      setUserInfo({ ...editForm });
+      setLocalUserInfo({ ...editForm });
       setIsEditing(false);
       showToast('Profile information updated successfully!');
     } catch (err: unknown) {
@@ -246,7 +256,7 @@ export default function ProfilePage() {
           </div>
 
           <p className="text-xs text-[var(--text-muted)] leading-relaxed italic bg-black/[0.02] dark:bg-white/[0.04] p-2.5 rounded-2xl border border-black/[0.03] dark:border-white/[0.06]">
-            "{userInfo.bio}"
+            &ldquo;{userInfo.bio}&rdquo;
           </p>
 
           {/* Quick Counter Grid */}

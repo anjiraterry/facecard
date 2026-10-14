@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "facecard",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-05-05",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "placement": {
+    "mode": "smart"
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "placeholder-hyperdrive-id"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "CARDS_BUCKET",
+      "bucket_name": "facecard-assets"
+    }
+  ],
+  "vars": {
+    "ENVIRONMENT": "development"
+  }
+}
