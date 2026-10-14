@@ -2,8 +2,6 @@
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
 
-@import url('https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700,800,900&display=swap');
-
 :root {
   /* Orla AI Design System Palette */
   --color-yellow:    #E8D744;
