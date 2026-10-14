@@ -5,7 +5,7 @@ import { ToneMode } from '@/types';
 import { recordScanResult } from '@/lib/store';
 import { db } from '@/lib/db';
 import { getRequiredUser } from '@/lib/auth/session';
-import { LedgerType, BalanceKind, ScanSource, Band, Tier } from '@prisma/client';
+import { LedgerType, BalanceKind, ScanSource, Band, Tier, ScanSlotState } from '@prisma/client';
 
 export async function POST(req: NextRequest) {
   try {
@@ -150,6 +150,15 @@ export async function POST(req: NextRequest) {
           balanceKind: BalanceKind.LIFETIME,
           refType: 'SCAN',
           idempotencyKey: `scan-earn-lifetime-${user.id}-${Date.now()}`,
+        },
+      }),
+      db.scanSlot.create({
+        data: {
+          userId: user.id,
+          dayKey: todayKey,
+          slotIndex: scanIndexOfDay,
+          state: ScanSlotState.COMMITTED,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
         },
       }),
     ]);
