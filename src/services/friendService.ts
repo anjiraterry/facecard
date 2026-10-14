@@ -2,8 +2,12 @@ import { apiRequest } from './apiClient';
 import { FriendItem } from '@/app/api/friends/route';
 
 export const friendService = {
-  async getFriends(query?: string): Promise<{ success: boolean; friends: FriendItem[]; total: number }> {
-    const url = query ? `/api/friends?q=${encodeURIComponent(query)}` : '/api/friends';
+  async getFriends(query?: string, suggested?: boolean): Promise<{ success: boolean; friends: FriendItem[]; total: number }> {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (suggested) params.set('suggested', 'true');
+    const qs = params.toString();
+    const url = qs ? `/api/friends?${qs}` : '/api/friends';
     return apiRequest(url);
   },
 

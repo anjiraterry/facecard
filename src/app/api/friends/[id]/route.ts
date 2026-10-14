@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
+import { getInitialsAvatarSvg } from '@/lib/avatar';
 
 export async function GET(
   req: NextRequest,
@@ -34,7 +35,7 @@ export async function GET(
     }
 
     const handleClean = user.handle ? user.handle.replace(/^@/, '') : `user_${user.id.slice(0, 6)}`;
-    const avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${handleClean}`;
+    const avatar = getInitialsAvatarSvg(user.displayName, handleClean);
     const score = user.scans[0]?.score ?? 0;
     const band = user.scans[0]?.band ?? null;
 

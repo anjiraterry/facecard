@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getInitialsAvatarSvg } from '@/lib/avatar';
 
 export async function GET(
   req: NextRequest,
@@ -37,7 +38,7 @@ export async function GET(
         handle: duel.challenger.handle ? `@${duel.challenger.handle.replace(/^@/, '')}` : `@${duel.challenger.displayName.toLowerCase()}`,
         tier: duel.challenger.tier,
         score: duel.challenger.scans[0]?.score ?? 0,
-        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${duel.challenger.handle || duel.challenger.id}`,
+        avatar: getInitialsAvatarSvg(duel.challenger.displayName, duel.challenger.handle || duel.challenger.id),
       },
       mode: duel.mode,
       stakeAmount: duel.stake,

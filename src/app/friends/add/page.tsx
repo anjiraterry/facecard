@@ -36,7 +36,7 @@ export default function AddFriendsPage() {
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const { friends: apiFriends, isLoading, addFriend } = useFriends(searchQuery);
+  const { friends: apiFriends, isLoading, addFriend } = useFriends(searchQuery, true);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);

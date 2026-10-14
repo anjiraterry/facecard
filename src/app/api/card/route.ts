@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
 import { getStreakMultiplier } from '@/lib/scoring';
+import { getInitialsAvatarSvg } from '@/lib/avatar';
 import { Tier, Band } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
       band,
       streakDays,
       multiplier: streakMultiplier,
-      avatarUrl: `https://api.dicebear.com/7.x/identicon/svg?seed=${handleClean}`,
+      avatarUrl: getInitialsAvatarSvg(user.displayName, handleClean),
       skinId: cardRecord?.equippedSkin?.slug ?? cardRecord?.equippedSkinId ?? undefined,
       frameId: cardRecord?.equippedFrame?.slug ?? cardRecord?.equippedFrameId ?? undefined,
     };

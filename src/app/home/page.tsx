@@ -18,20 +18,24 @@ import {
   X,
   Star,
   User,
-  Heart
+  Heart,
+  UserPlus
 } from 'lucide-react';
 import { FaceCard } from '@/components/card/FaceCard';
 import { BottomNav } from '@/components/navigation/BottomNav';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { Tier, FaceCardData } from '@/types';
 import { TIER_CONFIG } from '@/lib/tokens';
 import { useCard } from '@/hooks/useCard';
 import { useFaceoff } from '@/hooks/useFaceoff';
+import { useFriends } from '@/hooks/useFriends';
 
 export default function HomePage() {
   const [isLiked, setIsLiked] = useState(false);
   const { activeCard: backendCard, formula, spendableBalance, lifetimePoints, isLoading: cardLoading } = useCard();
   const { faceoffs, isLoading: duelsLoading } = useFaceoff();
+  const { friends, isLoading: friendsLoading } = useFriends();
 
   const activeCard: FaceCardData = backendCard ?? {
     id: 'user-active-card',
@@ -43,8 +47,7 @@ export default function HomePage() {
     streakDays: 7,
     multiplier: 1.25,
   };
-  const liveDuels = faceoffs;
-  const avatarList = liveDuels.map((d) => d.image);
+  const myDuels = faceoffs.filter((d) => (d as unknown as { isMine?: boolean }).isMine);
 
   const formulaList = formula && formula.length > 0 ? formula : [
     { name: 'Photo Craft', weight: '30%', score: 94, tip: 'Balanced studio lighting & sharp focal alignment' },
@@ -105,39 +108,78 @@ export default function HomePage() {
             >
               <Bell className="w-5 h-5 stroke-[1.9]" />
               <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-[#FF7A50] text-white text-[8px] font-bold flex items-center justify-center">
-                {liveDuels.length > 0 ? Math.min(liveDuels.length, 9) : 1}
+                {myDuels.length > 0 ? Math.min(myDuels.length, 9) : 1}
               </span>
             </Link>
           </div>
         </header>
 
-        {/* Sub-Header Row: Overlapping Member Avatars + Stats Tag */}
-        <section className="flex items-center justify-between px-1">
-          <div className="flex items-center">
-            <div className="flex -space-x-2.5 overflow-hidden">
-              {avatarList.map((src, i) => (
-                <img
-                  key={i}
-                  src={src}
-                  alt=""
-                  className="w-8 h-8 rounded-full object-cover ring-2 ring-white dark:ring-[#140826] shadow-xs"
-                />
-              ))}
-              <div className="w-8 h-8 rounded-full bg-[#140826] text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#140826] shadow-xs">
-                +{liveDuels.length}
+        {/* Sub-Header Row: Friends Empty State with Add Friends CTA or Friend Avatars */}
+        {friends.length === 0 ? (
+          <section className="flex items-center justify-between p-3 rounded-2xl bg-white/70 dark:bg-white/[0.04] border border-black/5 dark:border-white/10 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 text-[#140826] dark:text-purple-300 flex items-center justify-center font-bold text-xs shrink-0">
+                <UserPlus className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
+                  No Friends Added Yet
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium block">
+                  Connect with friends to challenge them
+                </span>
               </div>
             </div>
-          </div>
 
-          <div className="text-right">
-            <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
-              Friends
-            </span>
-            <span className="text-[10px] text-[var(--text-muted)] font-medium block">
-              {liveDuels.length > 0 ? `${liveDuels.length} Duels Live Now` : 'Duels in Arena'}
-            </span>
-          </div>
-        </section>
+            <Link
+              href="/friends/add"
+              className="flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-bold bg-[#EDE9FE] dark:bg-[#6366F1]/20 hover:bg-[#DDD6FE] dark:hover:bg-[#6366F1]/30 text-[#140826] dark:text-purple-200 border border-[#DDD6FE] dark:border-purple-500/30 transition-all active:scale-95 shadow-xs shrink-0"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Add Friends</span>
+            </Link>
+          </section>
+        ) : (
+          <section className="flex items-center justify-between px-1">
+            <div className="flex items-center">
+              <div className="flex -space-x-2.5 overflow-hidden">
+                {friends.slice(0, 4).map((f) => (
+                  <UserAvatar
+                    key={f.id}
+                    name={f.name}
+                    handle={f.handle}
+                    src={f.avatar}
+                    size="sm"
+                    className="ring-2 ring-white dark:ring-[#140826] shadow-xs"
+                  />
+                ))}
+                {friends.length > 4 && (
+                  <div className="w-8 h-8 rounded-full bg-[#140826] text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#140826] shadow-xs">
+                    +{friends.length - 4}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-right">
+              <div>
+                <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
+                  Friends ({friends.length})
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium block">
+                  {myDuels.length > 0 ? `${myDuels.length} Duels Active` : 'Ready for Duels'}
+                </span>
+              </div>
+              <Link
+                href="/friends/add"
+                className="w-7 h-7 rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 text-[#140826] dark:text-purple-200 flex items-center justify-center hover:bg-[#DDD6FE] transition-colors"
+                title="Add Friends"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </section>
+        )}
 
         {/* The Main Featured Facecard Container */}
         <section className="rounded-[32px] p-5 bg-white/85 dark:bg-[#140826]/75 backdrop-blur-2xl border border-white/95 dark:border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.06)] space-y-4">
@@ -145,17 +187,12 @@ export default function HomePage() {
           {/* Card Top Row: Author & Status */}
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2.5">
-              {activeCard.avatarUrl ? (
-                <img
-                  src={activeCard.avatarUrl}
-                  alt={activeCard.cardholderName}
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#18181B]/10 dark:ring-white/20"
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/40 text-[#140826] dark:text-purple-200 flex items-center justify-center font-bold text-xs ring-2 ring-[#18181B]/10 dark:ring-white/20">
-                  {activeCard.cardholderName.charAt(0)}
-                </div>
-              )}
+              <UserAvatar
+                name={activeCard.cardholderName}
+                src={activeCard.avatarUrl}
+                size="md"
+                className="ring-2 ring-[#18181B]/10 dark:ring-white/20"
+              />
               <div>
                 <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
                   {activeCard.cardholderName}
@@ -244,7 +281,7 @@ export default function HomePage() {
               className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-full text-xs font-bold bg-[#140826] hover:bg-[#241040] text-white transition-all active:scale-[0.99] shadow-[0_8px_24px_rgba(20,8,38,0.3)] border border-purple-400/20"
             >
               <Camera className="w-4 h-4 text-white" />
-              <span>Claim Your Face Card</span>
+              <span>Take a Selfie</span>
             </Link>
 
             <Link
@@ -260,27 +297,15 @@ export default function HomePage() {
         {/* Sub-Card Row: Arena Teaser */}
         <section className="p-4 rounded-[28px] bg-white/85 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/95 dark:border-white/10 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex -space-x-2 overflow-hidden">
-              <img
-                src={avatarList[0] || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'}
-                alt=""
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-white dark:ring-[#140826]"
-              />
-              <img
-                src={avatarList[1] || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80'}
-                alt=""
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-white dark:ring-[#140826]"
-              />
-              <div className="w-8 h-8 rounded-full bg-[#140826] text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#140826]">
-                +{liveDuels.length}
-              </div>
+            <div className="w-9 h-9 rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 flex items-center justify-center text-[#140826] dark:text-purple-200 shrink-0">
+              <Swords className="w-4 h-4" />
             </div>
             <div>
               <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
-                Arena
+                Arena Battles
               </span>
               <span className="text-[10px] text-[var(--text-muted)] font-medium block">
-                {liveDuels.length > 0 ? `${liveDuels.length} Active Duels Live` : 'Duels Live in Arena'}
+                {myDuels.length > 0 ? `${myDuels.length} Active Duels Live` : 'Head-to-head card battles'}
               </span>
             </div>
           </div>
@@ -309,13 +334,33 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {liveDuels.length === 0 ? (
-              <div className="col-span-2 p-8 text-center rounded-[28px] bg-white/60 dark:bg-white/[0.04] border border-dashed border-black/10 dark:border-white/10 space-y-2">
-                <Swords className="w-7 h-7 mx-auto text-[var(--text-muted)] opacity-60" />
-                <p className="text-xs font-bold text-[var(--text-main)]">No active duels found</p>
-                <p className="text-[10px] text-[var(--text-muted)]">Challenge your friends or join an open duel in the Arena.</p>
+            {myDuels.length === 0 ? (
+              <div className="col-span-2 p-6 text-center rounded-[28px] bg-white/70 dark:bg-[#140826]/70 backdrop-blur-xl border border-dashed border-black/10 dark:border-white/10 space-y-3">
+                <div className="w-11 h-11 mx-auto rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 flex items-center justify-center text-[#140826] dark:text-purple-200">
+                  <Swords className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xs font-bold text-[var(--text-main)]">No active duels yet</h3>
+                  <p className="text-[11px] text-[var(--text-muted)] max-w-xs mx-auto">
+                    Challenge a friend or join an open battle in the Arena to test your card lethality.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <Link
+                    href="/faceoff"
+                    className="py-2 px-4 rounded-full text-xs font-bold bg-[#140826] hover:bg-[#241040] text-white transition-all active:scale-95 shadow-xs"
+                  >
+                    Challenge a Friend
+                  </Link>
+                  <Link
+                    href="/friends/add"
+                    className="py-2 px-4 rounded-full text-xs font-bold bg-[#EDE9FE] dark:bg-[#6366F1]/20 text-[#140826] dark:text-purple-200 border border-[#DDD6FE] dark:border-purple-500/30 hover:bg-[#DDD6FE] transition-all active:scale-95"
+                  >
+                    Add Friends
+                  </Link>
+                </div>
               </div>
-            ) : liveDuels.map((duel) => (
+            ) : myDuels.map((duel) => (
               <div
                 key={duel.id}
                 className="relative aspect-[3/4] rounded-[28px] overflow-hidden group bg-white shadow-sm border border-black/[0.04]"

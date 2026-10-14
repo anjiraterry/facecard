@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
+import { getInitialsAvatarSvg } from '@/lib/avatar';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,17 @@ export async function GET(req: NextRequest) {
     }
     const { searchParams } = new URL(req.url);
     const query = searchParams.get('q')?.toLowerCase();
+    const isSuggested = searchParams.get('suggested') === 'true' || searchParams.get('all') === 'true';
+
+    // Find users added as friends by this sessionUser
+    const friendLogs = await db.auditLog.findMany({
+      where: {
+        actorId: sessionUser.id,
+        action: 'ADD_FRIEND',
+      },
+      select: { targetId: true },
+    });
+    const friendIds = new Set(friendLogs.map((l) => l.targetId).filter(Boolean));
 
     const users = await db.user.findMany({
       where: {
@@ -69,9 +81,14 @@ export async function GET(req: NextRequest) {
       if (d.opponentId) usersInArena.add(d.opponentId);
     });
 
-    const friendsList: FriendItem[] = users.map((u) => {
+    // If not in suggested mode, only include users that were added by sessionUser
+    const targetUsers = isSuggested
+      ? users
+      : users.filter((u) => friendIds.has(u.id));
+
+    const friendsList: FriendItem[] = targetUsers.map((u) => {
       const handleClean = u.handle ? u.handle.replace(/^@/, '') : `user_${u.id.slice(0, 6)}`;
-      const avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${handleClean}`;
+      const avatar = getInitialsAvatarSvg(u.displayName, handleClean);
       const score = u.scans[0]?.score ?? 0;
       const wins = u.faceOffsWon.length;
       const totalDuels = u.faceOffsChallenged.length + u.faceOffsOpposed.length;
@@ -132,6 +149,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: 'Unauthorized. Please sign in.', authenticated: false }, { status: 401 });
+    }
+
     const { targetHandle } = await req.json();
 
     if (!targetHandle) {
@@ -143,10 +165,33 @@ export async function POST(req: NextRequest) {
       where: { handle: cleanHandle },
     });
 
+    if (found) {
+      // Record friendship link in AuditLog
+      const existing = await db.auditLog.findFirst({
+        where: {
+          actorId: sessionUser.id,
+          action: 'ADD_FRIEND',
+          targetId: found.id,
+        },
+      });
+
+      if (!existing) {
+        await db.auditLog.create({
+          data: {
+            actorId: sessionUser.id,
+            action: 'ADD_FRIEND',
+            targetType: 'USER',
+            targetId: found.id,
+            detail: { targetHandle: cleanHandle, displayName: found.displayName },
+          },
+        });
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: found
-        ? `Friend request sent to ${found.displayName} (@${found.handle})`
+        ? `Friend request accepted: ${found.displayName} (@${found.handle})`
         : `Friend invite created for @${cleanHandle}`,
     });
   } catch (error) {

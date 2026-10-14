@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
+import { getInitialsAvatarSvg } from '@/lib/avatar';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     const leaderboard = users.map((u, index) => {
       const handleClean = u.handle ? u.handle.replace(/^@/, '') : `user_${u.id.slice(0, 6)}`;
-      const avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${handleClean}`;
+      const avatar = getInitialsAvatarSvg(u.displayName, handleClean);
       const score = u.scans[0]?.score ?? 0;
 
       return {

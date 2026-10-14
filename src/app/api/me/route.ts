@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
 import { getStreakMultiplier } from '@/lib/scoring';
 
+import { getInitialsAvatarSvg } from '@/lib/avatar';
+
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
@@ -54,7 +56,7 @@ export async function GET() {
       : defaultTitle;
 
     const handleClean = user.handle ? user.handle.replace(/^@/, '') : `user_${user.id.slice(0, 6)}`;
-    const avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${handleClean}`;
+    const avatar = getInitialsAvatarSvg(user.displayName, handleClean);
 
     const memberSinceStr = user.createdAt.toLocaleDateString('en-GB', {
       month: 'short',

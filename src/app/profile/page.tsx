@@ -560,7 +560,25 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {filteredFriends.map((friend) => (
+              {filteredFriends.length === 0 ? (
+                <div className="p-8 text-center rounded-[28px] bg-white/70 dark:bg-[#140826]/70 backdrop-blur-xl border border-dashed border-black/10 dark:border-white/10 space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 flex items-center justify-center text-[#140826] dark:text-purple-200">
+                    <UserPlus className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-[var(--text-main)]">No friends added yet</p>
+                    <p className="text-[11px] text-[var(--text-muted)]">Add friends or share your invite link to challenge them in the Arena.</p>
+                  </div>
+                  <Link
+                    href="/friends/add"
+                    className="inline-flex items-center gap-1.5 py-2 px-4 rounded-full text-xs font-bold bg-[#140826] hover:bg-[#251040] text-white transition-all active:scale-95 shadow-xs"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Add Friends</span>
+                  </Link>
+                </div>
+              ) : (
+                filteredFriends.map((friend) => (
                 <div
                   key={friend.id}
                   className="relative p-3 rounded-[22px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-xs flex items-center justify-between transition-all hover:bg-white dark:hover:bg-[#140826]"
@@ -653,7 +671,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )))}
             </div>
           </section>
         )}

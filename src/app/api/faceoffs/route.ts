@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser, getRequiredUser } from '@/lib/auth/session';
 import { FaceOffMode, FaceOffStatus, LedgerType, BalanceKind } from '@prisma/client';
+import { getInitialsAvatarSvg } from '@/lib/avatar';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,10 +34,11 @@ export async function GET(req: NextRequest) {
       const targetUser = isChallenger && f.opponent ? f.opponent : f.challenger;
 
       const handleClean = targetUser.handle ? targetUser.handle.replace(/^@/, '') : 'contender';
-      const image = `https://api.dicebear.com/7.x/identicon/svg?seed=${handleClean}`;
+      const image = getInitialsAvatarSvg(targetUser.displayName, handleClean);
 
       const score = targetUser.scans[0]?.score ?? 0;
       const tier = targetUser.tier;
+      const isMine = sessionUser ? (f.challengerId === sessionUser.id || f.opponentId === sessionUser.id) : false;
 
       return {
         id: f.id,
@@ -49,6 +51,7 @@ export async function GET(req: NextRequest) {
         stakeAmount: f.stake,
         mode: f.mode,
         status: f.status,
+        isMine,
       };
     });
 

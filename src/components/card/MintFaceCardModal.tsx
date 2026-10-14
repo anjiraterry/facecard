@@ -130,11 +130,8 @@ export function MintFaceCardModal({ isOpen, onClose, defaultMode = 'mint' }: Min
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative z-10 w-full max-w-2xl sm:max-w-3xl bg-white dark:bg-[#151518] text-[#1A1A1A] dark:text-[#F9FAFB] rounded-[28px] border border-black/10 dark:border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.25)] dark:shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden my-auto"
+          className="relative z-10 w-full max-w-md bg-white dark:bg-[#151518] text-[#1A1A1A] dark:text-[#F9FAFB] rounded-[28px] border border-black/10 dark:border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.25)] dark:shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden my-auto"
         >
-          {/* Top Warm Gold Accent Line */}
-          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#E8D744] via-[#F2A6A2] to-[#B3BFF0]" />
-
           {/* Close button */}
           <button
             onClick={onClose}
@@ -143,45 +140,31 @@ export function MintFaceCardModal({ isOpen, onClose, defaultMode = 'mint' }: Min
             <X className="w-4 h-4" />
           </button>
 
-          <div className="p-6 sm:p-8 space-y-6">
-            {/* Header Tabs */}
-            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/10 pb-4 pr-10">
-              <div className="flex gap-6">
-                <button
-                  type="button"
-                  onClick={() => { setMode('mint'); setError(null); }}
-                  className={`text-lg font-bold tracking-tight transition-colors pb-1.5 relative cursor-pointer ${
-                    mode === 'mint'
-                      ? 'text-[#1A1A1A] dark:text-white'
-                      : 'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300'
-                  }`}
-                >
-                  Mint Facecard
-                  {mode === 'mint' && (
-                    <motion.div
-                      layoutId="activeMintTabIndicator"
-                      className="absolute bottom-0 inset-x-0 h-0.5 bg-[#1A1A1A] dark:bg-[#E8D744] rounded-full"
-                    />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMode('login'); setError(null); }}
-                  className={`text-lg font-bold tracking-tight transition-colors pb-1.5 relative cursor-pointer ${
-                    mode === 'login'
-                      ? 'text-[#1A1A1A] dark:text-white'
-                      : 'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300'
-                  }`}
-                >
-                  Access with PIN
-                  {mode === 'login' && (
-                    <motion.div
-                      layoutId="activeMintTabIndicator"
-                      className="absolute bottom-0 inset-x-0 h-0.5 bg-[#1A1A1A] dark:bg-[#E8D744] rounded-full"
-                    />
-                  )}
-                </button>
-              </div>
+          <div className="p-5 sm:p-6 space-y-4">
+            {/* Header Tabs matching funding history capsule tab styling */}
+            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200/60 dark:border-white/10 pr-9">
+              <button
+                type="button"
+                onClick={() => { setMode('mint'); setError(null); }}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  mode === 'mint'
+                    ? 'bg-[#DDD6FE] text-[#140826] shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+                }`}
+              >
+                Mint Facecard
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(null); }}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  mode === 'login'
+                    ? 'bg-[#DDD6FE] text-[#140826] shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+                }`}
+              >
+                Access with PIN
+              </button>
             </div>
 
             {error && (
@@ -192,22 +175,21 @@ export function MintFaceCardModal({ isOpen, onClose, defaultMode = 'mint' }: Min
             )}
 
             {mode === 'mint' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-center">
-                {/* Live Card Preview Column */}
-                <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-neutral-50/80 dark:bg-white/[0.03] border border-neutral-100 dark:border-white/5 space-y-3 w-full">
-                  <div className="w-full max-w-[340px] sm:max-w-[380px] drop-shadow-md">
-                    <FaceCard card={previewCard} interactive={true} />
-                  </div>
-                  <div className="text-center">
-                    <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                      Live Preview &bull; {cleanHandle ? `@${cleanHandle}` : '@handle'}
-                    </span>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">Includes 100 LP starter balance</p>
-                  </div>
+              <div className="space-y-4">
+                {/* Live Card Preview Column - matching exact width of inputs */}
+                <div className="w-full drop-shadow-md">
+                  <FaceCard card={previewCard} interactive={true} />
+                </div>
+
+                <div className="text-center">
+                  <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                    Live Preview &bull; {cleanHandle ? `@${cleanHandle}` : '@handle'}
+                  </span>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">Includes 100 LP starter balance</p>
                 </div>
 
                 {/* Minting Form */}
-                <form onSubmit={handleMintSubmit} className="space-y-3.5">
+                <form onSubmit={handleMintSubmit} className="space-y-3.5 w-full">
                   <div>
                     <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1.5">
                       Full Name
@@ -285,7 +267,7 @@ export function MintFaceCardModal({ isOpen, onClose, defaultMode = 'mint' }: Min
               </div>
             ) : (
               /* PIN Sign In Form */
-              <form onSubmit={handleLoginSubmit} className="max-w-sm mx-auto space-y-4 py-2">
+              <form onSubmit={handleLoginSubmit} className="w-full space-y-4 py-2">
                 <div>
                   <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1.5">
                     Username or Card Number

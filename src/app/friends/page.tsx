@@ -96,10 +96,21 @@ export default function FriendsPage() {
               <div className="w-7 h-7 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : friends.length === 0 ? (
-            <div className="p-8 text-center rounded-[28px] bg-white/60 dark:bg-white/[0.04] border border-dashed border-black/10 dark:border-white/10 space-y-2">
-              <Users className="w-8 h-8 mx-auto text-[var(--text-muted)] opacity-60" />
-              <p className="text-xs font-bold text-[var(--text-main)]">No friends found</p>
-              <p className="text-[10px] text-[var(--text-muted)]">Search a different handle or invite friends to duel!</p>
+            <div className="p-8 text-center rounded-[28px] bg-white/70 dark:bg-[#140826]/70 backdrop-blur-xl border border-dashed border-black/10 dark:border-white/10 space-y-3">
+              <div className="w-12 h-12 mx-auto rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 flex items-center justify-center text-[#140826] dark:text-purple-200">
+                <Users className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-[var(--text-main)]">No friends added yet</p>
+                <p className="text-[11px] text-[var(--text-muted)]">Connect with friends or find contenders to duel in the Arena.</p>
+              </div>
+              <Link
+                href="/friends/add"
+                className="inline-flex items-center gap-1.5 py-2 px-4 rounded-full text-xs font-bold bg-[#140826] hover:bg-[#251040] text-white transition-all active:scale-95 shadow-xs"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Add Friends</span>
+              </Link>
             </div>
           ) : (
             friends.map((friend) => (

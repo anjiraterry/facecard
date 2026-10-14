@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { friendService } from '@/services/friendService';
 import { FriendItem } from '@/app/api/friends/route';
 
-export function useFriends(searchQuery?: string) {
+export function useFriends(searchQuery?: string, suggested?: boolean) {
   const [friends, setFriends] = useState<FriendItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -13,7 +13,7 @@ export function useFriends(searchQuery?: string) {
     try {
       setIsLoading(true);
       setError(null);
-      const res = await friendService.getFriends(searchQuery);
+      const res = await friendService.getFriends(searchQuery, suggested);
       if (res.success) {
         setFriends(res.friends);
       }
@@ -22,11 +22,11 @@ export function useFriends(searchQuery?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, suggested]);
 
   useEffect(() => {
     let ignore = false;
-    friendService.getFriends(searchQuery)
+    friendService.getFriends(searchQuery, suggested)
       .then((res) => {
         if (!ignore && res.success) {
           setFriends(res.friends);
@@ -43,10 +43,12 @@ export function useFriends(searchQuery?: string) {
     return () => {
       ignore = true;
     };
-  }, [searchQuery]);
+  }, [searchQuery, suggested]);
 
   const addFriend = async (handle: string) => {
-    return friendService.addFriend(handle);
+    const res = await friendService.addFriend(handle);
+    fetchFriends();
+    return res;
   };
 
   return {

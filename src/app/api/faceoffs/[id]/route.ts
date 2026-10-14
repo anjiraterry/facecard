@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getRequiredUser } from '@/lib/auth/session';
 import { FaceOffStatus, LedgerType, BalanceKind } from '@prisma/client';
+import { getInitialsAvatarSvg } from '@/lib/avatar';
 
 export async function GET(
   req: NextRequest,
@@ -41,7 +42,7 @@ export async function GET(
           handle: duel.challenger.handle ? `@${duel.challenger.handle.replace(/^@/, '')}` : `@${duel.challenger.displayName.toLowerCase()}`,
           score: duel.challenger.scans[0]?.score ?? 0,
           tier: duel.challenger.tier,
-          avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${duel.challenger.handle || duel.challenger.id}`,
+          avatar: getInitialsAvatarSvg(duel.challenger.displayName, duel.challenger.handle || duel.challenger.id),
         },
         opponent: duel.opponent
           ? {
@@ -50,7 +51,7 @@ export async function GET(
               handle: duel.opponent.handle ? `@${duel.opponent.handle.replace(/^@/, '')}` : `@${duel.opponent.displayName.toLowerCase()}`,
               score: duel.opponent.scans[0]?.score ?? 0,
               tier: duel.opponent.tier,
-              avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${duel.opponent.handle || duel.opponent.id}`,
+              avatar: getInitialsAvatarSvg(duel.opponent.displayName, duel.opponent.handle || duel.opponent.id),
             }
           : null,
         mode: duel.mode,
