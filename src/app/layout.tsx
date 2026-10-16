@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { ToastProvider } from "@/components/common/ToastProvider";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -47,7 +48,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans antialiased selection:bg-[#6366F1] selection:text-white transition-colors duration-200">
         <ThemeProvider>
           <QueryProvider>
-            {children}
+            <ToastProvider>
+              {children}
+            </ToastProvider>
           </QueryProvider>
         </ThemeProvider>
       </body>

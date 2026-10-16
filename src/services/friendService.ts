@@ -18,7 +18,19 @@ export const friendService = {
     });
   },
 
-  async getFriendProfile(id: string): Promise<{ success: boolean; friend: FriendItem | null }> {
+  async getFriendProfile(id: string): Promise<{ success: boolean; friend: any }> {
     return apiRequest(`/api/friends/${id}`);
+  },
+
+  async addFriendById(id: string): Promise<{ success: boolean; isFriend: boolean; message: string }> {
+    return apiRequest(`/api/friends/${id}`, {
+      method: 'POST',
+    });
+  },
+
+  async removeFriendById(id: string): Promise<{ success: boolean; isFriend: boolean; message: string }> {
+    return apiRequest(`/api/friends/${id}`, {
+      method: 'DELETE',
+    });
   },
 };

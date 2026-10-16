@@ -2,21 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { randomUUID } from 'crypto';
 import { verifyOtpCode } from '@/lib/auth/otp';
+import { getClientIp } from '@/lib/auth/rateLimit';
+import { applySessionCookie, createSession } from '@/lib/auth/sessions';
+import { grantSignupBonus } from '@/lib/ledger';
+import { getLagosDayKey } from '@/lib/scoring';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, code } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const email = typeof body.email === 'string' ? body.email : '';
+    const code = typeof body.code === 'string' ? body.code : '';
 
-    if (!email || !code || code.length !== 6) {
+    if (!email || !/^\d{6}$/.test(code)) {
       return NextResponse.json({ error: 'Valid 6-digit code and email required' }, { status: 400 });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    const ip = getClientIp(req);
 
-    // Verify OTP against hashed token
-    const verification = verifyOtpCode(normalizedEmail, code);
+    // Verify OTP against the persisted, hashed, single-use challenge
+    const verification = await verifyOtpCode(normalizedEmail, code, ip);
     if (!verification.valid) {
       return NextResponse.json(
         { error: verification.reason || 'Invalid or expired verification code' },
@@ -30,6 +37,10 @@ export async function POST(req: NextRequest) {
       include: { streak: true, cards: true },
     });
 
+    if (user && (user.status === 'BANNED' || user.status === 'DELETED')) {
+      return NextResponse.json({ error: 'This account is not available.' }, { status: 403 });
+    }
+
     let isNewUser = false;
     if (!user) {
       isNewUser = true;
@@ -41,37 +52,53 @@ export async function POST(req: NextRequest) {
       }
 
       const newUserId = randomUUID();
-      user = await db.user.create({
-        data: {
-          id: newUserId,
-          email: normalizedEmail,
-          displayName: baseHandle.charAt(0).toUpperCase() + baseHandle.slice(1),
-          handle,
-          tier: 'CLASSIC',
-          lifetimePoints: 100,
-          spendableBalance: 100,
-          streak: {
-            create: {
-              id: randomUUID(),
-              currentCount: 1,
-              longestCount: 1,
-              lastScanDayKey: new Date().toISOString().split('T')[0],
-              freezesHeld: 0,
+      user = await db.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            id: newUserId,
+            email: normalizedEmail,
+            displayName: baseHandle.charAt(0).toUpperCase() + baseHandle.slice(1),
+            handle,
+            tier: 'CLASSIC',
+            lifetimePoints: 0,
+            spendableBalance: 0,
+            ageConfirmedAt: new Date(),
+            consentAt: new Date(),
+            consentVersion: '1.0-NDPA',
+            streak: {
+              create: {
+                id: randomUUID(),
+                currentCount: 1,
+                longestCount: 1,
+                lastScanDayKey: getLagosDayKey(),
+                freezesHeld: 0,
+              },
+            },
+            cards: {
+              create: {
+                id: randomUUID(),
+                cardNumber: `FC-${Math.floor(1000 + Math.random() * 9000)}-2026`,
+              },
             },
           },
-          cards: {
-            create: {
-              id: randomUUID(),
-              cardNumber: `FC-${Math.floor(1000 + Math.random() * 9000)}-2026`,
-            },
-          },
-        },
-        include: { streak: true, cards: true },
+          include: { streak: true, cards: true },
+        });
+
+        await grantSignupBonus(tx, newUserId);
+
+        const fresh = await tx.user.findUnique({
+          where: { id: newUserId },
+          include: { streak: true, cards: true },
+        });
+        return fresh || created;
       });
     }
 
-    // 2. Generate secure session token
-    const sessionToken = `fc_sess_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 10)}`;
+    // 2. Issue an opaque server-side session (only its hash is stored)
+    const sessionToken = await createSession(user.id, {
+      ip,
+      userAgent: req.headers.get('user-agent') ?? undefined,
+    });
 
     const response = NextResponse.json({
       success: true,
@@ -86,31 +113,12 @@ export async function POST(req: NextRequest) {
         spendableBalance: user.spendableBalance,
         streakDays: user.streak?.currentCount ?? 1,
       },
-      sessionToken,
     });
 
-    // 3. Set HTTP-only session cookies
-    response.cookies.set('fc_session', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-    });
-
-    response.cookies.set('fc_user_id', user.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-    });
-
-    return response;
+    // 3. Set the HTTP-only session cookie
+    return applySessionCookie(response, sessionToken);
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Verification failed', message: error instanceof Error ? error.message : 'Error' },
-      { status: 500 }
-    );
+    console.error('OTP verification failed:', error);
+    return NextResponse.json({ error: 'Verification failed. Please try again.' }, { status: 500 });
   }
 }

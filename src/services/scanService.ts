@@ -11,6 +11,8 @@ export interface ScanResultResponse {
   pointsEarned: number;
   multiplier: number;
   newStreak: number;
+  freezeConsumed?: boolean;
+  freezesRemaining?: number;
   tier: Tier;
   unlockedNewTier: boolean;
   qualityGate: {
@@ -19,19 +21,45 @@ export interface ScanResultResponse {
     exposure: number;
     framingCoverage: number;
   };
+  liveness?: {
+    verified: boolean;
+    actions: string[];
+  };
+  duel?: {
+    duelId: string;
+    attemptNumber: number;
+    attemptsRemaining: number;
+    status: string;
+    outcome?: 'WIN' | 'LOSS' | 'TIE' | 'PENDING';
+    payout?: number;
+    winnerId?: string | null;
+    isWinner?: boolean;
+    challengerScore?: number;
+    opponentScore?: number;
+  };
   evaluatedAt: string;
+}
+
+export interface LivenessPayload {
+  passed: boolean;
+  actionsCompleted: string[];
+  clientEngine?: string;
 }
 
 export const scanService = {
   async submitScan(
     imageBase64: string,
-    toneMode: ToneMode = 'HYPE'
+    toneMode: ToneMode = 'HYPE',
+    liveness?: LivenessPayload,
+    faceOffId?: string
   ): Promise<ScanResultResponse> {
     return apiRequest<ScanResultResponse>('/api/scan', {
       method: 'POST',
       body: JSON.stringify({
         imageBase64,
         toneMode,
+        liveness,
+        faceOffId,
       }),
     });
   },

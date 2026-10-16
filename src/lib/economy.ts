@@ -5,6 +5,9 @@ import { Tier } from '@/types';
  * streak multipliers, tier gates, and arena parameters per PRD and PLAN.md.
  */
 export const EconomyConfig = {
+  // Welcome grant credited (and ledgered) once per new account. Not in the PRD: open product decision.
+  SIGNUP_GRANT_POINTS: 100,
+
   // Scans
   DAILY_SCAN_CAP: 3,
   SCAN_RATE_FIRST: 1.0,    // 100% points on 1st scan of the day
@@ -37,6 +40,7 @@ export const EconomyConfig = {
     WIN_BONUS_POINTS: 25,     // bonus awarded on victory
     MAX_DUELS_PER_DAY: 5,
     EXPIRY_MINUTES: 60 * 24,  // 24 hours
+    ATTEMPTS_PER_DUEL: 3,
   },
 
   // Scoring Weights

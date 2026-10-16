@@ -60,6 +60,7 @@ export interface FaceCardData {
   band?: Band;
   cardNumber?: string; // Optional legacy card number
   cardholderName: string;
+  handle?: string;
   title?: string; // e.g. "Island Boy", "Certified Pressure"
   skinId?: string;
   frameId?: string;

@@ -17,8 +17,9 @@ import {
 import { BottomNav } from '@/components/navigation/BottomNav';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { Tier } from '@/types';
-
 import { useFriends } from '@/hooks/useFriends';
+import { UserAvatar } from '@/components/common/UserAvatar';
+import { FriendRowSkeleton } from '@/components/common/Skeleton';
 
 interface SuggestedUser {
   id: string;
@@ -174,7 +175,7 @@ export default function AddFriendsPage() {
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#6366F1]" />
-              <span>Suggested for You ({filtered.length})</span>
+              <span>Suggested for You ({isLoading ? '...' : filtered.length})</span>
             </h2>
             <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-300">
               High Lethality
@@ -182,20 +183,35 @@ export default function AddFriendsPage() {
           </div>
 
           <div className="space-y-2.5">
-            {filtered.map((user) => {
-              const isAdded = !!addedIds[user.id];
+            {isLoading ? (
+              <div className="space-y-2.5">
+                <FriendRowSkeleton />
+                <FriendRowSkeleton />
+                <FriendRowSkeleton />
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="p-8 text-center rounded-[28px] bg-white/70 dark:bg-[#140826]/70 backdrop-blur-xl border border-dashed border-black/10 dark:border-white/10 space-y-2">
+                <Users className="w-6 h-6 mx-auto text-[var(--text-muted)] opacity-60" />
+                <p className="text-xs font-bold text-[var(--text-main)]">No contenders found</p>
+                <p className="text-[11px] text-[var(--text-muted)]">Try a different search query or share your invite link.</p>
+              </div>
+            ) : (
+              filtered.map((user) => {
+                const isAdded = !!addedIds[user.id];
 
-              return (
-                <div
-                  key={user.id}
-                  className="p-3.5 rounded-[22px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-xs flex items-center justify-between transition-all hover:bg-white dark:hover:bg-[#140826]"
-                >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="w-11 h-11 rounded-full object-cover ring-2 ring-black/5 dark:ring-white/10"
-                    />
+                return (
+                  <div
+                    key={user.id}
+                    className="p-3.5 rounded-[22px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-xs flex items-center justify-between transition-all hover:bg-white dark:hover:bg-[#140826]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <UserAvatar
+                        name={user.name}
+                        handle={user.handle}
+                        src={user.avatar}
+                        size="lg"
+                        className="w-11 h-11 ring-2 ring-black/5 dark:ring-white/10"
+                      />
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-[var(--text-main)] leading-tight">
@@ -242,7 +258,7 @@ export default function AddFriendsPage() {
                   </button>
                 </div>
               );
-            })}
+            }))}
           </div>
         </section>
 

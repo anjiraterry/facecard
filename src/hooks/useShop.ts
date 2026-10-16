@@ -5,11 +5,11 @@ import { shopService, ShopItemData } from '@/services/shopService';
 
 export function useShop() {
   const [items, setItems] = useState<ShopItemData[]>([]);
-  const [spendableBalance, setSpendableBalance] = useState(850);
-  const [tier, setTier] = useState('GOLD');
+  const [spendableBalance, setSpendableBalance] = useState<number>(0);
+  const [tier, setTier] = useState<string>('CLASSIC');
   const [equipped, setEquipped] = useState<{ skin: string | null; title: string | null; frame: string | null }>({
     skin: null,
-    title: 'title-lethal-weapon',
+    title: null,
     frame: null,
   });
   const [isLoading, setIsLoading] = useState(true);

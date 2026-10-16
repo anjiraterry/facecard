@@ -18,13 +18,7 @@ export async function apiRequest<T>(
     ...(options.headers as Record<string, string>),
   };
 
-  // Propagate user ID from local storage if available
-  if (typeof window !== 'undefined') {
-    const storedUserId = localStorage.getItem('fc_user_id');
-    if (storedUserId && !headers['x-user-id']) {
-      headers['x-user-id'] = storedUserId;
-    }
-  }
+  // Identity is carried only by the httpOnly session cookie (credentials: 'include' below).
 
   // Mutating routes attach an Idempotency-Key if not provided
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method || '')) {

@@ -1,56 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { SESSION_COOKIE, SESSION_TTL_SECONDS, applySessionCookie, extendSession } from '@/lib/auth/sessions';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/auth/session/refresh
- * Slides the session window: resets cookie maxAge to 30 days.
- * Called automatically by the proxy on protected pages, but can also be
- * called manually from the client to keep the session alive.
+ * GET/POST /api/auth/session/refresh
+ * Validates the session server-side and slides its expiry by 30 days.
+ * For guests without a session cookie, returns 200 with { authenticated: false }
+ * to avoid emitting 401 error noise on every tab focus.
  */
 export async function GET(req: NextRequest) {
-  const sessionToken = req.cookies.get('fc_session')?.value;
-  const userId = req.cookies.get('fc_user_id')?.value;
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
 
-  if (!sessionToken && !userId) {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+  if (!token) {
+    return NextResponse.json({ authenticated: false, refreshed: false }, { status: 200 });
   }
 
-  const isProduction = process.env.NODE_ENV === 'production';
-  const THIRTY_DAYS = 60 * 60 * 24 * 30;
-
-  const response = NextResponse.json({
-    authenticated: true,
-    refreshed: true,
-    expiresIn: THIRTY_DAYS,
-  });
-
-  if (sessionToken) {
-    response.cookies.set('fc_session', sessionToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: THIRTY_DAYS,
-    });
+  const isValid = await extendSession(token);
+  if (!isValid) {
+    return NextResponse.json({ authenticated: false, refreshed: false, error: 'Session expired' }, { status: 401 });
   }
 
-  if (userId) {
-    response.cookies.set('fc_user_id', userId, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: THIRTY_DAYS,
-    });
-  }
-
-  return response;
+  return applySessionCookie(
+    NextResponse.json({ authenticated: true, refreshed: true, expiresIn: SESSION_TTL_SECONDS }),
+    token
+  );
 }
 
-/**
- * POST /api/auth/session/refresh — same as GET, for convenience
- */
 export async function POST(req: NextRequest) {
   return GET(req);
 }

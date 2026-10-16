@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAndSendOtp } from '@/lib/auth/otp';
+import { getClientIp } from '@/lib/auth/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Valid email address is required' }, { status: 400 });
     }
 
-    const result = await createAndSendOtp(email);
+    const result = await createAndSendOtp(email, getClientIp(req));
 
     if (!result.success) {
       return NextResponse.json(
@@ -30,10 +31,11 @@ export async function POST(req: NextRequest) {
       ...(result.devCode ? { devCode: result.devCode } : {}),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to send OTP';
-    const isClientError = message.includes('disposable') || message.includes('temporary');
+    const raw = error instanceof Error ? error.message : '';
+    const isClientError = /disposable|temporary/i.test(raw);
+    if (!isClientError) console.error('OTP send failed:', raw);
     return NextResponse.json(
-      { error: message },
+      { error: isClientError ? raw : 'Could not send a code right now. Please try again.' },
       { status: isClientError ? 400 : 500 }
     );
   }

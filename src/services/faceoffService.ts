@@ -5,12 +5,23 @@ export interface DuelItem {
   opponentName: string;
   handle: string;
   image: string;
+  iconAvatar?: string;
   tier: string;
+  rawTier?: string;
   score: number;
   stake: string;
   stakeAmount: number;
   mode: 'STAKED' | 'FRIENDLY';
   status: 'WAITING' | 'ACTIVE' | 'COMPLETED';
+  expiresAt?: string | Date;
+  isMine?: boolean;
+  canJoin?: boolean;
+  sameTier?: boolean;
+  requiredTier?: string;
+  opponentId?: string;
+  challengerId?: string;
+  targetUserId?: string;
+  inviteCode?: string;
 }
 
 export interface CreateDuelParams {

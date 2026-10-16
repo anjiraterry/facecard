@@ -40,10 +40,26 @@ export function createPrismaClient(connectionString?: string): PrismaClient {
   return new PrismaClient({ adapter });
 }
 
-export const db = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = db;
+function getValidPrismaClient(): PrismaClient {
+  if (globalForPrisma.prisma) {
+    return globalForPrisma.prisma;
+  }
+  const client = createPrismaClient();
+  if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = client;
+  }
+  return client;
 }
+
+export const db: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getValidPrismaClient();
+    const val = (client as unknown as Record<string, unknown>)[prop as string];
+    if (typeof val === 'function') {
+      return (val as (...args: unknown[]) => unknown).bind(client);
+    }
+    return val;
+  },
+});
 
 export default db;

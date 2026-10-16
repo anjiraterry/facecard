@@ -36,7 +36,10 @@ export async function POST(req: NextRequest) {
     const card = user.cards[0];
 
     if (!card) {
-      return NextResponse.json({ error: 'No active card found to equip item to' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Please claim your Face Card first before equipping cosmetics.', requiresClaim: true },
+        { status: 404 }
+      );
     }
 
     const updateData: {

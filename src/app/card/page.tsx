@@ -20,7 +20,8 @@ import {
   Calendar,
   Camera,
   Lock,
-  CheckCircle2
+  CheckCircle2,
+  CreditCard
 } from 'lucide-react';
 import { FaceCard } from '@/components/card/FaceCard';
 import { ShareCardModal } from '@/components/card/ShareCardModal';
@@ -28,6 +29,7 @@ import { BottomNav } from '@/components/navigation/BottomNav';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { FaceCardData, Tier } from '@/types';
 import { useCard } from '@/hooks/useCard';
+import { FaceCardSkeleton } from '@/components/common/Skeleton';
 
 import { CardTierItem } from '@/services/cardService';
 
@@ -67,16 +69,7 @@ export default function CardPage() {
     cardSlideRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   };
 
-  const userCard: FaceCardData = backendCard ?? (sliderCards[1]?.card || sliderCards[0]?.card || {
-    id: 'user-active-card',
-    tier: 'GOLD',
-    cardholderName: 'FACE CARD HOLDER',
-    title: 'Golden Standard',
-    score: 84,
-    band: 'DANGEROUS',
-    streakDays: 7,
-    multiplier: 1.25,
-  });
+  const userCard: FaceCardData | null = backendCard;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -140,51 +133,85 @@ export default function CardPage() {
         </header>
 
         {/* Balance Hero & Quick Stats */}
+        {/* Balance Hero & Quick Stats */}
         <section className="grid grid-cols-2 gap-3">
-          {/* Spendable Points Card */}
-          <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
-                <Coins className="w-3.5 h-3.5 text-[#6366F1]" />
-                Spendable
-              </span>
-              <Link href="/shop" className="text-[10px] font-bold text-[#6366F1] dark:text-purple-300 hover:underline">
-                Shop →
-              </Link>
-            </div>
-            <div className="text-xl font-extrabold text-[var(--text-main)] tracking-tight">
-              {spendablePoints.toLocaleString()} <span className="text-xs font-bold text-[var(--text-muted)]">PTS</span>
-            </div>
-            <p className="text-[10px] text-[var(--text-muted)]">
-              Usable in shop & arena duels
-            </p>
-          </div>
+          {isLoading ? (
+            <>
+              <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 border border-white/90 dark:border-white/10 shadow-sm space-y-2 animate-pulse">
+                <div className="h-3 w-16 rounded bg-neutral-200 dark:bg-white/10" />
+                <div className="h-6 w-24 rounded bg-neutral-200 dark:bg-white/15" />
+                <div className="h-2.5 w-28 rounded bg-neutral-200/60 dark:bg-white/5" />
+              </div>
+              <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 border border-white/90 dark:border-white/10 shadow-sm space-y-2 animate-pulse">
+                <div className="h-3 w-16 rounded bg-neutral-200 dark:bg-white/10" />
+                <div className="h-6 w-24 rounded bg-neutral-200 dark:bg-white/15" />
+                <div className="h-2.5 w-28 rounded bg-neutral-200/60 dark:bg-white/5" />
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Spendable Points Card */}
+              <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5 text-[#6366F1]" />
+                    Spendable
+                  </span>
+                  <Link href="/shop" className="text-[10px] font-bold text-[#6366F1] dark:text-purple-300 hover:underline">
+                    Shop →
+                  </Link>
+                </div>
+                <div className="text-xl font-extrabold text-[var(--text-main)] tracking-tight">
+                  {spendablePoints.toLocaleString()} <span className="text-xs font-bold text-[var(--text-muted)]">PTS</span>
+                </div>
+                <p className="text-[10px] text-[var(--text-muted)]">
+                  Usable in shop & arena duels
+                </p>
+              </div>
 
-          {/* Lifetime Points & Multiplier Card */}
-          <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
-                <Flame className="w-3.5 h-3.5 text-[#FF7A50] fill-[#FF7A50]" />
-                Lifetime
-              </span>
-              <span className="text-[10px] font-bold text-[#FF7A50]">
-                ×{userCard.multiplier || 1.25} Boost
-              </span>
-            </div>
-            <div className="text-xl font-extrabold text-[var(--text-main)] tracking-tight">
-              {lifetimePoints.toLocaleString()} <span className="text-xs font-bold text-[var(--text-muted)]">PTS</span>
-            </div>
-            <p className="text-[10px] text-[var(--text-muted)]">
-              {userCard.streakDays || 7}-Day Streak Active
-            </p>
-          </div>
+              {/* Lifetime Points & Multiplier Card */}
+              <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5 text-[#FF7A50] fill-[#FF7A50]" />
+                    Lifetime
+                  </span>
+                  <span className="text-[10px] font-bold text-[#FF7A50]">
+                    ×{userCard ? (userCard.multiplier || 1.0).toFixed(1) : '1.0'} Boost
+                  </span>
+                </div>
+                <div className="text-xl font-extrabold text-[var(--text-main)] tracking-tight">
+                  {lifetimePoints.toLocaleString()} <span className="text-xs font-bold text-[var(--text-muted)]">PTS</span>
+                </div>
+                <p className="text-[10px] text-[var(--text-muted)]">
+                  {userCard ? userCard.streakDays : 0}-Day Streak Active
+                </p>
+              </div>
+            </>
+          )}
         </section>
 
         {/* The Collectible Face Card Section: Horizontal Slider */}
         <section className="space-y-3">
           {isLoading && sliderCards.length === 0 ? (
-            <div className="w-full aspect-[1.586/1] rounded-[28px] bg-black/5 dark:bg-white/5 animate-pulse flex items-center justify-center">
-              <span className="text-xs font-bold text-[var(--text-muted)]">Loading Face Cards...</span>
+            <FaceCardSkeleton />
+          ) : sliderCards.length === 0 ? (
+            <div className="p-6 rounded-[28px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 text-center space-y-4 shadow-sm">
+              <div className="w-12 h-12 mx-auto rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-300 flex items-center justify-center">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-extrabold text-[var(--text-main)]">Claim Your Personal FaceCard</h3>
+                <p className="text-xs text-[var(--text-muted)] max-w-xs mx-auto">
+                  Sign in or take a verified selfie to unlock your official AI lethality score and collectible tier card.
+                </p>
+              </div>
+              <Link
+                href="/sign-in?redirect=/card"
+                className="inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full bg-[#140826] dark:bg-white text-white dark:text-[#140826] text-xs font-bold shadow-md active:scale-95 transition-transform"
+              >
+                <span>Sign In to Claim FaceCard</span>
+              </Link>
             </div>
           ) : (
             <>
@@ -367,7 +394,7 @@ export default function CardPage() {
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-[var(--text-main)] flex items-center gap-1.5">
                 <Award className="w-4 h-4 text-[#6366F1]" />
-                <span>Next: {userCard.tier === 'CLASSIC' ? 'Gold' : userCard.tier === 'GOLD' ? 'Platinum' : 'Black Card'} Tier Status</span>
+                <span>Next: {userCard?.tier === 'CLASSIC' ? 'Gold' : userCard?.tier === 'GOLD' ? 'Platinum' : 'Black Card'} Tier Status</span>
               </span>
               <span className="font-mono font-bold text-[var(--text-muted)]">
                 {progressPercent}%
@@ -569,11 +596,13 @@ export default function CardPage() {
 
       </main>
 
-      <ShareCardModal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        card={userCard}
-      />
+      {userCard && (
+        <ShareCardModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          card={userCard}
+        />
+      )}
 
       <BottomNav />
     </div>

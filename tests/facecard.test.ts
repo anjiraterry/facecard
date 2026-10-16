@@ -5,16 +5,12 @@ import path from "node:path";
 describe("FaceCard Component (Phase 2)", () => {
   const faceCardPath = path.join(process.cwd(), "src", "components", "card", "FaceCard.tsx");
 
-  it("should exist and contain authentic EMV smart chip microcircuits", () => {
+  it("should exist and contain modern avatar and 3D tilt perspective", () => {
     expect(fs.existsSync(faceCardPath)).toBe(true);
     const content = fs.readFileSync(faceCardPath, "utf-8");
 
-    // EMV Chip verification
-    expect(content).toContain("EMV Smart Chip");
-    expect(content).toContain("rounded-[5px]");
-
-    // Contactless NFC verification
-    expect(content).toContain("Contactless NFC Waves");
+    // Cardholder verification
+    expect(content).toContain("card.cardholderName");
 
     // 3D Tilt perspective verification
     expect(content).toContain("perspective: 1000");

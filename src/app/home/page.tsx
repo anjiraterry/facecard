@@ -25,6 +25,7 @@ import { FaceCard } from '@/components/card/FaceCard';
 import { BottomNav } from '@/components/navigation/BottomNav';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { UserAvatar } from '@/components/common/UserAvatar';
+import { FaceCardSkeleton } from '@/components/common/Skeleton';
 import { Tier, FaceCardData } from '@/types';
 import { TIER_CONFIG } from '@/lib/tokens';
 import { useCard } from '@/hooks/useCard';
@@ -37,16 +38,7 @@ export default function HomePage() {
   const { faceoffs, isLoading: duelsLoading } = useFaceoff();
   const { friends, isLoading: friendsLoading } = useFriends();
 
-  const activeCard: FaceCardData = backendCard ?? {
-    id: 'user-active-card',
-    tier: 'GOLD',
-    cardholderName: 'FACE CARD HOLDER',
-    title: 'Golden Standard',
-    score: 84,
-    band: 'DANGEROUS',
-    streakDays: 7,
-    multiplier: 1.25,
-  };
+  const activeCard: FaceCardData | null = backendCard;
   const myDuels = faceoffs.filter((d) => (d as unknown as { isMine?: boolean }).isMine);
 
   const formulaList = formula && formula.length > 0 ? formula : [
@@ -98,7 +90,11 @@ export default function HomePage() {
               title="Shop & Spendable Balance"
             >
               <Coins className="w-4 h-4 text-[#6366F1]" />
-              <span>{(spendableBalance ?? 0).toLocaleString()}</span>
+              {cardLoading ? (
+                <span className="w-8 h-3.5 rounded bg-neutral-200 dark:bg-white/10 animate-pulse inline-block" />
+              ) : (
+                <span>{(spendableBalance ?? 0).toLocaleString()}</span>
+              )}
             </Link>
 
             <Link
@@ -115,7 +111,9 @@ export default function HomePage() {
         </header>
 
         {/* Sub-Header Row: Friends Empty State with Add Friends CTA or Friend Avatars */}
-        {friends.length === 0 ? (
+        {friendsLoading ? (
+          <div className="w-full h-14 rounded-2xl bg-neutral-200/60 dark:bg-white/[0.05] animate-pulse" />
+        ) : friends.length === 0 ? (
           <section className="flex items-center justify-between p-3 rounded-2xl bg-white/70 dark:bg-white/[0.04] border border-black/5 dark:border-white/10 shadow-xs">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 text-[#140826] dark:text-purple-300 flex items-center justify-center font-bold text-xs shrink-0">
@@ -183,140 +181,205 @@ export default function HomePage() {
 
         {/* The Main Featured Facecard Container */}
         <section className="rounded-[32px] p-5 bg-white/85 dark:bg-[#140826]/75 backdrop-blur-2xl border border-white/95 dark:border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.06)] space-y-4">
-          
-          {/* Card Top Row: Author & Status */}
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2.5">
-              <UserAvatar
-                name={activeCard.cardholderName}
-                src={activeCard.avatarUrl}
-                size="md"
-                className="ring-2 ring-[#18181B]/10 dark:ring-white/20"
-              />
-              <div>
-                <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
-                  {activeCard.cardholderName}
-                </span>
-                <span className="text-[10px] text-[var(--text-muted)] font-medium block">
-                  Selfie · Verified • {activeCard.tier} Status
-                </span>
-              </div>
-            </div>
-
-            <button 
-              className="w-8 h-8 flex items-center justify-center text-[var(--text-main)] hover:opacity-70 transition-opacity"
-              title="Options"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Prominent Collectible Face Card */}
-          <div className="relative space-y-3.5">
-            <FaceCard card={activeCard} />
-
-            {/* In-Card Frosted Tag Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-              <span className="px-3 py-1 rounded-full bg-black/[0.05] dark:bg-white/10 text-[var(--text-main)] text-[11px] font-bold shrink-0">
-                ★ {activeCard.score} Lethal
-              </span>
-              <span className="px-3 py-1 rounded-full bg-black/[0.05] dark:bg-white/10 text-[var(--text-muted)] text-[11px] font-semibold shrink-0">
-                {activeCard.band}
-              </span>
-              {formulaList[0] && (
-                <span className="px-3 py-1 rounded-full bg-black/[0.05] dark:bg-white/10 text-[var(--text-muted)] text-[11px] font-semibold shrink-0">
-                  {formulaList[0].name} {formulaList[0].score}
-                </span>
-              )}
-              {formulaList[4] && (
-                <span className="px-3 py-1 rounded-full bg-black/[0.05] dark:bg-white/10 text-[var(--text-muted)] text-[11px] font-semibold shrink-0">
-                  {formulaList[4].name} {formulaList[4].score}
-                </span>
-              )}
-            </div>
-
-            {/* Floating Action Pill Bar */}
-            <div className="p-2 rounded-full bg-[#140826] text-white shadow-[0_10px_30px_rgba(20,8,38,0.35)] border border-purple-400/25 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-white px-3">
-                <Star className="w-3.5 h-3.5 text-white fill-white" />
-                <span>{activeCard.score} Lethality</span>
+          {cardLoading ? (
+            <div className="space-y-4">
+              {/* Card Top Row Skeleton */}
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-neutral-200/80 dark:bg-white/10 animate-pulse" />
+                  <div className="space-y-1">
+                    <div className="w-28 h-3.5 rounded bg-neutral-200/80 dark:bg-white/10 animate-pulse" />
+                    <div className="w-36 h-2.5 rounded bg-neutral-200/60 dark:bg-white/5 animate-pulse" />
+                  </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-neutral-200/60 dark:bg-white/5 animate-pulse" />
               </div>
 
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/faceoff"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/15 hover:bg-white/20 text-xs font-bold text-white transition-colors"
-                  title="Challenge in Arena"
-                >
-                  <Swords className="w-3.5 h-3.5 text-white" />
-                  <span>Duel</span>
-                </Link>
+              {/* Prominent Collectible Card Skeleton */}
+              <FaceCardSkeleton />
 
-                <button
-                  onClick={() => setIsLiked(!isLiked)}
-                  className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#FF7A50] to-[#FFAE80] text-white flex items-center justify-center shadow-[0_4px_16px_rgba(255,122,80,0.45)] border border-white/20 transition-transform active:scale-95"
-                  title="Like / Save Card"
+              {/* Tag Pills Skeleton */}
+              <div className="flex items-center gap-1.5 py-0.5">
+                <div className="w-20 h-6 rounded-full bg-neutral-200/70 dark:bg-white/10 animate-pulse" />
+                <div className="w-24 h-6 rounded-full bg-neutral-200/70 dark:bg-white/10 animate-pulse" />
+                <div className="w-24 h-6 rounded-full bg-neutral-200/70 dark:bg-white/10 animate-pulse" />
+              </div>
+
+              {/* Action Pill Bar Skeleton */}
+              <div className="w-full h-12 rounded-full bg-neutral-200/70 dark:bg-white/10 animate-pulse" />
+
+              {/* Tier Threshold Callout Skeleton */}
+              <div className="flex items-center justify-between px-1">
+                <div className="w-36 h-3 rounded bg-neutral-200/60 dark:bg-white/5 animate-pulse" />
+                <div className="w-24 h-3 rounded bg-neutral-200/60 dark:bg-white/5 animate-pulse" />
+              </div>
+
+              {/* Action Buttons Skeleton */}
+              <div className="pt-1 space-y-2.5">
+                <div className="w-full h-11 rounded-full bg-neutral-200/80 dark:bg-white/10 animate-pulse" />
+                <div className="w-full h-10 rounded-full bg-neutral-200/60 dark:bg-white/5 animate-pulse" />
+              </div>
+            </div>
+          ) : !activeCard ? (
+            <div className="text-center py-6 px-3 space-y-4">
+              <div className="w-14 h-14 mx-auto rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 flex items-center justify-center text-[#140826] dark:text-purple-200 shadow-sm">
+                <Camera className="w-7 h-7" />
+              </div>
+              <div className="space-y-1.5 max-w-xs mx-auto">
+                <h3 className="text-sm font-bold text-[var(--text-main)]">Claim Your Personal Facecard</h3>
+                <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                  Take a selfie to verify your face in memory, calculate your official lethality score, and claim your card.
+                </p>
+              </div>
+              <Link
+                href="/scan"
+                className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-full text-xs font-bold bg-[#140826] hover:bg-[#241040] text-white transition-all active:scale-[0.99] shadow-md"
+              >
+                <Camera className="w-4 h-4 text-white" />
+                <span>Take a Selfie</span>
+              </Link>
+            </div>
+          ) : (
+            <>
+              {/* Card Top Row: Author & Status */}
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2.5">
+                  <UserAvatar
+                    name={activeCard.cardholderName}
+                    src={activeCard.avatarUrl}
+                    size="md"
+                    className="ring-2 ring-[#18181B]/10 dark:ring-white/20"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
+                      {activeCard.cardholderName}
+                    </span>
+                    <span className="text-[10px] text-[var(--text-muted)] font-medium block">
+                      Selfie · Verified • {activeCard.tier} Status
+                    </span>
+                  </div>
+                </div>
+
+                <button 
+                  className="w-8 h-8 flex items-center justify-center text-[var(--text-main)] hover:opacity-70 transition-opacity"
+                  title="Options"
                 >
-                  <Heart className={`w-4 h-4 ${isLiked ? 'fill-white' : ''}`} />
+                  <MoreHorizontal className="w-4 h-4" />
                 </button>
               </div>
-            </div>
-          </div>
 
-          {/* Tier Threshold Callout */}
-          <div className="flex items-center justify-between text-xs px-1 text-[var(--text-muted)]">
-            <span className="flex items-center gap-1 font-medium">
-              <Award className="w-3.5 h-3.5 text-[#6366F1]" />
-              {activeCard.tier} Tier • {(lifetimePoints ?? 0).toLocaleString()} lifetime pts
-            </span>
-            <Link href="/card" className="font-bold text-[#6366F1] dark:text-purple-300 hover:underline">
-              View All Tiers →
-            </Link>
-          </div>
+              {/* Prominent Collectible Face Card */}
+              <div className="relative space-y-3.5">
+                <FaceCard card={activeCard} />
 
-          {/* Main Action Buttons */}
-          <div className="pt-1 space-y-2.5">
-            <Link
-              href="/scan"
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-full text-xs font-bold bg-[#140826] hover:bg-[#241040] text-white transition-all active:scale-[0.99] shadow-[0_8px_24px_rgba(20,8,38,0.3)] border border-purple-400/20"
-            >
-              <Camera className="w-4 h-4 text-white" />
-              <span>Take a Selfie</span>
-            </Link>
+                {/* In-Card Frosted Tag Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                  <span className="px-3 py-1 rounded-full bg-black/[0.05] dark:bg-white/10 text-[var(--text-main)] text-[11px] font-bold shrink-0">
+                    ★ {activeCard.score} Lethal
+                  </span>
+                  <span className="px-3 py-1 rounded-full bg-black/[0.05] dark:bg-white/10 text-[var(--text-muted)] text-[11px] font-semibold shrink-0">
+                    {activeCard.band}
+                  </span>
+                  {formulaList[0] && (
+                    <span className="px-3 py-1 rounded-full bg-black/[0.05] dark:bg-white/10 text-[var(--text-muted)] text-[11px] font-semibold shrink-0">
+                      {formulaList[0].name} {formulaList[0].score}
+                    </span>
+                  )}
+                  {formulaList[4] && (
+                    <span className="px-3 py-1 rounded-full bg-black/[0.05] dark:bg-white/10 text-[var(--text-muted)] text-[11px] font-semibold shrink-0">
+                      {formulaList[4].name} {formulaList[4].score}
+                    </span>
+                  )}
+                </div>
 
-            <Link
-              href="/faceoff"
-              className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-full text-xs font-bold border border-[#DDD6FE] dark:border-purple-500/30 bg-[#EDE9FE] dark:bg-[#6366F1]/20 hover:bg-[#DDD6FE] dark:hover:bg-[#6366F1]/30 text-[#140826] dark:text-purple-200 transition-all active:scale-[0.99] shadow-xs"
-            >
-              <Swords className="w-4 h-4 text-[#140826] dark:text-purple-200" />
-              <span>Challenge a Friend in Arena</span>
-            </Link>
-          </div>
+                {/* Floating Action Pill Bar */}
+                <div className="p-2 rounded-full bg-[#140826] text-white shadow-[0_10px_30px_rgba(20,8,38,0.35)] border border-purple-400/25 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-white px-3">
+                    <Star className="w-3.5 h-3.5 text-white fill-white" />
+                    <span>{activeCard.score} Lethality</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/faceoff"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/15 hover:bg-white/20 text-xs font-bold text-white transition-colors"
+                      title="Challenge in Arena"
+                    >
+                      <Swords className="w-3.5 h-3.5 text-white" />
+                      <span>Duel</span>
+                    </Link>
+
+                    <button
+                      onClick={() => setIsLiked(!isLiked)}
+                      className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#FF7A50] to-[#FFAE80] text-white flex items-center justify-center shadow-[0_4px_16px_rgba(255,122,80,0.45)] border border-white/20 transition-transform active:scale-95"
+                      title="Like / Save Card"
+                    >
+                      <Heart className={`w-4 h-4 ${isLiked ? 'fill-white' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tier Threshold Callout */}
+              <div className="flex items-center justify-between text-xs px-1 text-[var(--text-muted)]">
+                <span className="flex items-center gap-1 font-medium">
+                  <Award className="w-3.5 h-3.5 text-[#6366F1]" />
+                  {activeCard.tier} Tier • {(lifetimePoints ?? 0).toLocaleString()} lifetime pts
+                </span>
+                <Link href="/card" className="font-bold text-[#6366F1] dark:text-purple-300 hover:underline">
+                  View All Tiers →
+                </Link>
+              </div>
+
+              {/* Main Action Buttons */}
+              <div className="pt-1 space-y-2.5">
+                <Link
+                  href="/scan"
+                  className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-full text-xs font-bold bg-[#140826] hover:bg-[#241040] text-white transition-all active:scale-[0.99] shadow-[0_8px_24px_rgba(20,8,38,0.3)] border border-purple-400/20"
+                >
+                  <Camera className="w-4 h-4 text-white" />
+                  <span>Take a Selfie</span>
+                </Link>
+
+                <Link
+                  href="/faceoff"
+                  className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-full text-xs font-bold border border-[#DDD6FE] dark:border-purple-500/30 bg-[#EDE9FE] dark:bg-[#6366F1]/20 hover:bg-[#DDD6FE] dark:hover:bg-[#6366F1]/30 text-[#140826] dark:text-purple-200 transition-all active:scale-[0.99] shadow-xs"
+                >
+                  <Swords className="w-4 h-4 text-[#140826] dark:text-purple-200" />
+                  <span>Challenge a Friend in Arena</span>
+                </Link>
+              </div>
+            </>
+          )}
         </section>
 
         {/* Sub-Card Row: Arena Teaser */}
-        <section className="p-4 rounded-[28px] bg-white/85 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/95 dark:border-white/10 shadow-sm flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 flex items-center justify-center text-[#140826] dark:text-purple-200 shrink-0">
-              <Swords className="w-4 h-4" />
+        {duelsLoading ? (
+          <div className="h-16 rounded-[28px] bg-neutral-200/60 dark:bg-white/[0.05] animate-pulse" />
+        ) : (
+          <section className="p-4 rounded-[28px] bg-white/85 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/95 dark:border-white/10 shadow-sm flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 flex items-center justify-center text-[#140826] dark:text-purple-200 shrink-0">
+                <Swords className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
+                  Arena Battles
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium block">
+                  {myDuels.length > 0 ? `${myDuels.length} Active Duels Live` : 'Head-to-head card battles'}
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
-                Arena Battles
-              </span>
-              <span className="text-[10px] text-[var(--text-muted)] font-medium block">
-                {myDuels.length > 0 ? `${myDuels.length} Active Duels Live` : 'Head-to-head card battles'}
-              </span>
-            </div>
-          </div>
 
-          <Link
-            href="/faceoff"
-            className="py-1.5 px-3.5 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-xs font-bold text-[var(--text-main)] transition-colors"
-          >
-            Enter Arena →
-          </Link>
-        </section>
+            <Link
+              href="/faceoff"
+              className="py-1.5 px-3.5 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-xs font-bold text-[var(--text-main)] transition-colors"
+            >
+              Enter Arena →
+            </Link>
+          </section>
+        )}
 
         {/* Live Arena Duels Grid */}
         <section className="space-y-3 pt-1">
@@ -334,7 +397,12 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {myDuels.length === 0 ? (
+            {duelsLoading ? (
+              <>
+                <div className="aspect-[3/4] rounded-[28px] bg-neutral-200/60 dark:bg-white/[0.05] animate-pulse" />
+                <div className="aspect-[3/4] rounded-[28px] bg-neutral-200/60 dark:bg-white/[0.05] animate-pulse" />
+              </>
+            ) : myDuels.length === 0 ? (
               <div className="col-span-2 p-6 text-center rounded-[28px] bg-white/70 dark:bg-[#140826]/70 backdrop-blur-xl border border-dashed border-black/10 dark:border-white/10 space-y-3">
                 <div className="w-11 h-11 mx-auto rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 flex items-center justify-center text-[#140826] dark:text-purple-200">
                   <Swords className="w-5 h-5" />

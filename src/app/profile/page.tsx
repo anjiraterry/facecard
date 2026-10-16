@@ -23,13 +23,20 @@ import {
   Clock,
   Trash2,
   ExternalLink,
-  CreditCard
+  CreditCard,
+  Camera,
+  Upload,
+  CheckCircle2
 } from 'lucide-react';
 import { BottomNav } from '@/components/navigation/BottomNav';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
+import { useCard } from '@/hooks/useCard';
 import { useFriends } from '@/hooks/useFriends';
+import { UserAvatar } from '@/components/common/UserAvatar';
+import { Skeleton, FriendRowSkeleton } from '@/components/common/Skeleton';
 import { scanService } from '@/services/scanService';
+import { AVATAR_PRESETS } from '@/lib/avatar';
 
 interface Friend {
   id: string;
@@ -43,10 +50,17 @@ interface Friend {
 }
 
 export default function ProfilePage() {
-  const { user, updateProfile, signOut } = useAuth();
+  const { user, isLoading: authLoading, updateProfile, signOut, deleteAccount } = useAuth();
+  const { activeCard, isLoading: cardLoading, refreshCard } = useCard();
 
   const [activeTab, setActiveTab] = useState<'FRIENDS' | 'HISTORY'>('FRIENDS');
   const [isEditing, setIsEditing] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+  const avatarFileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMenuFriendId, setActiveMenuFriendId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -144,6 +158,55 @@ export default function ProfilePage() {
     }
   };
 
+  const handleOpenAvatarModal = () => {
+    setSelectedAvatarUrl(activeCard?.avatarUrl || user?.avatarUrl || null);
+    setShowAvatarModal(true);
+  };
+
+  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 4 * 1024 * 1024) {
+      showToast('Image file must be under 4MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setSelectedAvatarUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveAvatar = async () => {
+    if (!selectedAvatarUrl) {
+      showToast('Please select or upload a portrait');
+      return;
+    }
+    try {
+      setIsSavingAvatar(true);
+      const res = await fetch('/api/profile/avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatarUrl: selectedAvatarUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update portrait');
+      }
+      showToast('Facecard portrait updated!');
+      setShowAvatarModal(false);
+      await refreshCard();
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to update portrait');
+    } finally {
+      setIsSavingAvatar(false);
+    }
+  };
+
   const [removedFriendIds, setRemovedFriendIds] = useState<string[]>([]);
 
   const handleRemoveFriend = (id: string, name: string) => {
@@ -213,68 +276,127 @@ export default function ProfilePage() {
         </header>
 
         {/* User Identity Hero Section */}
-        <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3.5">
-              <div className="relative w-18 h-18 rounded-full p-1 ring-2 ring-[#6366F1] ring-offset-2 flex items-center justify-center shrink-0 shadow-sm">
-                <img
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80"
-                  alt={userInfo.name}
-                  className="w-full h-full rounded-full object-cover"
-                />
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#140826] border-2 border-white dark:border-[#140826] flex items-center justify-center shadow-xs">
-                  <Sparkles className="w-3 h-3 text-white" />
-                </div>
-              </div>
-
-              <div>
-                <h1 className="text-lg font-extrabold text-[var(--text-main)] tracking-tight leading-tight">
-                  {userInfo.name}
-                </h1>
-                <p className="text-xs font-medium text-[var(--text-muted)] mt-0.5">
-                  {userInfo.handle}
-                </p>
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DDD6FE] text-[#140826]">
-                    Gold Tier
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-950/60 text-[#FF7A50] flex items-center gap-1">
-                    <Flame className="w-3 h-3 fill-[#FF7A50]" />
-                    7 Days
-                  </span>
+        {authLoading ? (
+          <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-4 animate-pulse">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3.5">
+                <div className="w-18 h-18 rounded-full bg-neutral-200 dark:bg-white/10 shrink-0" />
+                <div className="space-y-2">
+                  <div className="h-5 w-32 rounded bg-neutral-200 dark:bg-white/10" />
+                  <div className="h-3 w-20 rounded bg-neutral-200/70 dark:bg-white/5" />
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <div className="h-4 w-16 rounded-full bg-neutral-200 dark:bg-white/10" />
+                    <div className="h-4 w-14 rounded-full bg-neutral-200 dark:bg-white/10" />
+                  </div>
                 </div>
               </div>
             </div>
-
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
-              title={isEditing ? 'Cancel Editing' : 'Edit Profile'}
-            >
-              {isEditing ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-            </button>
-          </div>
-
-          <p className="text-xs text-[var(--text-muted)] leading-relaxed italic bg-black/[0.02] dark:bg-white/[0.04] p-2.5 rounded-2xl border border-black/[0.03] dark:border-white/[0.06]">
-            &ldquo;{userInfo.bio}&rdquo;
-          </p>
-
-          {/* Quick Counter Grid */}
-          <div className="grid grid-cols-3 gap-2 pt-1 border-t border-black/[0.05] dark:border-white/[0.08]">
-            <div className="text-center py-1">
-              <span className="block text-sm font-extrabold text-[var(--text-main)]">84</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-medium">Lethality</span>
+            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-black/[0.05] dark:border-white/[0.08]">
+              <div className="text-center py-1 space-y-1">
+                <div className="h-4 w-8 rounded bg-neutral-200 dark:bg-white/10 mx-auto" />
+                <div className="h-2.5 w-12 rounded bg-neutral-200/60 dark:bg-white/5 mx-auto" />
+              </div>
+              <div className="text-center py-1 border-x border-black/[0.05] dark:border-white/[0.08] space-y-1">
+                <div className="h-4 w-8 rounded bg-neutral-200 dark:bg-white/10 mx-auto" />
+                <div className="h-2.5 w-12 rounded bg-neutral-200/60 dark:bg-white/5 mx-auto" />
+              </div>
+              <div className="text-center py-1 space-y-1">
+                <div className="h-4 w-8 rounded bg-neutral-200 dark:bg-white/10 mx-auto" />
+                <div className="h-2.5 w-12 rounded bg-neutral-200/60 dark:bg-white/5 mx-auto" />
+              </div>
             </div>
-            <div className="text-center py-1 border-x border-black/[0.05] dark:border-white/[0.08]">
-              <span className="block text-sm font-extrabold text-[var(--text-main)]">24</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-medium">Friends</span>
+          </section>
+        ) : (
+          <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3.5">
+                <button
+                  type="button"
+                  onClick={handleOpenAvatarModal}
+                  className="relative w-18 h-18 rounded-full p-1 ring-2 ring-[#6366F1] ring-offset-2 flex items-center justify-center shrink-0 shadow-sm cursor-pointer group hover:ring-[#FF7A50] transition-all"
+                  title="Change Card Portrait"
+                >
+                  <UserAvatar
+                    name={userInfo.name}
+                    handle={userInfo.handle}
+                    src={activeCard?.avatarUrl}
+                    size="xl"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#140826] border-2 border-white dark:border-[#140826] flex items-center justify-center shadow-xs group-hover:bg-[#6366F1] transition-colors">
+                    <Camera className="w-3 h-3 text-white" />
+                  </div>
+                </button>
+
+                <div>
+                  <h1 className="text-lg font-extrabold text-[var(--text-main)] tracking-tight leading-tight">
+                    {userInfo.name || 'Contender'}
+                  </h1>
+                  <p className="text-xs font-medium text-[var(--text-muted)] mt-0.5">
+                    {userInfo.handle || '@user'}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DDD6FE] text-[#140826]">
+                      {activeCard?.tier ? `${activeCard.tier} Tier` : (user ? 'Member' : 'Guest')}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-950/60 text-[#FF7A50] flex items-center gap-1">
+                      <Flame className="w-3 h-3 fill-[#FF7A50]" />
+                      {activeCard ? `${activeCard.streakDays} Day${activeCard.streakDays === 1 ? '' : 's'}` : '0 Days'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                title={isEditing ? 'Cancel Editing' : 'Edit Profile'}
+              >
+                {isEditing ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+              </button>
             </div>
-            <div className="text-center py-1">
-              <span className="block text-sm font-extrabold text-[var(--text-main)]">42</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-medium">Selfies</span>
+
+            {userInfo.bio && userInfo.bio.trim().length > 0 && (
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed italic bg-black/[0.02] dark:bg-white/[0.04] p-2.5 rounded-2xl border border-black/[0.03] dark:border-white/[0.06]">
+                &ldquo;{userInfo.bio}&rdquo;
+              </p>
+            )}
+
+            {/* Quick Counter Grid */}
+            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-black/[0.05] dark:border-white/[0.08]">
+              <div className="text-center py-1">
+                {cardLoading ? (
+                  <Skeleton className="h-5 w-8 mx-auto mb-1" />
+                ) : (
+                  <span className="block text-sm font-extrabold text-[var(--text-main)]">
+                    {activeCard ? activeCard.score : 0}
+                  </span>
+                )}
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Lethality</span>
+              </div>
+              <div className="text-center py-1 border-x border-black/[0.05] dark:border-white/[0.08]">
+                {friendsLoading ? (
+                  <Skeleton className="h-5 w-8 mx-auto mb-1" />
+                ) : (
+                  <span className="block text-sm font-extrabold text-[var(--text-main)]">
+                    {friends.length}
+                  </span>
+                )}
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Friends</span>
+              </div>
+              <div className="text-center py-1">
+                {historyLoading ? (
+                  <Skeleton className="h-5 w-8 mx-auto mb-1" />
+                ) : (
+                  <span className="block text-sm font-extrabold text-[var(--text-main)]">
+                    {activityHistory.length}
+                  </span>
+                )}
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Selfies</span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* User Information Details Card (Name, DOB, Basic Stuff) */}
         <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-4">
@@ -560,7 +682,13 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {filteredFriends.length === 0 ? (
+              {friendsLoading ? (
+                <div className="space-y-2.5">
+                  <FriendRowSkeleton />
+                  <FriendRowSkeleton />
+                  <FriendRowSkeleton />
+                </div>
+              ) : filteredFriends.length === 0 ? (
                 <div className="p-8 text-center rounded-[28px] bg-white/70 dark:bg-[#140826]/70 backdrop-blur-xl border border-dashed border-black/10 dark:border-white/10 space-y-3">
                   <div className="w-12 h-12 mx-auto rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 flex items-center justify-center text-[#140826] dark:text-purple-200">
                     <UserPlus className="w-6 h-6" />
@@ -586,10 +714,12 @@ export default function ProfilePage() {
                   {/* Friend Info */}
                   <Link href={`/friends/${friend.id}`} className="flex items-center gap-3 flex-1 hover:opacity-90 transition-opacity">
                     <div className="relative">
-                      <img
+                      <UserAvatar
+                        name={friend.name}
+                        handle={friend.handle}
                         src={friend.avatar}
-                        alt={friend.name}
-                        className="w-11 h-11 rounded-full object-cover ring-2 ring-black/5 dark:ring-white/10"
+                        size="lg"
+                        className="w-11 h-11 ring-2 ring-black/5 dark:ring-white/10"
                       />
                       {friend.status === 'online' && (
                         <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#140826]" />
@@ -686,7 +816,26 @@ export default function ProfilePage() {
             </div>
 
             <div className="space-y-2.5">
-              {activityHistory.length === 0 ? (
+              {historyLoading ? (
+                <div className="space-y-2.5">
+                  <div className="p-3.5 rounded-[22px] bg-white/70 dark:bg-[#140826]/75 border border-black/5 dark:border-white/10 animate-pulse flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-white/10 shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3.5 w-3/4 bg-neutral-200 dark:bg-white/10 rounded" />
+                      <div className="h-2.5 w-full bg-neutral-200/60 dark:bg-white/5 rounded" />
+                      <div className="h-2 w-20 bg-neutral-200/40 dark:bg-white/5 rounded" />
+                    </div>
+                  </div>
+                  <div className="p-3.5 rounded-[22px] bg-white/70 dark:bg-[#140826]/75 border border-black/5 dark:border-white/10 animate-pulse flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-white/10 shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3.5 w-2/3 bg-neutral-200 dark:bg-white/10 rounded" />
+                      <div className="h-2.5 w-full bg-neutral-200/60 dark:bg-white/5 rounded" />
+                      <div className="h-2 w-20 bg-neutral-200/40 dark:bg-white/5 rounded" />
+                    </div>
+                  </div>
+                </div>
+              ) : activityHistory.length === 0 ? (
                 <div className="p-8 text-center rounded-[22px] bg-white/50 dark:bg-white/[0.04] border border-dashed border-black/10 dark:border-white/10 space-y-2">
                   <Sparkles className="w-7 h-7 mx-auto text-[var(--text-muted)] opacity-60" />
                   <p className="text-xs font-bold text-[var(--text-main)]">No milestone history yet</p>
@@ -738,14 +887,178 @@ export default function ProfilePage() {
                 <p className="text-[10px] text-[var(--text-muted)] truncate max-w-[200px]">{user?.email || 'Authenticated User'}</p>
               </div>
             </div>
-            <button
-              onClick={signOut}
-              className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200/50 hover:bg-rose-100 transition-colors"
-            >
-              Sign Out
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={signOut}
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-neutral-100 dark:bg-white/10 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-white/15 transition-colors cursor-pointer"
+              >
+                Sign Out
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200/50 hover:bg-rose-100 transition-colors cursor-pointer"
+              >
+                Delete Account
+              </button>
+            </div>
           </div>
+
+          {/* Delete Account Confirmation Modal */}
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+              <div className="w-full max-w-sm rounded-[24px] bg-white dark:bg-[#151518] border border-black/10 dark:border-white/10 p-6 space-y-4 shadow-2xl">
+                <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[var(--text-main)]">Delete Your Account?</h3>
+                  <p className="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">
+                    Under Nigerian Data Protection Act (NDPA) right-to-be-forgotten standards, your account, biometric consent, and personal data will be permanently anonymized. This action cannot be undone.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    disabled={isDeleting}
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold bg-neutral-100 dark:bg-white/10 text-[var(--text-main)] hover:bg-neutral-200 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={isDeleting}
+                    onClick={async () => {
+                      setIsDeleting(true);
+                      try {
+                        await deleteAccount();
+                      } catch (e) {
+                        alert(e instanceof Error ? e.message : 'Failed to delete account');
+                        setIsDeleting(false);
+                      }
+                    }}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
+
+        {/* Change Card Portrait / Avatar Modal */}
+        {showAvatarModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-end sm:items-center justify-center p-4">
+            <div className="w-full max-w-sm bg-white dark:bg-[#140826] border border-black/10 dark:border-white/10 rounded-[32px] p-6 shadow-2xl space-y-5 animate-scale-in">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-extrabold text-[var(--text-main)]">
+                    Facecard Portrait
+                  </h3>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                    Select an archetype or upload your custom portrait
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAvatarModal(false)}
+                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[var(--text-muted)] transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Active Selection Large Preview */}
+              <div className="flex flex-col items-center justify-center py-2">
+                <div className="relative w-24 h-24 rounded-full p-1.5 ring-4 ring-[#6366F1] shadow-lg">
+                  <UserAvatar
+                    name={userInfo.name}
+                    handle={userInfo.handle}
+                    src={selectedAvatarUrl}
+                    size="xl"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                  <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#140826] border-2 border-white flex items-center justify-center">
+                    <Sparkles className="w-3.5 h-3.5 text-white" />
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-[var(--text-main)] mt-2">
+                  {userInfo.handle}
+                </span>
+              </div>
+
+              {/* Archetype Presets Grid */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                  Archetype Presets
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {AVATAR_PRESETS.map((preset) => {
+                    const isSelected = selectedAvatarUrl === preset.url;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => setSelectedAvatarUrl(preset.url)}
+                        className={`p-2 rounded-2xl flex flex-col items-center gap-1.5 border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#DDD6FE]/40 border-[#6366F1] ring-2 ring-[#6366F1]/50'
+                            : 'bg-black/[0.02] dark:bg-white/[0.04] border-black/5 dark:border-white/5 hover:border-black/15'
+                        }`}
+                      >
+                        <img
+                          src={preset.url}
+                          alt={preset.name}
+                          className="w-10 h-10 rounded-full object-cover shadow-xs"
+                        />
+                        <span className="text-[10px] font-bold text-[var(--text-main)] truncate max-w-full">
+                          {preset.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Custom Upload Option */}
+              <div className="pt-1">
+                <input
+                  ref={avatarFileInputRef}
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  className="hidden"
+                  onChange={handleAvatarFileUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => avatarFileInputRef.current?.click()}
+                  className="w-full py-2.5 px-3 rounded-2xl border border-dashed border-[#6366F1]/40 hover:border-[#6366F1] bg-[#6366F1]/5 hover:bg-[#6366F1]/10 flex items-center justify-center gap-2 text-xs font-bold text-[#6366F1] dark:text-purple-300 transition-colors cursor-pointer"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Upload Custom Photo (up to 4MB)</span>
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={isSavingAvatar}
+                  onClick={() => setShowAvatarModal(false)}
+                  className="flex-1 py-3 rounded-2xl text-xs font-bold bg-neutral-100 dark:bg-white/10 text-[var(--text-main)] hover:bg-neutral-200 dark:hover:bg-white/15 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingAvatar || !selectedAvatarUrl}
+                  onClick={handleSaveAvatar}
+                  className="flex-1 py-3 rounded-2xl text-xs font-bold bg-[#140826] hover:bg-[#251040] text-white border border-purple-400/30 transition-all shadow-md disabled:opacity-50 cursor-pointer"
+                >
+                  {isSavingAvatar ? 'Saving...' : 'Save Portrait'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </main>
 

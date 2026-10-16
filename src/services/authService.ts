@@ -17,6 +17,7 @@ export interface UserProfile {
   streakFreezesHeld: number;
   memberSince?: string;
   biometricVerified?: boolean;
+  avatarUrl?: string | null;
 }
 
 export interface SendOtpResponse {
@@ -31,7 +32,6 @@ export interface VerifyOtpResponse {
   success: boolean;
   isNewUser?: boolean;
   user: UserProfile;
-  sessionToken: string;
 }
 
 export const authService = {
@@ -48,7 +48,6 @@ export const authService = {
       body: JSON.stringify({ email, code }),
     });
     if (res.user?.id && typeof window !== 'undefined') {
-      localStorage.setItem('fc_user_id', res.user.id);
       localStorage.setItem('facecard_user', JSON.stringify(res.user));
     }
     return res;
@@ -71,15 +70,11 @@ export const authService = {
       body: JSON.stringify(data),
     });
     if (res.user?.id && typeof window !== 'undefined') {
-      localStorage.setItem('fc_user_id', res.user.id);
       localStorage.setItem('facecard_user', JSON.stringify(res.user));
     }
     return res;
   },
 
-  async mintFacecard(data: { displayName: string; handle: string; pin: string }): Promise<{ success: boolean; user: UserProfile }> {
-    return this.claimFacecard(data);
-  },
 
   async loginWithPin(identifier: string, pin: string): Promise<{ success: boolean; user: UserProfile }> {
     const res = await apiRequest<{ success: boolean; user: UserProfile }>('/api/auth/pin-login', {
@@ -87,7 +82,6 @@ export const authService = {
       body: JSON.stringify({ identifier, pin }),
     });
     if (res.user?.id && typeof window !== 'undefined') {
-      localStorage.setItem('fc_user_id', res.user.id);
       localStorage.setItem('facecard_user', JSON.stringify(res.user));
     }
     return res;
@@ -103,4 +97,15 @@ export const authService = {
       body: JSON.stringify(data),
     });
   },
+
+  async deleteAccount(): Promise<{ success: boolean; message: string }> {
+    const res = await apiRequest<{ success: boolean; message: string }>('/api/me', {
+      method: 'DELETE',
+    });
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('facecard_user');
+    }
+    return res;
+  },
 };
+

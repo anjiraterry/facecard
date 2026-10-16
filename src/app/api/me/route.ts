@@ -56,7 +56,8 @@ export async function GET() {
       : defaultTitle;
 
     const handleClean = user.handle ? user.handle.replace(/^@/, '') : `user_${user.id.slice(0, 6)}`;
-    const avatar = getInitialsAvatarSvg(user.displayName, handleClean);
+    const userAvatar = (user as { avatarUrl?: string | null }).avatarUrl ?? null;
+    const avatar = userAvatar || getInitialsAvatarSvg(user.displayName, handleClean);
 
     const memberSinceStr = user.createdAt.toLocaleDateString('en-GB', {
       month: 'short',
@@ -69,6 +70,7 @@ export async function GET() {
       displayName: user.displayName,
       handle: `@${handleClean}`,
       avatar,
+      avatarUrl: userAvatar,
       dob: user.ageConfirmedAt ? user.ageConfirmedAt.toISOString().split('T')[0] : null,
       dobFormatted: user.ageConfirmedAt ? 'Age 18+ (Verified)' : 'Unverified',
       location: 'WAT (West Africa)',
@@ -128,3 +130,47 @@ export async function PATCH(req: NextRequest) {
 export async function POST(req: NextRequest) {
   return PATCH(req);
 }
+
+export async function DELETE() {
+  try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: 'Unauthorized', authenticated: false }, { status: 401 });
+    }
+
+    // 1. Revoke all active sessions
+    const { revokeAllUserSessions, clearSessionCookies } = await import('@/lib/auth/sessions');
+    await revokeAllUserSessions(sessionUser.id);
+
+    // 2. Anonymize user record per NDPA right-to-be-forgotten
+    await db.user.update({
+      where: { id: sessionUser.id },
+      data: {
+        status: 'DELETED',
+        email: null,
+        handle: null,
+        displayName: 'Deleted Contender',
+        pinHash: null,
+        ageConfirmedAt: null,
+        consentAt: null,
+      },
+    });
+
+    // 3. Clear public share cards
+    await db.shareCard.deleteMany({
+      where: { userId: sessionUser.id },
+    }).catch(() => undefined);
+
+    const res = NextResponse.json({
+      success: true,
+      message: 'Account deleted and personal data anonymized under NDPA standards.',
+    });
+    return clearSessionCookies(res);
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to delete account', message: error instanceof Error ? error.message : 'Error' },
+      { status: 500 }
+    );
+  }
+}
+

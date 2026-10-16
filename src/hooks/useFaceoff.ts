@@ -52,12 +52,19 @@ export function useFaceoff() {
     return faceoffService.joinFaceoff(duelId);
   };
 
+  const cancelDuel = async (duelId: string) => {
+    const res = await faceoffService.cancelDuel(duelId);
+    await fetchFaceoffs();
+    return res;
+  };
+
   return {
     faceoffs,
     isLoading,
     error,
     createChallenge,
     joinDuel,
+    cancelDuel,
     refreshFaceoffs: fetchFaceoffs,
   };
 }

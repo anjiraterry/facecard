@@ -6,9 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, KeyRound, User, AtSign, ArrowRight, AlertCircle, CreditCard } from 'lucide-react';
 import { FaceCard } from '@/components/card/FaceCard';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/common/ToastProvider';
 import { FaceCardData } from '@/types';
 
-interface ClaimFaceCardModalProps {
+export interface ClaimFaceCardModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultMode?: 'claim' | 'login';
@@ -17,6 +18,7 @@ interface ClaimFaceCardModalProps {
 export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: ClaimFaceCardModalProps) {
   const router = useRouter();
   const { claimFacecard, loginWithPin } = useAuth();
+  const { toast } = useToast();
   
   const [mode, setMode] = useState<'claim' | 'login'>(defaultMode);
   
@@ -51,17 +53,23 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
     setError(null);
 
     if (!displayName.trim() || displayName.trim().length < 2) {
-      setError('Please enter your full name (at least 2 characters).');
+      const msg = 'Please enter your full name (at least 2 characters).';
+      setError(msg);
+      toast.warning(msg);
       return;
     }
 
     if (!cleanHandle || !/^[a-z0-9_]{3,20}$/.test(cleanHandle)) {
-      setError('Username must be 3–20 letters, numbers, or underscores.');
+      const msg = 'Username must be 3–20 letters, numbers, or underscores.';
+      setError(msg);
+      toast.warning(msg);
       return;
     }
 
     if (!/^\d{4,6}$/.test(pin.trim())) {
-      setError('Please set a 4 to 6 digit security PIN.');
+      const msg = 'Please set a 4 to 6 digit security PIN.';
+      setError(msg);
+      toast.warning(msg);
       return;
     }
 
@@ -72,11 +80,14 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
         handle: cleanHandle,
         pin: pin.trim(),
       });
+      toast.success(`Face Card claimed! Welcome, @${cleanHandle}`);
       onClose();
       router.push('/home');
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to claim Facecard');
+      const msg = err instanceof Error ? err.message : 'Failed to claim Facecard';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -88,23 +99,30 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
 
     const cleanId = loginIdentifier.replace(/^@/, '').trim();
     if (!cleanId) {
-      setError('Enter your @username or Facecard number.');
+      const msg = 'Enter your @username or Facecard number.';
+      setError(msg);
+      toast.warning(msg);
       return;
     }
 
     if (!/^\d{4,6}$/.test(loginPin.trim())) {
-      setError('Enter your 4 to 6 digit PIN.');
+      const msg = 'Enter your 4 to 6 digit PIN.';
+      setError(msg);
+      toast.warning(msg);
       return;
     }
 
     setIsLoading(true);
     try {
       await loginWithPin(cleanId, loginPin.trim());
+      toast.success('Signed in successfully! Welcome back.');
       onClose();
       router.push('/home');
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Invalid credentials');
+      const msg = err instanceof Error ? err.message : 'Invalid credentials';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -130,11 +148,8 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative z-10 w-full max-w-xl bg-white dark:bg-[#151518] text-[#1A1A1A] dark:text-[#F9FAFB] rounded-[28px] border border-black/10 dark:border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.25)] dark:shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden my-auto"
+          className="relative z-10 w-full max-w-md bg-white dark:bg-[#151518] text-[#1A1A1A] dark:text-[#F9FAFB] rounded-[28px] border border-black/10 dark:border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.25)] dark:shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden my-auto"
         >
-          {/* Top Warm Gold Accent Line */}
-          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#E8D744] via-[#F2A6A2] to-[#B3BFF0]" />
-
           {/* Close button */}
           <button
             onClick={onClose}
@@ -143,45 +158,31 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
             <X className="w-4 h-4" />
           </button>
 
-          <div className="p-6 sm:p-8 space-y-6">
-            {/* Header Tabs */}
-            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/10 pb-4 pr-10">
-              <div className="flex gap-6">
-                <button
-                  type="button"
-                  onClick={() => { setMode('claim'); setError(null); }}
-                  className={`text-lg font-bold tracking-tight transition-colors pb-1.5 relative cursor-pointer ${
-                    mode === 'claim'
-                      ? 'text-[#1A1A1A] dark:text-white'
-                      : 'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300'
-                  }`}
-                >
-                  Claim Facecard
-                  {mode === 'claim' && (
-                    <motion.div
-                      layoutId="activeTabIndicator"
-                      className="absolute bottom-0 inset-x-0 h-0.5 bg-[#1A1A1A] dark:bg-[#E8D744] rounded-full"
-                    />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMode('login'); setError(null); }}
-                  className={`text-lg font-bold tracking-tight transition-colors pb-1.5 relative cursor-pointer ${
-                    mode === 'login'
-                      ? 'text-[#1A1A1A] dark:text-white'
-                      : 'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300'
-                  }`}
-                >
-                  Access with PIN
-                  {mode === 'login' && (
-                    <motion.div
-                      layoutId="activeTabIndicator"
-                      className="absolute bottom-0 inset-x-0 h-0.5 bg-[#1A1A1A] dark:bg-[#E8D744] rounded-full"
-                    />
-                  )}
-                </button>
-              </div>
+          <div className="p-5 sm:p-6 space-y-4">
+            {/* Header Tabs matching capsule tab styling */}
+            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200/60 dark:border-white/10 pr-9">
+              <button
+                type="button"
+                onClick={() => { setMode('claim'); setError(null); }}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  mode === 'claim'
+                    ? 'bg-[#DDD6FE] text-[#140826] shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+                }`}
+              >
+                Claim Facecard
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(null); }}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  mode === 'login'
+                    ? 'bg-[#DDD6FE] text-[#140826] shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+                }`}
+              >
+                Access with PIN
+              </button>
             </div>
 
             {error && (
@@ -192,22 +193,20 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
             )}
 
             {mode === 'claim' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                {/* Live Card Preview Column */}
-                <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-100 dark:border-white/5 space-y-3">
-                  <div className="w-full max-w-[230px] transform hover:scale-[1.02] transition-transform duration-300 pointer-events-none drop-shadow-md">
-                    <FaceCard card={previewCard} interactive={false} />
-                  </div>
-                  <div className="text-center">
-                    <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                      Live Preview &bull; {cleanHandle ? `@${cleanHandle}` : '@handle'}
-                    </span>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">Includes 100 LP starter balance</p>
-                  </div>
+              <div className="space-y-4">
+                {/* Live Card Preview Column - same width as the inputs */}
+                <div className="w-full drop-shadow-md">
+                  <FaceCard card={previewCard} interactive={true} />
+                </div>
+                <div className="text-center">
+                  <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                    Live Preview &bull; {cleanHandle ? `@${cleanHandle}` : '@handle'}
+                  </span>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">Includes 100 LP starter balance</p>
                 </div>
 
                 {/* Claiming Form */}
-                <form onSubmit={handleClaimSubmit} className="space-y-3.5">
+                <form onSubmit={handleClaimSubmit} className="space-y-3.5 w-full">
                   <div>
                     <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1.5">
                       Full Name

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
+import { verifyOtpCode } from '@/lib/auth/otp';
+import { getClientIp } from '@/lib/auth/rateLimit';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,11 +11,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { email } = await req.json();
+    const { email, code } = await req.json();
     const cleanEmail = (email || '').trim().toLowerCase();
 
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
+    }
+
+    // Ownership proof: a code issued to this address via /api/auth/otp/send
+    const verification = await verifyOtpCode(cleanEmail, String(code ?? ''), getClientIp(req));
+    if (!verification.valid) {
+      return NextResponse.json(
+        { error: verification.reason || 'Invalid or expired verification code' },
+        { status: 401 }
+      );
     }
 
     // Check if email already in use by another user

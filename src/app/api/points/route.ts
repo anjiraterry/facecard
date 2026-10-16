@@ -79,9 +79,13 @@ export async function GET(req: NextRequest) {
           minute: '2-digit',
         });
 
-        // Find corresponding ledger entry if present
+        // Find corresponding ledger entry by exact refId or idempotency key
         const ledger = user.ledgerEntries.find(
-          (le) => le.type === 'SCAN' && Math.abs(le.createdAt.getTime() - scan.createdAt.getTime()) < 60000
+          (le) =>
+            le.type === 'SCAN' &&
+            (le.refId === scan.id ||
+              le.idempotencyKey === `scan:${scan.id}` ||
+              Math.abs(le.createdAt.getTime() - scan.createdAt.getTime()) < 60000)
         );
 
         fundingHistory.push({

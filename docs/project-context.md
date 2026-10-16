@@ -142,8 +142,7 @@
 
 ### Component Inventory (`src/components/`)
 - `card/FaceCard.tsx`: Complete metallic card component with 3D gyroscopic tilt, EMV chip, contactless wave, 4 tier styles, and Black Card specular animation.
-- `card/ClaimFaceCardModal.tsx`: Handle selection and PIN setup modal.
-- `card/MintFaceCardModal.tsx`: Card generation modal.
+- `card/ClaimFaceCardModal.tsx`: Handle selection, PIN setup, and initial card claim modal.
 - `card/ShareCardModal.tsx`: Preview and share modal with download and clipboard fallbacks.
 - `navigation/BottomNav.tsx`: Mobile dock with central glowing scan button and icon states.
 - `common/TopStatsBar.tsx`: Header displaying active tier, balance, and streak badge.
@@ -183,7 +182,7 @@ The repository contains **34 API route endpoints** under `src/app/api/`:
 | **Points & Ledger** | `GET /api/points` | **Fully Functional**.<br>• Computes funding history (from scans) and spending history (shop purchases and duel escrows).<br>• Uses append-only `PointsLedger` entries with dual `LIFETIME` and `SPENDABLE` balances. |
 | **Daily Streaks** | Integrated in `/api/scan` & `/api/points` | **Fully Functional**.<br>• Midnight calculation aligned to Lagos WAT (`getLagosDayKey()`).<br>• Streak multiplier ladder (1.0x to 2.0x) applied to earned points.<br>• Automated streak freeze consumption (holding up to 2 shields). |
 | **Cosmetics Shop** | `GET /api/shop`<br>`GET /api/shop/items`<br>`POST /api/shop/purchase`<br>`POST /api/shop/equip` | **Fully Functional**.<br>• 11 catalog items seeded via `prisma/seed.ts`.<br>• Purchases executed in ACID transaction updating `UserItem`, deducting balance, and recording ledger debit.<br>• Streak freeze purchases capped at 2. |
-| **Face-Off Arena** | `GET /api/faceoffs`<br>`POST /api/faceoffs`<br>`POST /api/faceoff/create`<br>`POST /api/faceoff/resolve`<br>`GET /api/faceoffs/[id]`<br>`POST /api/faceoffs/[id]/join`<br>`GET /api/faceoffs/invite/[code]` | **Functional**.<br>• Supports Staked and Friendly duels.<br>• Escrow holds points via `FACEOFF_STAKE_HOLD`; resolution calculates 5% system fee and awards pot to winner.<br>• Unique 6-character invite codes generated for challenge links. |
+| **Face-Off Arena** | `GET /api/faceoffs`<br>`POST /api/faceoffs`<br>`GET /api/faceoffs/[id]`<br>`DELETE /api/faceoffs/[id]`<br>`POST /api/faceoffs/[id]/join`<br>`GET /api/faceoffs/invite/[code]` | **Functional**.<br>• Supports Staked and Friendly duels.<br>• Escrow holds points via `FACEOFF_STAKE_HOLD`; resolution calculates 5% system fee and awards pot to winner.<br>• Unique 6-character invite codes generated for challenge links. |
 | **Share Cards & OG** | `POST /api/share-cards`<br>`GET /api/share-cards/[id]`<br>`GET /api/og` | **Functional**.<br>• Creates `ShareCard` records with 30-day auto-expiry.<br>• `/api/og` generates dynamic 1200x630 social preview cards using `@vercel/og` (`ImageResponse`). |
 | **Identity & Me** | `GET /api/me`<br>`PATCH /api/me`<br>`POST /api/consent` | **Fully Functional**.<br>• Profile updates and age confirmation / biometric consent recording. |
 | **Cron / Reconcile** | `GET /api/cron/reconcile` | **Partial**.<br>• Endpoint executes `reconcileLedger()` checking cached vs calculated balances for drift.<br>• Not yet wired to a scheduled cron trigger. |
@@ -268,7 +267,7 @@ Comparison against `docs/PLAN.md` (Phases 0 through 11):
 | 7.4 | Opt-In Cloud Share Links | **Partial** | `src/app/api/share-cards/route.ts` creates database record; R2 blob storage unlinked |
 | **Phase 8: Face-Off Arena (PvP)** | | | |
 | 8.1 | Schema & State Machine | **Done** | `FaceOff` and `FaceOffAttempt` in `prisma/schema.prisma` with 6 status states |
-| 8.2 | Staked Match Engine | **Done** | `src/app/api/faceoffs/route.ts` escrows stake; `/api/faceoff/resolve/route.ts` deducts 5% fee and pays out |
+| 8.2 | Staked Match Engine | **Done** | `src/app/api/faceoffs/route.ts` escrows stake; match scan completion and `src/lib/faceoff.ts` deducts 5% fee and pays out |
 | 8.3 | Friendly Mode Engine | **Done** | Zero-stake duel flow supported |
 | 8.4 | Best-of-Three Attempts | **Partial** | Attempt models exist; multi-round attempt resolution simplified |
 | 8.5 | Auto-Resolution & Expiry | **Partial** | Reconcile endpoint sweeps expired duels; scheduled Cloudflare Cron missing |

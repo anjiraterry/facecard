@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
 import { getStreakMultiplier } from '@/lib/scoring';
-import { getInitialsAvatarSvg } from '@/lib/avatar';
+import { getInitialsAvatarSvg, getCardCoverArtSvg } from '@/lib/avatar';
 import { Tier, Band } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -60,17 +60,19 @@ export async function GET(req: NextRequest) {
       : defaultTitle;
 
     const handleClean = user.handle ? user.handle.replace(/^@/, '') : `user_${user.id.slice(0, 6)}`;
+    const userAvatar = (user as { avatarUrl?: string | null }).avatarUrl ?? undefined;
 
     const activeCard = {
       id: user.id,
       tier: user.tier as Tier,
-      cardholderName: user.displayName.toUpperCase(),
+      cardholderName: `@${handleClean}`,
+      handle: `@${handleClean}`,
       title: cardTitle,
       score,
       band,
       streakDays,
       multiplier: streakMultiplier,
-      avatarUrl: getInitialsAvatarSvg(user.displayName, handleClean),
+      avatarUrl: userAvatar,
       skinId: cardRecord?.equippedSkin?.slug ?? cardRecord?.equippedSkinId ?? undefined,
       frameId: cardRecord?.equippedFrame?.slug ?? cardRecord?.equippedFrameId ?? undefined,
     };
@@ -95,7 +97,9 @@ export async function GET(req: NextRequest) {
         card: {
           id: 'card-classic',
           tier: 'CLASSIC' as Tier,
-          cardholderName: user.displayName.toUpperCase(),
+          cardholderName: `@${handleClean}`,
+          handle: `@${handleClean}`,
+          avatarUrl: userAvatar,
           title: 'Certified Classic',
           score: Math.min(score, 72),
           band: 'DANGEROUS' as Band,
@@ -140,7 +144,9 @@ export async function GET(req: NextRequest) {
         card: {
           id: 'card-platinum',
           tier: 'PLATINUM' as Tier,
-          cardholderName: user.displayName.toUpperCase(),
+          cardholderName: `@${handleClean}`,
+          handle: `@${handleClean}`,
+          avatarUrl: userAvatar,
           title: 'Platinum Prestige',
           score: 88,
           band: 'LETHAL' as Band,
@@ -165,7 +171,9 @@ export async function GET(req: NextRequest) {
         card: {
           id: 'card-black',
           tier: 'BLACK' as Tier,
-          cardholderName: user.displayName.toUpperCase(),
+          cardholderName: `@${handleClean}`,
+          handle: `@${handleClean}`,
+          avatarUrl: userAvatar,
           title: 'Apex Obsidian',
           score: 95,
           band: 'LETHAL' as Band,

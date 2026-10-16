@@ -94,6 +94,7 @@ model User {
   unlockedAt         DateTime?
   invitedByFaceOffId String?
   pinHash            String?
+  avatarUrl          String?
 
   scans              Scan[]
   scanSlots          ScanSlot[]
@@ -109,6 +110,50 @@ model User {
   shareCards         ShareCard[]
   abuseFlags         AbuseFlag[]
   auditLogs          AuditLog[]
+  authSessions       AuthSession[]
+}
+
+/// Server-side login session. Only a SHA-256 hash of the random cookie token is stored.
+model AuthSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  ip         String?
+  userAgent  String?
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// One-time email passcode challenge. codeHash is an HMAC, never the raw code.
+model OtpChallenge {
+  id         String    @id @default(uuid()) @db.Uuid
+  email      String
+  codeHash   String
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  @@index([email, createdAt])
+  @@index([expiresAt])
+}
+
+/// Generic attempt log used for rate limiting (OTP send/verify, PIN login, account claim).
+model AuthAttempt {
+  id        String   @id @default(uuid()) @db.Uuid
+  kind      String
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([kind, key, createdAt])
+  @@index([createdAt])
 }
 
 model ScanSlot {

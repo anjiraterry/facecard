@@ -34,7 +34,8 @@ export default function LandingPage() {
   const showcaseCard: FaceCardData = {
     id: 'landing-showcase',
     tier: 'BLACK',
-    cardholderName: 'ALEXANDER CROSS',
+    cardholderName: '@alexcross',
+    handle: '@alexcross',
     title: 'Lethal Weapon',
     score: 96,
     band: 'LETHAL',
@@ -45,7 +46,8 @@ export default function LandingPage() {
   const lilacCard: FaceCardData = {
     id: 'landing-lilac',
     tier: 'CLASSIC',
-    cardholderName: 'MAYA CHEN',
+    cardholderName: '@mayachen',
+    handle: '@mayachen',
     title: 'Certified Classic',
     score: 78,
     band: 'DANGEROUS',

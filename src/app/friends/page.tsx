@@ -16,6 +16,8 @@ import {
 import { BottomNav } from '@/components/navigation/BottomNav';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { useFriends } from '@/hooks/useFriends';
+import { UserAvatar } from '@/components/common/UserAvatar';
+import { FriendRowSkeleton } from '@/components/common/Skeleton';
 
 export default function FriendsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +83,7 @@ export default function FriendsPage() {
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-sm font-bold text-[var(--text-main)]">
-              Your Network ({friends.length})
+              Your Network ({isLoading ? '...' : friends.length})
             </h2>
             <Link
               href="/friends/add"
@@ -92,8 +94,11 @@ export default function FriendsPage() {
           </div>
 
           {isLoading ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="w-7 h-7 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+            <div className="space-y-2.5">
+              <FriendRowSkeleton />
+              <FriendRowSkeleton />
+              <FriendRowSkeleton />
+              <FriendRowSkeleton />
             </div>
           ) : friends.length === 0 ? (
             <div className="p-8 text-center rounded-[28px] bg-white/70 dark:bg-[#140826]/70 backdrop-blur-xl border border-dashed border-black/10 dark:border-white/10 space-y-3">
@@ -123,10 +128,12 @@ export default function FriendsPage() {
                   className="flex items-center gap-3 min-w-0 flex-1 group"
                 >
                   <div className="relative shrink-0">
-                    <img
+                    <UserAvatar
+                      name={friend.name}
+                      handle={friend.handle}
                       src={friend.avatar}
-                      alt={friend.name}
-                      className="w-11 h-11 rounded-full object-cover border border-black/5"
+                      size="lg"
+                      className="w-11 h-11 border border-black/5"
                     />
                     <span
                       className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-[#140826] ${
@@ -159,7 +166,7 @@ export default function FriendsPage() {
 
                 <div className="flex items-center gap-2 shrink-0">
                   <Link
-                    href={`/faceoff`}
+                    href={`/faceoff?opponent=${encodeURIComponent(friend.handle)}`}
                     className="py-1.5 px-3 rounded-xl bg-[#140826] hover:bg-[#251040] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition-transform active:scale-95"
                   >
                     <Swords className="w-3 h-3" />

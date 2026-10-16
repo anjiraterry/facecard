@@ -1,11 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto, { randomUUID } from 'node:crypto';
 import { db } from '@/lib/db';
 import { hashPin } from '@/lib/auth/pin';
-import { randomUUID } from 'crypto';
+import { getClientIp, isRateLimited, recordAttempt } from '@/lib/auth/rateLimit';
+import { applySessionCookie, createSession } from '@/lib/auth/sessions';
+import { grantSignupBonus, isUniqueViolation } from '@/lib/ledger';
+import { getLagosDayKey } from '@/lib/scoring';
 
 export async function POST(req: NextRequest) {
+  let currentPhase = 'INIT';
   try {
-    const { displayName, handle, pin } = await req.json();
+    currentPhase = 'RATE_LIMIT_CHECK';
+    const ip = getClientIp(req);
+    console.log('[CLAIM Phase 1/6] Checking rate limit for IP:', ip);
+    if (await isRateLimited('card_claim_ip', ip, 10, 60 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Too many cards created from this network. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    currentPhase = 'INPUT_VALIDATION';
+    const { displayName, handle, pin } = await req.json().catch(() => ({}));
 
     // 1. Validation
     const cleanName = (displayName || '').trim();
@@ -32,7 +48,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Check handle availability
+    console.log('[CLAIM Phase 2/6] Input validated for handle:', cleanHandle);
+
+    currentPhase = 'HANDLE_AVAILABILITY_CHECK';
+    // 2. Check handle availability (case-insensitive check)
     const existingUser = await db.user.findFirst({
       where: {
         handle: {
@@ -43,20 +62,25 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingUser) {
+      console.warn('[CLAIM Phase 2/6] Handle conflict:', cleanHandle);
       return NextResponse.json(
         { error: `The username @${cleanHandle} is already claimed. Try another.` },
         { status: 409 }
       );
     }
 
+    currentPhase = 'CRYPTO_PREP';
     // 3. Hash PIN
     const hashedPin = await hashPin(cleanPin);
 
-    // 4. Generate Card details
-    const cardNumber = `FC-${Math.floor(1000 + Math.random() * 9000)}-2026`;
+    // 4. Generate unique Card details (16M+ unique combinations)
+    const cardSuffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const cardNumber = `FC-${cardSuffix}-2026`;
     const newUserId = randomUUID();
-    const todayKey = new Date().toISOString().split('T')[0];
+    const todayKey = getLagosDayKey();
 
+    currentPhase = 'TRANSACTION_CREATE_USER';
+    console.log('[CLAIM Phase 3/6] Starting DB transaction for user:', { newUserId, cleanHandle, cardNumber });
     // 5. Create user and Facecard in transaction
     const user = await db.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
@@ -66,8 +90,11 @@ export async function POST(req: NextRequest) {
           handle: cleanHandle,
           pinHash: hashedPin,
           tier: 'CLASSIC',
-          lifetimePoints: 100,
-          spendableBalance: 100,
+          lifetimePoints: 0,
+          spendableBalance: 0,
+          ageConfirmedAt: new Date(),
+          consentAt: new Date(),
+          consentVersion: '1.0-NDPA',
           streak: {
             create: {
               id: randomUUID(),
@@ -83,33 +110,39 @@ export async function POST(req: NextRequest) {
               cardNumber,
             },
           },
-        },
+        } as Parameters<typeof tx.user.create>[0]['data'],
         include: {
           cards: true,
           streak: true,
         },
       });
 
-      // Credit welcome points to ledger
-      await tx.pointsLedger.create({
-        data: {
-          id: randomUUID(),
-          userId: newUserId,
-          type: 'ADJUSTMENT',
-          amount: 100,
-          balanceKind: 'SPENDABLE',
-          refType: 'CLAIM_BONUS',
-          refId: createdUser.cards[0]?.id,
-          idempotencyKey: `claim_bonus_${newUserId}`,
-        },
+      // Credit welcome points to ledger via single source of truth
+      await grantSignupBonus(tx, newUserId);
+
+      const freshUser = await tx.user.findUnique({
+        where: { id: newUserId },
+        include: { cards: true, streak: true },
       });
 
-      return createdUser;
+      return freshUser || createdUser;
     });
 
-    // 6. Generate session token & response
-    const sessionToken = `fc_sess_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 10)}`;
+    console.log('[CLAIM Phase 4/6] Transaction committed successfully for user:', user.id);
 
+    currentPhase = 'RECORD_ATTEMPT';
+    await recordAttempt('card_claim_ip', ip);
+
+    currentPhase = 'CREATE_SESSION';
+    console.log('[CLAIM Phase 5/6] Issuing session token for user:', user.id);
+    // 6. Issue an opaque server-side session & response
+    const sessionToken = await createSession(user.id, {
+      ip,
+      userAgent: req.headers.get('user-agent') ?? undefined,
+    });
+
+    currentPhase = 'RESPONSE_PREPARATION';
+    console.log('[CLAIM Phase 6/6] Claim complete. Setting session cookie.');
     const response = NextResponse.json({
       success: true,
       message: 'Facecard successfully claimed!',
@@ -120,34 +153,28 @@ export async function POST(req: NextRequest) {
         tier: user.tier,
         lifetimePoints: user.lifetimePoints,
         spendableBalance: user.spendableBalance,
-        streakDays: user.streak?.currentCount ?? 1,
+        streakDays: (user as unknown as { streak?: { currentCount?: number } | null })?.streak?.currentCount ?? 1,
         cardNumber,
       },
     });
 
-    // 7. Set cookies (30 days)
-    response.cookies.set('fc_session', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
-    });
-
-    response.cookies.set('fc_user_id', user.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
-    });
-
-    return response;
+    return applySessionCookie(response, sessionToken);
   } catch (error) {
-    console.error('Error claiming Facecard:', error);
+    console.error(`[CLAIM ERROR at phase: ${currentPhase}]:`, error);
+    if (isUniqueViolation(error)) {
+      return NextResponse.json(
+        { error: 'This username is already taken. Please choose another username.' },
+        { status: 409 }
+      );
+    }
+    const message = error instanceof Error && error.message ? error.message : 'Failed to claim Facecard. Please try again.';
     return NextResponse.json(
-      { error: 'Failed to claim Facecard. Please try again.' },
-      { status: 500 }
+      {
+        error: message,
+        phase: currentPhase,
+        ...(process.env.NODE_ENV !== 'production' && error instanceof Error ? { stack: error.stack } : {}),
+      },
+      { status: 400 }
     );
   }
 }

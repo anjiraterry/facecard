@@ -1,16 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser, getRequiredUser } from '@/lib/auth/session';
-import { FaceOffMode, FaceOffStatus, LedgerType, BalanceKind } from '@prisma/client';
-import { getInitialsAvatarSvg } from '@/lib/avatar';
+import { createFaceOff, expireStaleDuels, FaceOffError } from '@/lib/faceoff';
+import { EconomyConfig } from '@/lib/economy';
+import { FaceOffMode, FaceOffStatus } from '@prisma/client';
+import { getInitialsAvatarSvg, getCardCoverArtSvg } from '@/lib/avatar';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
+    // 1. Automatically expire stale waiting duels so they are never returned as open
+    await expireStaleDuels().catch(() => {});
+
     const sessionUser = await getSessionUser();
+    const now = new Date();
+
+    // Show duels relevant to current user: their own duels + open waiting unexpired duels
+    const whereClause = sessionUser
+      ? {
+          OR: [
+            { challengerId: sessionUser.id },
+            { opponentId: sessionUser.id },
+            { status: FaceOffStatus.WAITING, opponentId: null, expiresAt: { gt: now } },
+          ],
+        }
+      : {
+          status: FaceOffStatus.WAITING,
+          opponentId: null,
+          expiresAt: { gt: now },
+        };
 
     const faceoffs = await db.faceOff.findMany({
+      where: whereClause,
       include: {
         challenger: {
           include: {
@@ -26,32 +48,58 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 50,
     });
 
     const formatted = faceoffs.map((f) => {
-      // Determine other party relative to session user
       const isChallenger = sessionUser ? f.challengerId === sessionUser.id : false;
       const targetUser = isChallenger && f.opponent ? f.opponent : f.challenger;
 
       const handleClean = targetUser.handle ? targetUser.handle.replace(/^@/, '') : 'contender';
-      const image = getInitialsAvatarSvg(targetUser.displayName, handleClean);
+      const targetAvatar = (targetUser as { avatarUrl?: string | null }).avatarUrl ?? null;
+      const image = targetAvatar || getCardCoverArtSvg({
+        name: targetUser.displayName,
+        handle: targetUser.handle,
+        tier: targetUser.tier,
+      });
+      const iconAvatar = targetAvatar || getInitialsAvatarSvg(targetUser.displayName, handleClean);
 
       const score = targetUser.scans[0]?.score ?? 0;
       const tier = targetUser.tier;
       const isMine = sessionUser ? (f.challengerId === sessionUser.id || f.opponentId === sessionUser.id) : false;
+      const isExpired = f.expiresAt.getTime() <= Date.now();
+      const sameTier = sessionUser ? sessionUser.tier === f.challenger.tier : true;
+      const canJoin = Boolean(
+        sessionUser &&
+        !isMine &&
+        f.status === FaceOffStatus.WAITING &&
+        !isExpired &&
+        sameTier &&
+        (!f.opponentId || f.opponentId === sessionUser.id)
+      );
 
       return {
         id: f.id,
         opponentName: targetUser.displayName,
         handle: `@${handleClean}`,
         image,
+        iconAvatar,
         tier: tier.charAt(0) + tier.slice(1).toLowerCase(),
+        rawTier: tier,
         score,
-        stake: f.mode === 'STAKED' ? `${f.stake} PTS` : 'Friendly Duel',
+        stake: f.mode === FaceOffMode.STAKED ? `${f.stake} PTS` : 'Friendly Duel',
         stakeAmount: f.stake,
         mode: f.mode,
         status: f.status,
+        expiresAt: f.expiresAt,
         isMine,
+        canJoin,
+        sameTier,
+        requiredTier: f.challenger.tier,
+        opponentId: targetUser.id,
+        challengerId: f.challengerId,
+        targetUserId: targetUser.id,
+        inviteCode: f.inviteCode,
       };
     });
 
@@ -71,68 +119,34 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await getRequiredUser();
-    const body = await req.json();
-    const { stakeAmount = 100, mode = 'STAKED' } = body;
+    const body = await req.json().catch(() => ({}));
+    const { stakeAmount = 100, mode = 'STAKED', opponentHandle } = body;
 
-    const isStaked = mode === 'STAKED';
-    const stakeNum = isStaked ? Math.max(0, Number(stakeAmount)) : 0;
+    const duelMode = mode === 'FRIENDLY' ? FaceOffMode.FRIENDLY : FaceOffMode.STAKED;
+    const stakeNum = duelMode === FaceOffMode.STAKED ? Number(stakeAmount) : 0;
 
-    if (isStaked && stakeNum > 0 && user.spendableBalance < stakeNum) {
-      return NextResponse.json(
-        { error: `Insufficient spendable balance to stake ${stakeNum} PTS. You currently have ${user.spendableBalance} PTS.` },
-        { status: 400 }
-      );
-    }
-
-    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    const faceOff = await db.$transaction(async (tx) => {
-      const created = await tx.faceOff.create({
-        data: {
-          challengerId: user.id,
-          inviteCode,
-          mode: isStaked ? FaceOffMode.STAKED : FaceOffMode.FRIENDLY,
-          stake: stakeNum,
-          status: FaceOffStatus.WAITING,
-          expiresAt,
-        },
-      });
-
-      if (isStaked && stakeNum > 0) {
-        await tx.user.update({
-          where: { id: user.id },
-          data: { spendableBalance: { decrement: stakeNum } },
-        });
-
-        await tx.pointsLedger.create({
-          data: {
-            userId: user.id,
-            type: LedgerType.FACEOFF_STAKE_HOLD,
-            amount: -stakeNum,
-            balanceKind: BalanceKind.SPENDABLE,
-            refType: 'FACEOFF',
-            refId: created.id,
-            idempotencyKey: `faceoff-create-stake-${created.id}-${user.id}-${Date.now()}`,
-          },
-        });
-      }
-
-      return created;
+    const duel = await createFaceOff({
+      challengerId: user.id,
+      mode: duelMode,
+      stakeAmount: stakeNum,
+      opponentHandle: typeof opponentHandle === 'string' ? opponentHandle : undefined,
     });
 
     return NextResponse.json({
       success: true,
-      duelId: faceOff.id,
-      inviteCode,
-      inviteUrl: `/arena/invite/${inviteCode}`,
-      mode: faceOff.mode,
-      stakeAmount: faceOff.stake,
-      totalStaked: faceOff.stake * 2,
-      status: faceOff.status,
-      expiresInMinutes: 1440,
+      duelId: duel.id,
+      inviteCode: duel.inviteCode,
+      inviteUrl: `/arena/invite/${duel.inviteCode}`,
+      mode: duel.mode,
+      stakeAmount: duel.stake,
+      totalStaked: duel.stake * 2,
+      status: duel.status,
+      expiresInMinutes: EconomyConfig.ARENA.EXPIRY_MINUTES,
     });
   } catch (error) {
+    if (error instanceof FaceOffError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
       { error: 'Failed to create face-off in database', message: error instanceof Error ? error.message : 'Error' },
       { status: 500 }

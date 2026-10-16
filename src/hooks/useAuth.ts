@@ -82,8 +82,6 @@ export function useAuth() {
     return res;
   };
 
-  const mintFacecard = claimFacecard;
-
   const loginWithPin = async (identifier: string, pin: string) => {
     setError(null);
     const res = await authService.loginWithPin(identifier, pin);
@@ -122,6 +120,19 @@ export function useAuth() {
     }
   };
 
+  const deleteAccount = async () => {
+    setUser(null);
+    const res = await authService.deleteAccount();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('facecard_user');
+      localStorage.removeItem('fc_onboarded');
+      localStorage.removeItem('facecard_handle');
+      sessionStorage.removeItem('fc_auth_email');
+      window.location.href = '/';
+    }
+    return res;
+  };
+
   return {
     user,
     isLoading,
@@ -130,10 +141,10 @@ export function useAuth() {
     sendOtp,
     verifyOtp,
     claimFacecard,
-    mintFacecard,
     loginWithPin,
     updateProfile,
     signOut,
+    deleteAccount,
     refreshUser: fetchUser,
   };
 }
