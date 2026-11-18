@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
       frameId: cardRecord?.equippedFrame?.slug ?? cardRecord?.equippedFrameId ?? undefined,
     };
 
-    const nextTierTarget = user.tier === 'CLASSIC' ? 1000 : user.tier === 'GOLD' ? 5000 : 10000;
+    const nextTierTarget = user.tier === 'CLASSIC' ? 1000 : user.tier === 'GOLD' ? 5000 : 20000;
     const progressPercent = Math.min(100, Math.round((user.lifetimePoints / nextTierTarget) * 100));
 
     const isClassicSurpassed = user.tier !== 'CLASSIC';
@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
         tier: 'BLACK' as Tier,
         name: 'Obsidian Black',
         status: user.tier === 'BLACK' ? 'ACTIVE' : 'LOCKED',
-        statusBadge: user.tier === 'BLACK' ? '★ Your Current Card' : 'Locked (Target: 10,000 PTS)',
+        statusBadge: user.tier === 'BLACK' ? '★ Your Current Card' : 'Locked (Target: 20,000 PTS)',
         badgeStyle: 'bg-zinc-900 dark:bg-zinc-950 text-zinc-300 dark:text-zinc-400 border-zinc-700/60',
         card: {
           id: 'card-black',
@@ -181,11 +181,11 @@ export async function GET(req: NextRequest) {
           multiplier: 2.0,
         },
         prerequisites: {
-          pointsTarget: 10000,
+          pointsTarget: 20000,
           pointsCurrent: user.lifetimePoints,
           scoreTarget: 92,
           streakTarget: 30,
-          summary: 'Prerequisites: 10,000 Lifetime PTS + 92+ Lethality + 30-day streak.',
+          summary: 'Prerequisites: 20,000 Lifetime PTS + 92+ Lethality + 30-day streak.',
         },
       },
     ];

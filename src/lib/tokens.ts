@@ -1,71 +1,74 @@
 import { Tier, Band } from '@/types';
 
 export const BRAND_COLORS = {
-  primary: '#18181B',
-  accent: '#6366F1',
-  indigo: '#4F46E5',
-  violet: '#8B5CF6',
-  sky: '#0EA5E9',
-  rose: '#F43F5E',
+  porcelain: '#FAF7F4',
+  skinNude: '#EBDCD5',
+  dustyMauve: '#D2B8C9',
+  mutedPlum: '#96788D',
+  blackPlum: '#251E24',
   white: '#FFFFFF',
-  cream: '#FAFAFA',
-  gray: '#71717A',
-  charcoal: '#18181B',
-  black: '#09090B',
+  success: '#3E6B52',
+  warning: '#9A6B32',
+  danger: '#9E3E4E',
 } as const;
 
 export const TIER_CONFIG: Record<
   Tier,
   {
     name: string;
+    finishLabel: string;
     minPoints: number;
     bgGradient: string;
     textColor: string;
     badgeBg: string;
-    badgeText?: string;
+    badgeText: string;
     borderColor: string;
     glow?: string;
   }
 > = {
   CLASSIC: {
-    name: 'Classic',
+    name: 'Classic Card',
+    finishLabel: 'Dusty Lilac',
     minPoints: 0,
-    bgGradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.78) 0%, rgba(244, 244, 245, 0.55) 100%)',
-    textColor: '#18181B',
-    badgeBg: 'rgba(0, 0, 0, 0.05)',
-    badgeText: '#18181B',
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    glow: '0px 10px 30px rgba(0, 0, 0, 0.04), inset 0px 1px 2px rgba(255, 255, 255, 1)',
+    bgGradient: 'linear-gradient(135deg, #EADDE5 0%, #D2B8C9 52%, #B595AA 100%)',
+    textColor: '#251E24',
+    badgeBg: 'rgba(37, 30, 36, 0.09)',
+    badgeText: '#251E24',
+    borderColor: 'rgba(150, 120, 141, 0.35)',
+    glow: '0 10px 28px rgba(150, 120, 141, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.55)',
   },
   GOLD: {
-    name: 'Gold',
+    name: 'Gold Card',
+    finishLabel: 'Brushed Gold',
     minPoints: 1000,
-    bgGradient: 'linear-gradient(135deg, rgba(253, 246, 227, 0.82) 0%, rgba(245, 230, 202, 0.6) 50%, rgba(248, 238, 216, 0.76) 100%)',
-    textColor: '#18181B',
-    badgeBg: 'rgba(180, 130, 60, 0.1)',
-    badgeText: '#78501E',
-    borderColor: 'rgba(255, 255, 255, 0.95)',
-    glow: '0px 12px 36px rgba(212, 175, 55, 0.18), inset 0px 1.5px 2px rgba(255, 255, 255, 0.9)',
+    bgGradient: 'linear-gradient(135deg, #F6ECD6 0%, #E7CFA0 50%, #D5B375 100%)',
+    textColor: '#2B2118',
+    badgeBg: 'rgba(43, 33, 24, 0.10)',
+    badgeText: '#2B2118',
+    borderColor: 'rgba(154, 107, 50, 0.28)',
+    glow: '0 12px 32px rgba(154, 107, 50, 0.14), inset 0 1px 0 rgba(255, 250, 240, 0.85)',
   },
   PLATINUM: {
-    name: 'Platinum',
+    name: 'Platinum Card',
+    finishLabel: 'Pearlescent Mauve',
     minPoints: 5000,
-    bgGradient: 'linear-gradient(135deg, rgba(240, 243, 255, 0.82) 0%, rgba(224, 231, 255, 0.6) 50%, rgba(243, 232, 255, 0.76) 100%)',
-    textColor: '#18181B',
-    badgeBg: 'rgba(99, 102, 241, 0.1)',
-    badgeText: '#4338CA',
-    borderColor: 'rgba(255, 255, 255, 0.95)',
-    glow: '0px 12px 36px rgba(99, 102, 241, 0.2), inset 0px 1.5px 2px rgba(255, 255, 255, 0.9)',
+    bgGradient: 'linear-gradient(135deg, #F5F0F4 0%, #E2D3DD 48%, #D2B8C9 100%)',
+    textColor: '#251E24',
+    badgeBg: 'rgba(150, 120, 141, 0.18)',
+    badgeText: '#251E24',
+    borderColor: 'rgba(150, 120, 141, 0.35)',
+    glow: '0 12px 34px rgba(150, 120, 141, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.9)',
   },
   BLACK: {
     name: 'Black Card',
+    finishLabel: 'Velvet Matte',
     minPoints: 20000,
-    bgGradient: 'linear-gradient(135deg, rgba(24, 24, 27, 0.9) 0%, rgba(9, 9, 11, 0.98) 100%)',
-    textColor: '#FFFFFF',
-    badgeBg: 'rgba(255, 255, 255, 0.12)',
-    badgeText: '#FFFFFF',
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    glow: '0px 16px 48px rgba(0, 0, 0, 0.45), inset 0px 1px 1.5px rgba(255, 255, 255, 0.25)',
+    bgGradient: 'linear-gradient(145deg, #2C232B 0%, #251E24 55%, #181317 100%)',
+    textColor: '#FAF7F4',
+    badgeBg: 'rgba(235, 220, 213, 0.14)',
+    badgeText: '#FAF7F4',
+    borderColor: 'rgba(210, 184, 201, 0.24)',
+    glow: '0 16px 40px rgba(24, 19, 23, 0.32), inset 0 1px 0 rgba(235, 220, 213, 0.18)',
   },
 };
 
@@ -81,32 +84,32 @@ export const VERDICT_BANDS: Record<
   }
 > = {
   HARMLESS: {
-    label: 'Harmless',
+    label: 'Soft Glow',
     minScore: 0,
     maxScore: 39,
-    chipBg: 'rgba(99, 102, 241, 0.12)',
-    chipText: '#4F46E5',
+    chipBg: 'rgba(235, 220, 213, 0.72)',
+    chipText: '#251E24',
   },
   SUSPICIOUS: {
-    label: 'Suspicious',
+    label: 'Elevated',
     minScore: 40,
     maxScore: 64,
-    chipBg: 'rgba(14, 165, 233, 0.12)',
-    chipText: '#0284C7',
+    chipBg: 'rgba(210, 184, 201, 0.55)',
+    chipText: '#251E24',
   },
   DANGEROUS: {
-    label: 'Dangerous',
+    label: 'Magnetic',
     minScore: 65,
     maxScore: 84,
-    chipBg: 'rgba(244, 63, 94, 0.12)',
-    chipText: '#E11D48',
+    chipBg: 'rgba(150, 120, 141, 0.22)',
+    chipText: '#251E24',
   },
   LETHAL: {
     label: 'Lethal',
     minScore: 85,
     maxScore: 100,
-    chipBg: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #EC4899 100%)',
-    chipText: '#FFFFFF',
-    glow: '0px 6px 20px rgba(99, 102, 241, 0.35)',
+    chipBg: '#251E24',
+    chipText: '#FAF7F4',
+    glow: '0 4px 12px rgba(37, 30, 36, 0.22)',
   },
 };

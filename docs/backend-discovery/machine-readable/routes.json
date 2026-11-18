@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-11-18",
+  "routes": [
+    { "id": "ROUTE-01", "path": "/", "file": "src/app/page.tsx", "access": "public", "status": "functional", "backendSupport": "existing", "features": ["FEAT-01", "FEAT-03", "FEAT-06"] },
+    { "id": "ROUTE-02", "path": "/landing", "file": "src/app/landing/page.tsx", "access": "public", "status": "functional", "backendSupport": "none_needed", "features": [] },
+    { "id": "ROUTE-03", "path": "/start", "file": "src/app/start/page.tsx", "access": "public", "status": "functional", "backendSupport": "none_needed", "features": [] },
+    { "id": "ROUTE-04", "path": "/auth", "file": "src/app/auth/page.tsx", "access": "public", "status": "functional", "backendSupport": "none_needed", "features": ["FEAT-01"] },
+    { "id": "ROUTE-05", "path": "/onboarding", "file": "src/app/onboarding/page.tsx", "access": "public", "status": "incomplete", "backendSupport": "partial", "features": ["FEAT-01"] },
+    { "id": "ROUTE-06", "path": "/sign-in", "file": "src/app/sign-in/page.tsx", "access": "public", "status": "functional", "backendSupport": "existing", "features": ["FEAT-01"] },
+    { "id": "ROUTE-07", "path": "/verify", "file": "src/app/verify/page.tsx", "access": "public", "status": "functional", "backendSupport": "existing", "features": ["FEAT-01"] },
+    { "id": "ROUTE-08", "path": "/home", "file": "src/app/home/page.tsx", "access": "authenticated", "status": "functional", "backendSupport": "existing", "features": ["FEAT-03", "FEAT-06", "FEAT-07", "FEAT-08"] },
+    { "id": "ROUTE-09", "path": "/card", "file": "src/app/card/page.tsx", "access": "authenticated", "status": "functional", "backendSupport": "existing", "features": ["FEAT-03", "FEAT-04"] },
+    { "id": "ROUTE-10", "path": "/scan", "file": "src/app/scan/page.tsx", "access": "authenticated", "status": "functional", "backendSupport": "existing", "features": ["FEAT-02", "FEAT-04", "FEAT-07"] },
+    { "id": "ROUTE-11", "path": "/shop", "file": "src/app/shop/page.tsx", "access": "authenticated", "status": "functional", "backendSupport": "existing", "features": ["FEAT-05", "FEAT-03"] },
+    { "id": "ROUTE-12", "path": "/skincare", "file": "src/app/skincare/page.tsx", "access": "public", "status": "frontend_only", "backendSupport": "missing", "features": ["FEAT-06"] },
+    { "id": "ROUTE-13", "path": "/faceoff", "file": "src/app/faceoff/page.tsx", "access": "authenticated", "status": "functional", "backendSupport": "existing", "features": ["FEAT-07"] },
+    { "id": "ROUTE-14", "path": "/faceoff/[id]", "file": "src/app/faceoff/[id]/page.tsx", "access": "public_or_auth", "status": "functional", "backendSupport": "existing", "features": ["FEAT-07"] },
+    { "id": "ROUTE-15", "path": "/arena/invite/[code]", "file": "src/app/arena/invite/[code]/page.tsx", "access": "public", "status": "functional", "backendSupport": "existing", "features": ["FEAT-07"] },
+    { "id": "ROUTE-16", "path": "/friends", "file": "src/app/friends/page.tsx", "access": "authenticated", "status": "functional", "backendSupport": "existing", "features": ["FEAT-08"] },
+    { "id": "ROUTE-17", "path": "/friends/add", "file": "src/app/friends/add/page.tsx", "access": "authenticated", "status": "partial", "backendSupport": "partial", "features": ["FEAT-08"] },
+    { "id": "ROUTE-18", "path": "/friends/[id]", "file": "src/app/friends/[id]/page.tsx", "access": "public_or_auth", "status": "partial", "backendSupport": "partial", "features": ["FEAT-08", "FEAT-07"] },
+    { "id": "ROUTE-19", "path": "/u/[id]", "file": "src/app/u/[id]/page.tsx", "access": "public_or_auth", "status": "partial", "backendSupport": "partial", "features": ["FEAT-08"] },
+    { "id": "ROUTE-20", "path": "/leaderboard", "file": "src/app/leaderboard/page.tsx", "access": "public_or_auth", "status": "partial", "backendSupport": "partial", "features": ["FEAT-09"] },
+    { "id": "ROUTE-21", "path": "/profile", "file": "src/app/profile/page.tsx", "access": "authenticated", "status": "partial", "backendSupport": "partial", "features": ["FEAT-01", "FEAT-08"] },
+    { "id": "ROUTE-22", "path": "/s/[id]", "file": "src/app/s/[id]/page.tsx", "access": "public", "status": "functional", "backendSupport": "existing", "features": ["FEAT-03"] }
+  ]
+}

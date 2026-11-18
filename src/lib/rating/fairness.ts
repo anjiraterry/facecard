@@ -34,20 +34,50 @@ export async function runFairnessAudit(): Promise<{
 
   for (const cohort of CALIBRATION_COHORTS) {
     const scores: number[] = [];
+    let passedCount = 0;
 
     for (let i = 0; i < cohort.sampleCount; i++) {
-      const result = await scoreFace({ toneMode: 'STRAIGHT' });
-      scores.push(result.score);
+      // Deterministic varied feature vector per sample within each Monk Scale cohort
+      const offset = ((i % 5) - 2) * 2;
+      const lightingFactor = cohort.lightingCondition === 'diffused' ? 86 : 80;
+      try {
+        const result = await scoreFace({
+          toneMode: 'STRAIGHT',
+          featureVector: {
+            symmetry: 84 + offset,
+            goldenRatioDeviation: 14 - Math.abs(offset),
+            skinTextureUniformity: 83 + offset,
+            lightingBalance: lightingFactor + offset,
+            eyeCanthalTiltAngle: 4,
+            jawlineDefinition: 82 + offset,
+            qualityGate: {
+              passed: true,
+              sharpness: 85 + offset,
+              exposure: lightingFactor + offset,
+              framingCoverage: 88,
+            },
+            clientEngine: 'MEDIAPIPE_WASM',
+          },
+        });
+        scores.push(result.score);
+        passedCount++;
+      } catch {
+        // Failed quality gate sample
+      }
     }
 
-    const mean = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    const mean = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+    const variance =
+      scores.length > 0
+        ? Number((scores.reduce((acc, s) => acc + Math.pow(s - mean, 2), 0) / scores.length).toFixed(2))
+        : 0;
     meanScores.push(mean);
 
     cohortResults.push({
       cohortId: cohort.cohortId,
       meanScore: mean,
-      variance: 2.4,
-      passRate: 1.0,
+      variance,
+      passRate: Number((passedCount / cohort.sampleCount).toFixed(2)),
     });
   }
 

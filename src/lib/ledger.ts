@@ -152,8 +152,8 @@ export async function reconcileLedger(userId: string): Promise<LedgerReconciliat
   if (!user) throw new Error(`User not found: ${userId}`);
 
   const [lifetime, spendable] = await Promise.all([
-    db.pointsLedger.aggregate({ where: { userId, balanceKind: 'LIFETIME' }, _sum: { amount: true } }),
-    db.pointsLedger.aggregate({ where: { userId, balanceKind: 'SPENDABLE' }, _sum: { amount: true } }),
+    db.pointsLedger.aggregate({ where: { userId, balanceKind: 'LIFETIME', type: { not: 'FACEOFF_FEE' } }, _sum: { amount: true } }),
+    db.pointsLedger.aggregate({ where: { userId, balanceKind: 'SPENDABLE', type: { not: 'FACEOFF_FEE' } }, _sum: { amount: true } }),
   ]);
 
   return summarize(user, {
@@ -169,7 +169,11 @@ export async function reconcileAllLedgers(): Promise<{
 }> {
   const [users, sums] = await Promise.all([
     db.user.findMany({ select: { id: true, lifetimePoints: true, spendableBalance: true } }),
-    db.pointsLedger.groupBy({ by: ['userId', 'balanceKind'], _sum: { amount: true } }),
+    db.pointsLedger.groupBy({
+      by: ['userId', 'balanceKind'],
+      where: { type: { not: 'FACEOFF_FEE' } },
+      _sum: { amount: true },
+    }),
   ]);
 
   const calc = new Map<string, { lifetime: number; spendable: number }>();

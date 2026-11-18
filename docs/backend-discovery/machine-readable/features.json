@@ -1,0 +1,17 @@
+{
+  "generatedAt": "2026-11-18",
+  "features": [
+    { "id": "FEAT-01", "name": "Identity, Claim & Authentication", "status": "implemented_with_gaps", "routes": ["ROUTE-01", "ROUTE-05", "ROUTE-06", "ROUTE-07", "ROUTE-21"], "evidence": ["src/lib/auth/sessions.ts", "src/app/api/card/claim/route.ts", "src/app/api/auth/otp/verify/route.ts", "src/app/api/me/route.ts"] },
+    { "id": "FEAT-02", "name": "Portrait Scan & AI Rating", "status": "partially_implemented", "routes": ["ROUTE-10"], "evidence": ["src/app/api/scan/route.ts", "src/lib/rating/engine.ts", "src/components/camera/LivenessOverlay.tsx"] },
+    { "id": "FEAT-03", "name": "Digital Face Cards & Sharing", "status": "partially_implemented", "routes": ["ROUTE-08", "ROUTE-09", "ROUTE-22"], "evidence": ["src/components/card/FaceCard.tsx", "src/app/api/card/route.ts", "src/app/api/share-cards/[id]/route.ts"] },
+    { "id": "FEAT-04", "name": "Points Economy & Append-Only Ledger", "status": "implemented", "routes": ["ROUTE-09"], "evidence": ["src/lib/ledger.ts", "src/lib/economy.ts", "prisma/migrations/2_points_integrity/migration.sql"] },
+    { "id": "FEAT-05", "name": "Points Boutique", "status": "partially_implemented", "routes": ["ROUTE-11"], "evidence": ["src/app/shop/page.tsx", "src/app/api/shop/purchase/route.ts", "src/app/api/shop/equip/route.ts"] },
+    { "id": "FEAT-06", "name": "Atelier Skincare Storefront & Routines", "status": "frontend_only", "routes": ["ROUTE-12"], "evidence": ["src/app/skincare/page.tsx", "src/components/commerce/types.ts"] },
+    { "id": "FEAT-07", "name": "Arena Face-Off Duels", "status": "implemented_with_gaps", "routes": ["ROUTE-13", "ROUTE-14", "ROUTE-15"], "evidence": ["src/lib/faceoff.ts", "src/app/api/faceoffs/route.ts"] },
+    { "id": "FEAT-08", "name": "Social Circle & Friends", "status": "partially_implemented", "routes": ["ROUTE-16", "ROUTE-17", "ROUTE-18", "ROUTE-19"], "evidence": ["src/app/api/friends/route.ts", "src/app/friends/[id]/page.tsx"] },
+    { "id": "FEAT-09", "name": "Leaderboards", "status": "partially_implemented", "routes": ["ROUTE-20"], "evidence": ["src/app/leaderboard/page.tsx", "src/app/api/leaderboard/route.ts"] },
+    { "id": "FEAT-10", "name": "Fiat Payments (Paystack)", "status": "stubbed_unused", "routes": [], "evidence": ["src/lib/paystack.ts"] },
+    { "id": "FEAT-11", "name": "Object Storage (S3/R2)", "status": "stubbed_unused", "routes": [], "evidence": ["src/lib/storage.ts"] },
+    { "id": "FEAT-12", "name": "Operations & Fairness", "status": "implemented", "routes": [], "evidence": ["src/app/api/cron/reconcile/route.ts", "src/app/api/health/route.ts", "src/lib/rating/fairness.ts"] }
+  ]
+}

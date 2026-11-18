@@ -4,17 +4,12 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Sparkles, 
-  ShieldCheck, 
-  AtSign, 
-  Check, 
-  Camera 
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, AtSign, Camera } from 'lucide-react';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { FaceCard } from '@/components/card/FaceCard';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { FaceCardData } from '@/types';
 import { authService } from '@/services/authService';
 
@@ -25,13 +20,12 @@ export default function LightOnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const cleanHandle = handle.trim().replace(/^@/, '');
-  const isValidHandle = cleanHandle.length >= 3 && /^[a-zA-Z0-9_]+$/.test(cleanHandle);
 
   const previewCard: FaceCardData = {
     id: 'preview-onboarding',
     tier: 'CLASSIC',
-    cardholderName: (cleanHandle || 'YOUR HANDLE').toUpperCase(),
-    title: 'Certified Classic',
+    cardholderName: cleanHandle || 'Your Handle',
+    title: 'Classic Satin',
     score: 84,
     band: 'DANGEROUS',
     streakDays: 1,
@@ -75,50 +69,35 @@ export default function LightOnboardingPage() {
 
   return (
     <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-12 transition-colors duration-200">
-      {/* Subtle Ambient Ethereal Glow */}
-      <div 
-        className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-75 dark:opacity-25"
-        style={{
-          background: `
-            radial-gradient(ellipse at 50% -10%, rgba(244, 114, 182, 0.08) 0%, transparent 55%),
-            radial-gradient(ellipse at 85% 35%, rgba(251, 146, 60, 0.06) 0%, transparent 45%),
-            radial-gradient(ellipse at 15% 70%, rgba(99, 102, 241, 0.06) 0%, transparent 50%)
-          `
-        }}
-      />
-
       <main className="relative z-10 max-w-md mx-auto px-5 pt-5 space-y-6">
-        {/* Header */}
         <header className="flex items-center justify-between h-10 px-1">
           <Link
             href="/"
-            className="w-9 h-9 flex items-center justify-center text-[var(--text-main)] transition-transform active:scale-95"
-            title="Back to Landing"
+            aria-label="Back to landing"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-main)] hover:bg-[var(--bg-surface-warm)] transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 stroke-[2]" />
+            <ArrowLeft className="w-5 h-5 stroke-[1.8]" />
           </Link>
 
-          <span className="text-xl font-bold tracking-tight text-[var(--text-main)]">
+          <span className="font-sans text-lg font-extrabold tracking-[-0.03em] lowercase text-[var(--text-main)]">
             facecard
           </span>
 
           <ThemeToggle />
         </header>
 
-        {/* Title */}
-        <div className="space-y-1.5 text-center pt-2">
-          <h1 className="text-2xl font-black tracking-tight text-[var(--text-main)]">
+        <div className="space-y-1.5 text-center pt-1">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--text-main)]">
             Claim Your Face Card
           </h1>
           <p className="text-xs text-[var(--text-muted)] max-w-xs mx-auto leading-relaxed">
-            AI-calibrated facial lethality rating (0–100). Take 1 selfie, claim your card, and battle in the Arena.
+            Calibrated photo craft &amp; facial harmony (0–100). Take one portrait scan to unlock your card.
           </p>
         </div>
 
-        {/* Live Card Preview */}
-        <div className="py-2">
+        <div className="py-1">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
             className="w-full flex justify-center"
@@ -129,58 +108,47 @@ export default function LightOnboardingPage() {
           </motion.div>
         </div>
 
-        {/* Light Onboarding Form */}
-        <form onSubmit={handleClaim} className="p-5 rounded-[28px] bg-white/85 dark:bg-[#140826]/80 backdrop-blur-2xl border border-white/95 dark:border-white/10 shadow-sm space-y-4">
-          {/* Handle Selection */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[var(--text-muted)] block px-1">
-              Choose Your Handle
-            </label>
-            <div className="relative flex items-center">
-              <span className="absolute left-3.5 text-[var(--text-muted)]">
-                <AtSign className="w-4 h-4" />
-              </span>
-              <input
-                type="text"
-                value={handle}
-                onChange={(e) => setHandle(e.target.value)}
-                placeholder="yourhandle"
-                maxLength={20}
-                className="w-full pl-9 pr-4 py-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs sm:text-sm font-semibold text-[var(--text-main)] focus:outline-none focus:border-[#6366F1] transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Quick 1-tap Consent */}
-          <label className="flex items-start gap-3 p-3 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-              className="mt-0.5 rounded border-zinc-300 text-[#6366F1] focus:ring-[#6366F1] w-4 h-4 cursor-pointer"
+        <SurfaceCard variant="default" padding="md">
+          <form onSubmit={handleClaim} className="space-y-4">
+            <Input
+              label="Choose Your Handle"
+              type="text"
+              value={handle}
+              onChange={(e) => setHandle(e.target.value)}
+              placeholder="yourhandle"
+              maxLength={20}
+              leftIcon={<AtSign className="w-4 h-4" />}
             />
-            <span className="text-[11px] leading-relaxed text-[var(--text-muted)]">
-              I am 18+ and accept biometric privacy terms under NDPA. Raw selfies are instantly scored in memory and zero biometric photos are permanently stored.
-            </span>
-          </label>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={!consent || isSubmitting}
-            className="w-full py-3.5 px-5 rounded-2xl bg-[#140826] hover:bg-[#251040] dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-[#140826] font-black text-xs sm:text-sm shadow-md active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Camera className="w-4 h-4" />
-            <span>{isSubmitting ? 'Issuing Card...' : 'Take First Selfie Scan'}</span>
-            <ArrowRight className="w-4 h-4 ml-1 opacity-80" />
-          </button>
-        </form>
+            <label className="flex items-start gap-3 p-3.5 rounded-2xl bg-[var(--bg-surface-warm)] border border-[var(--border-subtle)] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-0.5 rounded border-[var(--border-strong)] text-[var(--accent-primary)] focus:ring-[var(--focus-ring)] w-4 h-4 cursor-pointer"
+              />
+              <span className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+                I am 18+ and accept the NDPA biometric privacy terms. Raw selfies are scored in ephemeral memory and never permanently stored.
+              </span>
+            </label>
 
-        {/* Existing User Redirect */}
-        <div className="text-center pt-2">
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              isLoading={isSubmitting}
+              disabled={!consent}
+            >
+              {isSubmitting ? 'Issuing Card...' : 'Take First Portrait Scan'}
+            </Button>
+          </form>
+        </SurfaceCard>
+
+        <div className="text-center pt-1">
           <p className="text-xs text-[var(--text-muted)]">
             Already have an account?{' '}
-            <Link href="/sign-in" className="font-bold text-[#6366F1] hover:underline">
+            <Link href="/sign-in" className="font-semibold text-[var(--text-main)] underline underline-offset-4 hover:text-[var(--accent-brand)]">
               Sign In
             </Link>
           </p>

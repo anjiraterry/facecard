@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-11-18",
+  "decisions": [
+    { "id": "DEC-01", "question": "What is the Atelier retail model (1P owned inventory, 3P marketplace, or affiliate)?", "impact": "high", "domains": ["atelier", "commerce", "inventory"] },
+    { "id": "DEC-02", "question": "What currencies and shipping regions are supported for Atelier orders?", "impact": "high", "domains": ["atelier", "payments"] },
+    { "id": "DEC-03", "question": "Can Face Card PTS be redeemed for Atelier discounts, or do purchases earn PTS?", "impact": "high", "domains": ["atelier", "rewards", "legal"] },
+    { "id": "DEC-04", "question": "Is guest checkout allowed in the Atelier?", "impact": "medium", "domains": ["atelier", "auth"] },
+    { "id": "DEC-05", "question": "Are skincare routines auto-generated from scan/questionnaire, manually assembled, or hybrid?", "impact": "medium", "domains": ["skincare", "atelier"] },
+    { "id": "DEC-06", "question": "Is the Black Card tier threshold 20,000 PTS (EconomyConfig/PRD) or 10,000 PTS (/api/card)?", "impact": "medium", "domains": ["cards", "progression"] },
+    { "id": "DEC-07", "question": "Can users own multiple Face Cards (Card.slot > 1) or only one?", "impact": "medium", "domains": ["cards"] },
+    { "id": "DEC-08", "question": "Are Card tiers upgraded in place or collected as historical versions?", "impact": "low", "domains": ["cards"] },
+    { "id": "DEC-09", "question": "Consolidate on custom fc_session auth or migrate to @neondatabase/auth?", "impact": "high", "domains": ["auth"] },
+    { "id": "DEC-10", "question": "Should /api/scan fail closed if Neon AI Gateway is unavailable, or keep SHA-256 fallback?", "impact": "high", "domains": ["facial_analysis", "arena"] },
+    { "id": "DEC-11", "question": "Should active liveness be enforced server-side for Arena or all scans?", "impact": "high", "domains": ["facial_analysis", "security"] },
+    { "id": "DEC-12", "question": "Should custom selfie avatars remain allowed or move to R2 with strict NDPA deletion?", "impact": "medium", "domains": ["privacy", "storage"] },
+    { "id": "DEC-13", "question": "How should Arena 2nd-player retakes work when resolveFaceOff currently fires on 1st scan?", "impact": "medium", "domains": ["arena"] },
+    { "id": "DEC-14", "question": "Should Arena tie rematches be capped (e.g. 1 rematch then refund)?", "impact": "low", "domains": ["arena"] },
+    { "id": "DEC-15", "question": "Implement P2P point gifting & +100 PTS referrals, or remove mocked UI?", "impact": "medium", "domains": ["social", "rewards"] },
+    { "id": "DEC-16", "question": "Enforce 30-day ShareCard expiry on /s/[id] and /api/share-cards/[id]?", "impact": "low", "domains": ["cards", "privacy"] },
+    { "id": "DEC-17", "question": "Enforce the PRD 24h new-account points spend lock?", "impact": "medium", "domains": ["rewards", "security"] },
+    { "id": "DEC-18", "question": "Should user scores and profiles be public by default or opt-in?", "impact": "medium", "domains": ["social", "privacy"] }
+  ]
+}

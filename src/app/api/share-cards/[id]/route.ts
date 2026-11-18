@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getSessionUser } from '@/lib/auth/session';
 
 export async function GET(
   req: NextRequest,
@@ -12,8 +13,10 @@ export async function GET(
       where: {
         OR: [
           { publicId },
-          { id: publicId.length === 36 ? publicId : undefined },
+          ...(publicId.length === 36 ? [{ id: publicId }] : []),
         ],
+        deletedAt: null,
+        expiresAt: { gt: new Date() },
       },
       include: {
         user: {
@@ -22,6 +25,7 @@ export async function GET(
           },
         },
         scan: true,
+        snapshot: true,
       },
     });
 
@@ -29,6 +33,7 @@ export async function GET(
       return NextResponse.json({ error: 'Share card not found or expired' }, { status: 404 });
     }
 
+    const snap = shareCard.snapshot;
     const scan = shareCard.scan ?? shareCard.user.scans[0];
 
     return NextResponse.json({
@@ -36,10 +41,13 @@ export async function GET(
       shareCard: {
         id: shareCard.id,
         publicId: shareCard.publicId,
-        score: scan?.score ?? 0,
-        band: scan?.band ?? null,
-        tier: shareCard.user.tier,
-        cardholderName: shareCard.user.displayName.toUpperCase(),
+        snapshotId: snap?.id ?? null,
+        score: snap?.score ?? scan?.score ?? 0,
+        band: snap?.band ?? scan?.band ?? null,
+        tier: snap?.tier ?? shareCard.user.tier,
+        cardholderName: (snap?.cardholderName ?? shareCard.user.displayName).toUpperCase(),
+        skinSlug: snap?.skinSlug ?? 'default',
+        frameSlug: snap?.frameSlug ?? 'default',
         expiresAt: shareCard.expiresAt.toISOString(),
       },
     });
@@ -56,20 +64,39 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id: publicId } = await params;
 
-    await db.shareCard.deleteMany({
+    const existing = await db.shareCard.findFirst({
       where: {
         OR: [
           { publicId },
-          { id: publicId.length === 36 ? publicId : undefined },
+          ...(publicId.length === 36 ? [{ id: publicId }] : []),
         ],
       },
+      select: { id: true, userId: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Share card not found' }, { status: 404 });
+    }
+
+    if (existing.userId !== sessionUser.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    await db.shareCard.update({
+      where: { id: existing.id },
+      data: { deletedAt: new Date() },
     });
 
     return NextResponse.json({
       success: true,
-      message: `Share card ${publicId} deleted from database`,
+      message: `Share card ${publicId} deleted`,
     });
   } catch (error) {
     return NextResponse.json(

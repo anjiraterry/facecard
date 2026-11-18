@@ -1,0 +1,19 @@
+{
+  "generatedAt": "2026-11-18",
+  "gaps": [
+    { "id": "GAP-SEC-01", "domain": "security", "priority": "P0", "title": "Unauthenticated ShareCard DELETE & Scan GET IDOR", "affectedFeatures": ["FEAT-03", "FEAT-02"], "evidence": ["src/app/api/share-cards/[id]/route.ts:54-80", "src/app/api/scans/[id]/route.ts:6-68"] },
+    { "id": "GAP-SEC-02", "domain": "security", "priority": "P0", "title": "Unverified email mutation on PATCH /api/me", "affectedFeatures": ["FEAT-01"], "evidence": ["src/app/api/me/route.ts:99-128"] },
+    { "id": "GAP-SEC-03", "domain": "privacy", "priority": "P0", "title": "User.avatarUrl not cleared on account delete & DELETED users on leaderboard", "affectedFeatures": ["FEAT-01", "FEAT-09"], "evidence": ["src/app/api/me/route.ts:134-175", "src/app/api/leaderboard/route.ts:13-23"] },
+    { "id": "GAP-ATELIER-01", "domain": "atelier", "priority": "P1", "title": "Atelier Product, Brand, Variant, Ingredient Catalog API & Schema", "affectedFeatures": ["FEAT-06"], "evidence": ["src/app/skincare/page.tsx", "src/components/commerce/types.ts"] },
+    { "id": "GAP-ATELIER-02", "domain": "atelier", "priority": "P1", "title": "Atelier Inventory & Stock Reservation", "affectedFeatures": ["FEAT-06"], "evidence": ["src/components/commerce/BagAndCheckoutLayout.tsx"] },
+    { "id": "GAP-ATELIER-03", "domain": "atelier", "priority": "P1", "title": "Atelier Shopping Bag, Checkout & Order History API", "affectedFeatures": ["FEAT-06"], "evidence": ["src/components/commerce/BagAndCheckoutLayout.tsx", "src/components/commerce/RoutineAndOrdersLayout.tsx"] },
+    { "id": "GAP-PAY-01", "domain": "payments", "priority": "P1", "title": "Wire Paystack initialization & fail-closed webhook handler", "affectedFeatures": ["FEAT-06", "FEAT-10"], "evidence": ["src/lib/paystack.ts"] },
+    { "id": "GAP-SKIN-01", "domain": "skincare", "priority": "P1", "title": "Skin Profile persistence & Scan-to-Routine recommendation engine", "affectedFeatures": ["FEAT-06", "FEAT-02"], "evidence": ["src/app/skincare/page.tsx:50-63,173-218", "src/components/commerce/RoutineAndOrdersLayout.tsx:68-70"] },
+    { "id": "GAP-SCAN-01", "domain": "facial_analysis", "priority": "P1", "title": "Server-side face detection, liveness enforcement & boost-aura-2x consumption", "affectedFeatures": ["FEAT-02", "FEAT-05"], "evidence": ["src/lib/rating/engine.ts", "src/app/api/scan/route.ts"] },
+    { "id": "GAP-SHOP-01", "domain": "boutique", "priority": "P1", "title": "Fix fallback idempotency key blocking 2nd streak-freeze purchase", "affectedFeatures": ["FEAT-05"], "evidence": ["src/app/api/shop/purchase/route.ts:27"] },
+    { "id": "GAP-SOC-01", "domain": "social", "priority": "P2", "title": "Dedicated Friendship table, wire friend delete, resolve gifting/referrals", "affectedFeatures": ["FEAT-08"], "evidence": ["src/app/api/friends/route.ts:35-42", "src/app/profile/page.tsx:214-218", "src/app/friends/[id]/page.tsx:183-194"] },
+    { "id": "GAP-LB-01", "domain": "leaderboards", "priority": "P2", "title": "Implement Circle & This Week leaderboard filters + pagination", "affectedFeatures": ["FEAT-09"], "evidence": ["src/app/leaderboard/page.tsx:26,60-74", "src/app/api/leaderboard/route.ts"] },
+    { "id": "GAP-ADMIN-01", "domain": "administration", "priority": "P2", "title": "RBAC, AbuseFlag moderation & Atelier catalog/order admin", "affectedFeatures": ["FEAT-12"], "evidence": ["prisma/schema.prisma:377-395"] },
+    { "id": "GAP-OPS-01", "domain": "operations", "priority": "P2", "title": "Cloudflare Cron triggers, R2 avatar/share storage & transactional email", "affectedFeatures": ["FEAT-11", "FEAT-12"], "evidence": ["wrangler.jsonc", "src/lib/storage.ts", "src/app/api/cron/reconcile/route.ts"] }
+  ]
+}

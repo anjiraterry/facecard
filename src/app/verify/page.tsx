@@ -3,8 +3,10 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Check, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, RefreshCw, AlertCircle, Lock } from 'lucide-react';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { Button } from '@/components/ui/Button';
+import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { useAuth } from '@/hooks/useAuth';
 
 function VerifyContent() {
@@ -13,7 +15,7 @@ function VerifyContent() {
   const { verifyOtp, sendOtp } = useAuth();
 
   const emailParam = searchParams.get('email') || '';
-  const [email, setEmail] = useState(() => emailParam || (typeof window !== 'undefined' ? sessionStorage.getItem('fc_auth_email') || '' : ''));
+  const [email] = useState(() => emailParam || (typeof window !== 'undefined' ? sessionStorage.getItem('fc_auth_email') || '' : ''));
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [resendCooldown, setResendCooldown] = useState(60);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +23,6 @@ function VerifyContent() {
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Resend cooldown timer
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setInterval(() => {
@@ -30,7 +31,6 @@ function VerifyContent() {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Handle digit typing & auto-advance
   const handleDigitChange = (index: number, val: string) => {
     if (!/^\d*$/.test(val)) return;
 
@@ -38,12 +38,10 @@ function VerifyContent() {
     newDigits[index] = val.slice(-1);
     setDigits(newDigits);
 
-    // Auto-advance
     if (val && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // Auto-submit when all 6 digits entered
     const fullCode = newDigits.join('');
     if (fullCode.length === 6) {
       submitCode(fullCode);
@@ -56,7 +54,6 @@ function VerifyContent() {
     }
   };
 
-  // Clipboard paste support
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const pasted = e.clipboardData.getData('text').trim();
@@ -98,7 +95,7 @@ function VerifyContent() {
     try {
       await sendOtp(email);
       setResendCooldown(60);
-    } catch (err: unknown) {
+    } catch {
       setError('Failed to resend code');
     } finally {
       setIsLoading(false);
@@ -108,43 +105,43 @@ function VerifyContent() {
   return (
     <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-20">
       <main className="relative z-10 max-w-md mx-auto px-5 pt-6 space-y-6">
-        {/* Header */}
         <header className="flex items-center justify-between h-10 px-1">
           <Link
             href="/sign-in"
-            className="w-9 h-9 flex items-center justify-center text-[var(--text-main)] transition-transform active:scale-95"
-            title="Back"
+            aria-label="Back to sign in"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-main)] hover:bg-[var(--bg-surface-warm)] transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 stroke-[2]" />
+            <ArrowLeft className="w-5 h-5 stroke-[1.8]" />
           </Link>
 
-          <span className="text-xl font-bold tracking-tight text-[var(--text-main)]">
-            verify
+          <span className="font-display text-xl font-semibold tracking-tight text-[var(--text-main)]">
+            Verify
           </span>
 
           <ThemeToggle />
         </header>
 
-        {/* Title */}
-        <div className="space-y-1.5 text-center pt-3">
-          <h1 className="text-2xl font-black tracking-tight text-[var(--text-main)]">
+        <div className="space-y-1.5 text-center pt-2">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--text-main)]">
             Check your inbox
           </h1>
           <p className="text-xs text-[var(--text-muted)]">
-            We sent a 6-digit verification code to <span className="font-bold text-[var(--text-main)]">{email || 'your email'}</span>
+            We sent a 6-digit verification code to{' '}
+            <span className="font-semibold text-[var(--text-main)]">{email || 'your email'}</span>
           </p>
         </div>
 
-        {/* 6-Digit Form */}
-        <div className="p-5 rounded-[28px] bg-white/85 dark:bg-[#140826]/80 backdrop-blur-2xl border border-white/95 dark:border-white/10 shadow-sm space-y-5">
+        <SurfaceCard variant="default" padding="md" className="space-y-5">
           {error && (
-            <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2 border border-rose-200/50">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+            <div
+              role="alert"
+              className="p-3 rounded-2xl bg-[var(--status-danger-bg)] text-[var(--status-danger)] text-xs font-medium flex items-center gap-2 border border-[var(--status-danger)]/25"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Digits row */}
           <div className="flex justify-between gap-2" onPaste={handlePaste}>
             {digits.map((digit, idx) => (
               <input
@@ -153,43 +150,47 @@ function VerifyContent() {
                 type="text"
                 inputMode="numeric"
                 maxLength={1}
+                aria-label={`Verification digit ${idx + 1}`}
                 value={digit}
                 onChange={(e) => handleDigitChange(idx, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(idx, e)}
-                className="w-12 h-14 rounded-2xl bg-black/[0.04] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 text-center font-mono text-xl font-bold text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                className="w-12 h-14 rounded-2xl bg-[var(--bg-surface-warm)] border border-[var(--border-card)] text-center text-xl font-bold tabular-nums text-[var(--text-main)] focus:outline-none focus:border-[var(--accent-brand)] focus:bg-[var(--bg-surface)] transition-colors"
               />
             ))}
           </div>
 
-          <button
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            isLoading={isLoading}
+            disabled={digits.join('').length < 6}
             onClick={() => submitCode(digits.join(''))}
-            disabled={isLoading || digits.join('').length < 6}
-            className="w-full py-3.5 rounded-full bg-[#140826] hover:bg-[#241040] text-white text-xs font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_8px_24px_rgba(20,8,38,0.3)] disabled:opacity-50"
           >
             <span>{isLoading ? 'Verifying Code...' : 'Verify & Enter'}</span>
-          </button>
+          </Button>
 
           <div className="flex items-center justify-between text-xs px-1 text-[var(--text-muted)]">
-            <span>Didn&apos;t receive code?</span>
+            <span>Didn&apos;t receive a code?</span>
             {resendCooldown > 0 ? (
-              <span className="font-mono text-[11px] font-bold">Resend in {resendCooldown}s</span>
+              <span className="text-[11px] font-semibold tabular-nums">Resend in {resendCooldown}s</span>
             ) : (
               <button
+                type="button"
                 onClick={handleResend}
                 disabled={isLoading}
-                className="font-bold text-[#7C3AED] hover:underline flex items-center gap-1"
+                className="font-semibold text-[var(--text-main)] underline underline-offset-4 hover:text-[var(--accent-brand)] flex items-center gap-1 cursor-pointer"
               >
                 <RefreshCw className="w-3 h-3" />
                 <span>Resend Now</span>
               </button>
             )}
           </div>
-        </div>
+        </SurfaceCard>
 
-        {/* Security badge */}
         <div className="flex items-center justify-center gap-1.5 text-xs text-[var(--text-muted)] pt-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span>Encrypted Session • Zero Data Retention</span>
+          <Lock className="w-4 h-4 text-[var(--status-success)]" />
+          <span>Encrypted Session · Zero Photo Retention</span>
         </div>
       </main>
     </div>

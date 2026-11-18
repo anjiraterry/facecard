@@ -60,8 +60,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ showToast, toast: toastMethods }}>
       {children}
 
-      {/* Floating Toast Notification Container */}
-      <aside aria-label="Notifications" className="fixed top-5 inset-x-0 z-[100] flex flex-col items-center gap-2 pointer-events-none px-4">
+      <aside
+        aria-label="Notifications"
+        className="fixed top-5 inset-x-0 z-[100] flex flex-col items-center gap-2 pointer-events-none px-4"
+      >
         <AnimatePresence mode="popLayout">
           {toasts.map((item) => {
             const isSuccess = item.type === 'success';
@@ -72,36 +74,28 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <motion.div
                 key={item.id}
                 layout
-                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                initial={{ opacity: 0, y: -16, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -15, scale: 0.92 }}
-                transition={{ type: 'spring', damping: 24, stiffness: 350 }}
+                exit={{ opacity: 0, y: -12, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
                 role="status"
                 aria-live="polite"
-                className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-[20px] max-w-md w-full shadow-lg backdrop-blur-xl border transition-all ${
-                  isSuccess
-                    ? 'bg-emerald-950/90 text-emerald-100 border-emerald-500/30 dark:bg-emerald-950/95'
-                    : isError
-                    ? 'bg-rose-950/90 text-rose-100 border-rose-500/30 dark:bg-rose-950/95'
-                    : isWarning
-                    ? 'bg-amber-950/90 text-amber-100 border-amber-500/30 dark:bg-amber-950/95'
-                    : 'bg-neutral-900/90 text-neutral-100 border-white/15 dark:bg-[#1A1A22]/95'
-                }`}
+                className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl max-w-md w-full bg-[#251E24] text-[#FAF7F4] border border-[#EBDCD5]/15 shadow-[var(--shadow-lg)]"
               >
                 <div className="shrink-0">
-                  {isSuccess && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                  {isError && <AlertCircle className="w-4 h-4 text-rose-400" />}
-                  {isWarning && <AlertTriangle className="w-4 h-4 text-amber-400" />}
-                  {!isSuccess && !isError && !isWarning && <Info className="w-4 h-4 text-indigo-400" />}
+                  {isSuccess && <CheckCircle2 className="w-4 h-4 text-[#78B894]" />}
+                  {isError && <AlertCircle className="w-4 h-4 text-[#E28C99]" />}
+                  {isWarning && <AlertTriangle className="w-4 h-4 text-[#DFB178]" />}
+                  {!isSuccess && !isError && !isWarning && <Info className="w-4 h-4 text-[#D2B8C9]" />}
                 </div>
 
-                <p className="flex-1 text-xs font-semibold leading-snug">{item.message}</p>
+                <p className="flex-1 text-xs font-medium leading-snug">{item.message}</p>
 
                 <button
                   type="button"
                   onClick={() => removeToast(item.id)}
-                  className="shrink-0 p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                  aria-label="Dismiss toast"
+                  className="shrink-0 p-1 rounded-full text-[#EBDCD5]/70 hover:text-[#FAF7F4] hover:bg-[#FAF7F4]/10 transition-colors cursor-pointer"
+                  aria-label="Dismiss notification"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -117,7 +111,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
-    // Graceful fallback for components rendered outside provider
     return {
       showToast: (msg: string) => console.log('[Toast]', msg),
       toast: {

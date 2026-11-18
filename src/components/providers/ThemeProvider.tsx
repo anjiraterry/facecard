@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useSyncExternalStore } from 'react';
+import { MotionConfig } from 'framer-motion';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -59,20 +60,57 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       ? (systemPrefersDark ? 'dark' : 'light')
       : theme;
 
-  useEffect(() => {
+  const applyThemeDom = (nextResolved: 'light' | 'dark') => {
     const root = document.documentElement;
-    root.setAttribute('data-theme', resolvedTheme);
-    if (resolvedTheme === 'dark') {
+    root.setAttribute('data-theme', nextResolved);
+    if (nextResolved === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
+  };
+
+  useEffect(() => {
+    applyThemeDom(resolvedTheme);
   }, [resolvedTheme]);
 
   const setTheme = (newTheme: Theme) => {
-    setLocalTheme(newTheme);
-    localStorage.setItem('facecard-theme', newTheme);
-    window.dispatchEvent(new Event('storage'));
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const commit = () => {
+      setLocalTheme(newTheme);
+      localStorage.setItem('facecard-theme', newTheme);
+      window.dispatchEvent(new Event('storage'));
+    };
+
+    if (prefersReduced || typeof document === 'undefined') {
+      commit();
+      return;
+    }
+
+    const docWithVT = document as Document & {
+      startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+    };
+
+    if (typeof docWithVT.startViewTransition === 'function') {
+      docWithVT.startViewTransition(() => {
+        const nextResolved: 'light' | 'dark' =
+          newTheme === 'system'
+            ? (systemPrefersDark ? 'dark' : 'light')
+            : newTheme;
+        applyThemeDom(nextResolved);
+        commit();
+      });
+    } else {
+      const root = document.documentElement;
+      root.classList.add('theme-transitioning');
+      commit();
+      window.setTimeout(() => {
+        root.classList.remove('theme-transitioning');
+      }, 320);
+    }
   };
 
   const toggleTheme = () => {
@@ -81,9 +119,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
+    <MotionConfig
+      reducedMotion="user"
+      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
+        {children}
+      </ThemeContext.Provider>
+    </MotionConfig>
   );
 }
 

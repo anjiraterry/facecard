@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-11-18",
+  "existingEntities": [
+    { "id": "ENT-01", "name": "User", "status": "existing", "source": "prisma/schema.prisma:81-114" },
+    { "id": "ENT-02", "name": "AuthSession", "status": "existing", "source": "prisma/schema.prisma:117-132" },
+    { "id": "ENT-03", "name": "OtpChallenge", "status": "existing", "source": "prisma/schema.prisma:135-146" },
+    { "id": "ENT-04", "name": "AuthAttempt", "status": "existing", "source": "prisma/schema.prisma:149-157" },
+    { "id": "ENT-05", "name": "ScanSlot", "status": "existing", "source": "prisma/schema.prisma:159-174" },
+    { "id": "ENT-06", "name": "Scan", "status": "existing", "source": "prisma/schema.prisma:176-199" },
+    { "id": "ENT-07", "name": "PointsLedger", "status": "existing", "source": "prisma/schema.prisma:201-217" },
+    { "id": "ENT-08", "name": "Streak", "status": "existing", "source": "prisma/schema.prisma:219-229" },
+    { "id": "ENT-09", "name": "Card", "status": "existing", "source": "prisma/schema.prisma:231-247" },
+    { "id": "ENT-10", "name": "ShopItem", "status": "existing", "source": "prisma/schema.prisma:249-267" },
+    { "id": "ENT-11", "name": "UserItem", "status": "existing", "source": "prisma/schema.prisma:269-280" },
+    { "id": "ENT-12", "name": "Purchase", "status": "existing", "source": "prisma/schema.prisma:282-294" },
+    { "id": "ENT-13", "name": "FaceOff", "status": "existing", "source": "prisma/schema.prisma:296-326" },
+    { "id": "ENT-14", "name": "FaceOffAttempt", "status": "existing", "source": "prisma/schema.prisma:328-341" },
+    { "id": "ENT-15", "name": "ShareCard", "status": "existing", "source": "prisma/schema.prisma:343-360" },
+    { "id": "ENT-16", "name": "IdempotencyRecord", "status": "existing", "source": "prisma/schema.prisma:362-375" },
+    { "id": "ENT-17", "name": "EconomyConfig", "status": "existing_unused", "source": "prisma/schema.prisma:377-381" },
+    { "id": "ENT-18", "name": "AbuseFlag", "status": "existing_unused", "source": "prisma/schema.prisma:383-395" },
+    { "id": "ENT-19", "name": "AuditLog", "status": "existing", "source": "prisma/schema.prisma:397-411" }
+  ],
+  "provisionalEntities": [
+    { "id": "ENT-P01", "name": "AtelierProduct", "status": "provisional", "evidence": "src/components/commerce/types.ts:9-19" },
+    { "id": "ENT-P02", "name": "ProductVariant", "status": "provisional", "evidence": "src/components/commerce/types.ts:14-15" },
+    { "id": "ENT-P03", "name": "Ingredient", "status": "provisional", "evidence": "src/components/commerce/types.ts:16" },
+    { "id": "ENT-P04", "name": "SkinProfile", "status": "provisional", "evidence": "src/app/skincare/page.tsx:50-63" },
+    { "id": "ENT-P05", "name": "SkincareRoutine", "status": "provisional", "evidence": "src/components/commerce/types.ts:34-40" },
+    { "id": "ENT-P06", "name": "RoutineStep", "status": "provisional", "evidence": "src/components/commerce/RoutineAndOrdersLayout.tsx:40-47" },
+    { "id": "ENT-P07", "name": "ShoppingBag", "status": "provisional", "evidence": "src/components/commerce/BagAndCheckoutLayout.tsx:11-53" },
+    { "id": "ENT-P08", "name": "BagItem", "status": "provisional", "evidence": "src/components/commerce/types.ts:21-24" },
+    { "id": "ENT-P09", "name": "Order", "status": "provisional", "evidence": "src/components/commerce/types.ts:26-32" },
+    { "id": "ENT-P10", "name": "OrderItem", "status": "provisional", "evidence": "src/components/commerce/types.ts:26-32" },
+    { "id": "ENT-P11", "name": "PaymentTransaction", "status": "provisional", "evidence": "src/lib/paystack.ts" },
+    { "id": "ENT-P12", "name": "Friendship", "status": "provisional", "evidence": "src/app/api/friends/route.ts:35-42" },
+    { "id": "ENT-P13", "name": "Referral", "status": "provisional", "evidence": "src/app/friends/add/page.tsx:110-120" }
+  ]
+}

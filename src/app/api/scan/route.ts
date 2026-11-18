@@ -224,10 +224,22 @@ async function performScan(
     });
 
     if (refreshedDuel?.challengerBestScanId && refreshedDuel?.opponentBestScanId && refreshedDuel.status !== FaceOffStatus.COMPLETED) {
-      try {
-        duelResolution = await resolveFaceOff(duel.id);
-      } catch (err) {
-        console.warn('Auto duel resolution deferred or already completed:', err);
+      const roundAttemptsCap = EconomyConfig.ARENA.ATTEMPTS_PER_DUEL * ((refreshedDuel.rematchCount ?? 0) + 1);
+      const [cAttempts, oAttempts] = await Promise.all([
+        db.faceOffAttempt.count({ where: { faceOffId: duel.id, userId: refreshedDuel.challengerId } }),
+        refreshedDuel.opponentId
+          ? db.faceOffAttempt.count({ where: { faceOffId: duel.id, userId: refreshedDuel.opponentId } })
+          : Promise.resolve(0),
+      ]);
+      const bothExhausted = cAttempts >= roundAttemptsCap && oAttempts >= roundAttemptsCap;
+      const bothLocked = Boolean(refreshedDuel.challengerLockedAt && refreshedDuel.opponentLockedAt);
+
+      if (bothExhausted || bothLocked) {
+        try {
+          duelResolution = await resolveFaceOff(duel.id);
+        } catch (err) {
+          console.warn('Auto duel resolution deferred or already completed:', err);
+        }
       }
     }
 
@@ -317,7 +329,19 @@ async function performScan(
   }
 
   const multiplier = getStreakMultiplier(streakDays);
-  const pointsEarned = calculateScanPoints(scoredResult.score, scanIndexOfDay, streakDays);
+  const basePointsEarned = calculateScanPoints(scoredResult.score, scanIndexOfDay, streakDays);
+
+  // Check if user holds an active Double Points Surge consumable (`boost-aura-2x`)
+  const boostItem = await db.userItem.findFirst({
+    where: {
+      userId: user.id,
+      quantity: { gt: 0 },
+      item: { slug: 'boost-aura-2x' },
+    },
+    select: { id: true, quantity: true },
+  });
+  const boostApplied = Boolean(boostItem);
+  const pointsEarned = boostApplied ? basePointsEarned * 2 : basePointsEarned;
 
   const flatBreakdown = {
     photoCraft: Math.round(
@@ -376,6 +400,13 @@ async function performScan(
             idempotencyKey: `scan:${scanId}`,
           });
         }
+      }
+
+      if (boostItem) {
+        await tx.userItem.updateMany({
+          where: { id: boostItem.id, quantity: { gt: 0 } },
+          data: { quantity: { decrement: 1 } },
+        });
       }
 
       await tx.streak.upsert({

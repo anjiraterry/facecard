@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-
+import { getSessionUser } from '@/lib/auth/session';
 import { getStreakMultiplier } from '@/lib/scoring';
 
 export async function GET(
@@ -8,11 +8,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await params;
 
     const scan = await db.scan.findUnique({
       where: { id },
       include: {
+        faceOff: {
+          select: { challengerId: true, opponentId: true },
+        },
         user: {
           include: {
             streak: true,
@@ -26,6 +34,15 @@ export async function GET(
 
     if (!scan) {
       return NextResponse.json({ error: 'Scan not found in database' }, { status: 404 });
+    }
+
+    const isOwner = scan.userId === sessionUser.id;
+    const isDuelParticipant =
+      scan.faceOff &&
+      (scan.faceOff.challengerId === sessionUser.id || scan.faceOff.opponentId === sessionUser.id);
+
+    if (!isOwner && !isDuelParticipant) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const categoryScores = scan.categoryScores ?? null;

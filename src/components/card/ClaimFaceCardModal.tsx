@@ -3,10 +3,12 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, KeyRound, User, AtSign, ArrowRight, AlertCircle, CreditCard } from 'lucide-react';
+import { X, KeyRound, User, AtSign, AlertCircle } from 'lucide-react';
 import { FaceCard } from '@/components/card/FaceCard';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/common/ToastProvider';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { FaceCardData } from '@/types';
 
 export interface ClaimFaceCardModalProps {
@@ -19,14 +21,14 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
   const router = useRouter();
   const { claimFacecard, loginWithPin } = useAuth();
   const { toast } = useToast();
-  
+
   const [mode, setMode] = useState<'claim' | 'login'>(defaultMode);
-  
+
   // Claim fields
   const [displayName, setDisplayName] = useState('');
   const [handle, setHandle] = useState('');
   const [pin, setPin] = useState('');
-  
+
   // Login fields
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPin, setLoginPin] = useState('');
@@ -34,18 +36,17 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Live preview card data
   const cleanHandle = handle.replace(/^@/, '').toLowerCase().trim();
   const previewCard: FaceCardData = {
     id: 'claim-preview',
     tier: 'CLASSIC',
-    cardholderName: displayName.trim().toUpperCase() || 'YOUR NAME',
-    title: 'Certified Classic',
+    cardholderName: displayName.trim() || 'Your Name',
+    title: 'Classic Satin',
     score: 0,
     band: 'HARMLESS',
     streakDays: 1,
     multiplier: 1.0,
-    cardNumber: `FC-••••-2026`,
+    cardNumber: 'FC •••• 2026',
   };
 
   const handleClaimSubmit = async (e: React.FormEvent) => {
@@ -85,7 +86,7 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
       router.push('/home');
       router.refresh();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to claim Facecard';
+      const msg = err instanceof Error ? err.message : 'Failed to claim Face Card';
       setError(msg);
       toast.error(msg);
     } finally {
@@ -99,7 +100,7 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
 
     const cleanId = loginIdentifier.replace(/^@/, '').trim();
     if (!cleanId) {
-      const msg = 'Enter your @username or Facecard number.';
+      const msg = 'Enter your @username or Face Card number.';
       setError(msg);
       toast.warning(msg);
       return;
@@ -115,7 +116,7 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
     setIsLoading(true);
     try {
       await loginWithPin(cleanId, loginPin.trim());
-      toast.success('Signed in successfully! Welcome back.');
+      toast.success('Signed in successfully. Welcome back.');
       onClose();
       router.push('/home');
       router.refresh();
@@ -132,53 +133,56 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-        {/* Backdrop */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={mode === 'claim' ? 'Claim your Face Card' : 'Sign in with PIN'}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+      >
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 bg-[#251E24]/50 backdrop-blur-xs"
         />
 
-        {/* Modal Window */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 12 }}
+          initial={{ opacity: 0, scale: 0.97, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 12 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative z-10 w-full max-w-md bg-white dark:bg-[#151518] text-[#1A1A1A] dark:text-[#F9FAFB] rounded-[28px] border border-black/10 dark:border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.25)] dark:shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden my-auto"
+          exit={{ opacity: 0, scale: 0.97, y: 10 }}
+          transition={{ duration: 0.2 }}
+          className="relative z-10 w-full max-w-md bg-[var(--bg-surface)] text-[var(--text-main)] rounded-[28px] border border-[var(--border-card)] shadow-[var(--shadow-modal)] overflow-hidden my-auto"
         >
-          {/* Close button */}
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/20 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-all z-20 cursor-pointer"
+            aria-label="Close modal"
+            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[var(--bg-surface-warm)] hover:bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors z-20 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
 
-          <div className="p-5 sm:p-6 space-y-4">
-            {/* Header Tabs matching capsule tab styling */}
-            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200/60 dark:border-white/10 pr-9">
+          <div className="p-5 sm:p-6 space-y-5">
+            <div className="flex items-center gap-1.5 p-1 rounded-full bg-[var(--bg-surface-warm)] border border-[var(--border-subtle)] mr-10">
               <button
                 type="button"
                 onClick={() => { setMode('claim'); setError(null); }}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                className={`flex-1 py-2 text-xs font-semibold rounded-full transition-colors cursor-pointer ${
                   mode === 'claim'
-                    ? 'bg-[#DDD6FE] text-[#140826] shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+                    ? 'bg-[var(--accent-primary)] text-[var(--bg-page)] shadow-[var(--shadow-sm)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
-                Claim Facecard
+                Claim Face Card
               </button>
               <button
                 type="button"
                 onClick={() => { setMode('login'); setError(null); }}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                className={`flex-1 py-2 text-xs font-semibold rounded-full transition-colors cursor-pointer ${
                   mode === 'login'
-                    ? 'bg-[#DDD6FE] text-[#140826] shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+                    ? 'bg-[var(--accent-primary)] text-[var(--bg-page)] shadow-[var(--shadow-sm)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 Access with PIN
@@ -186,7 +190,10 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
             </div>
 
             {error && (
-              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400 text-xs flex items-center gap-2.5">
+              <div
+                role="alert"
+                className="p-3.5 rounded-2xl bg-[var(--status-danger-bg)] border border-[var(--status-danger)]/25 text-[var(--status-danger)] text-xs font-medium flex items-center gap-2.5"
+              >
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -194,156 +201,96 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
 
             {mode === 'claim' ? (
               <div className="space-y-4">
-                {/* Live Card Preview Column - same width as the inputs */}
-                <div className="w-full drop-shadow-md">
+                <div className="w-full">
                   <FaceCard card={previewCard} interactive={true} />
                 </div>
                 <div className="text-center">
-                  <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                    Live Preview &bull; {cleanHandle ? `@${cleanHandle}` : '@handle'}
+                  <span className="text-xs font-semibold text-[var(--text-main)]">
+                    Live Preview · {cleanHandle ? `@${cleanHandle}` : '@handle'}
                   </span>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">Includes 100 LP starter balance</p>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                    Includes 100 LP starter balance
+                  </p>
                 </div>
 
-                {/* Claiming Form */}
                 <form onSubmit={handleClaimSubmit} className="space-y-3.5 w-full">
-                  <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1.5">
-                      Full Name
-                    </label>
-                    <div className="relative">
-                      <User className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder="e.g. Maya Chen"
-                        maxLength={40}
-                        required
-                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] dark:focus:ring-white focus:border-transparent text-[#1A1A1A] dark:text-white placeholder:text-neutral-400 transition-all shadow-sm"
-                      />
-                    </div>
-                  </div>
+                  <Input
+                    label="Full Name"
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="e.g. Amara Okafor"
+                    maxLength={40}
+                    required
+                    leftIcon={<User className="w-4 h-4" />}
+                  />
 
-                  <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1.5">
-                      Username
-                    </label>
-                    <div className="relative">
-                      <AtSign className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        value={handle}
-                        onChange={(e) => setHandle(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                        placeholder="username"
-                        maxLength={20}
-                        required
-                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] dark:focus:ring-white focus:border-transparent text-[#1A1A1A] dark:text-white placeholder:text-neutral-400 transition-all shadow-sm"
-                      />
-                    </div>
-                  </div>
+                  <Input
+                    label="Username"
+                    type="text"
+                    value={handle}
+                    onChange={(e) => setHandle(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+                    placeholder="username"
+                    maxLength={20}
+                    required
+                    leftIcon={<AtSign className="w-4 h-4" />}
+                  />
 
-                  <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1.5">
-                      Security PIN (4–6 Digits)
-                    </label>
-                    <div className="relative">
-                      <KeyRound className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="password"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={6}
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                        placeholder="••••"
-                        required
-                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-semibold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] dark:focus:ring-white focus:border-transparent text-[#1A1A1A] dark:text-white placeholder:text-neutral-400 transition-all shadow-sm"
-                      />
-                    </div>
-                    <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1">
-                      Used to quickly unlock your Facecard anytime.
-                    </p>
-                  </div>
+                  <Input
+                    label="Security PIN (4–6 Digits)"
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••"
+                    required
+                    className="tracking-widest"
+                    helperText="Used to unlock your Face Card anytime."
+                    leftIcon={<KeyRound className="w-4 h-4" />}
+                  />
 
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full mt-2 py-3 px-4 rounded-xl bg-[#1A1A1A] hover:bg-black text-white dark:bg-white dark:hover:bg-neutral-200 dark:text-[#1A1A1A] font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                  >
-                    {isLoading ? (
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <CreditCard className="w-4 h-4" />
-                        <span>Claim Your Facecard</span>
-                      </>
-                    )}
-                  </button>
+                  <Button type="submit" variant="primary" size="lg" fullWidth isLoading={isLoading}>
+                    Claim Your Face Card
+                  </Button>
                 </form>
               </div>
             ) : (
-              /* PIN Sign In Form */
-              <form onSubmit={handleLoginSubmit} className="max-w-sm mx-auto space-y-4 py-2">
-                <div>
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1.5">
-                    Username or Card Number
-                  </label>
-                  <div className="relative">
-                    <AtSign className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={loginIdentifier}
-                      onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="@username or FC-1234-2026"
-                      required
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] dark:focus:ring-white focus:border-transparent text-[#1A1A1A] dark:text-white placeholder:text-neutral-400 transition-all shadow-sm"
-                    />
-                  </div>
-                </div>
+              <form onSubmit={handleLoginSubmit} className="space-y-4 py-1">
+                <Input
+                  label="Username or Card Number"
+                  type="text"
+                  value={loginIdentifier}
+                  onChange={(e) => setLoginIdentifier(e.target.value)}
+                  placeholder="@username or FC-1234-2026"
+                  required
+                  leftIcon={<AtSign className="w-4 h-4" />}
+                />
 
-                <div>
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1.5">
-                    4–6 Digit Security PIN
-                  </label>
-                  <div className="relative">
-                    <KeyRound className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={6}
-                      value={loginPin}
-                      onChange={(e) => setLoginPin(e.target.value.replace(/\D/g, ''))}
-                      placeholder="••••"
-                      required
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-semibold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] dark:focus:ring-white focus:border-transparent text-[#1A1A1A] dark:text-white placeholder:text-neutral-400 transition-all shadow-sm"
-                    />
-                  </div>
-                </div>
+                <Input
+                  label="4–6 Digit Security PIN"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={loginPin}
+                  onChange={(e) => setLoginPin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••"
+                  required
+                  className="tracking-widest"
+                  leftIcon={<KeyRound className="w-4 h-4" />}
+                />
 
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-3.5 px-4 rounded-xl bg-[#1A1A1A] hover:bg-black text-white dark:bg-white dark:hover:bg-neutral-200 dark:text-[#1A1A1A] font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                >
-                  {isLoading ? (
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <span>Unlock Facecard</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
+                <Button type="submit" variant="primary" size="lg" fullWidth isLoading={isLoading}>
+                  Unlock Face Card
+                </Button>
               </form>
             )}
 
-            <div className="text-center pt-2">
-              <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                Email is optional &bull; You can add an email anytime later to back up your Facecard.
-              </span>
-            </div>
+            <p className="text-center text-[11px] text-[var(--text-muted)] pt-1">
+              Email is optional · You can link an email anytime later for backup.
+            </p>
           </div>
         </motion.div>
       </div>

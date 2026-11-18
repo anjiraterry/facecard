@@ -8,9 +8,36 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const sessionUser = await getSessionUser();
+    const scope = (req.nextUrl.searchParams.get('scope') || 'GLOBAL').toUpperCase();
 
-    // Query top users by lifetime points from Neon Lakebase Postgres
+    let friendIds: string[] | null = null;
+    if (scope === 'FRIENDS') {
+      if (!sessionUser) {
+        return NextResponse.json({
+          success: true,
+          scope,
+          leaderboard: [],
+          topThree: [],
+          rest: [],
+          total: 0,
+        });
+      }
+      const friendships = await db.friendship.findMany({
+        where: { requesterId: sessionUser.id, status: 'ACCEPTED' },
+        select: { addresseeId: true },
+      });
+      friendIds = [sessionUser.id, ...friendships.map((f) => f.addresseeId)];
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // Query top active users by lifetime points from Neon Lakebase Postgres
     const users = await db.user.findMany({
+      where: {
+        status: 'ACTIVE',
+        ...(friendIds ? { id: { in: friendIds } } : {}),
+        ...(scope === 'WEEKLY' ? { scans: { some: { createdAt: { gte: sevenDaysAgo } } } } : {}),
+      },
       orderBy: { lifetimePoints: 'desc' },
       take: 50,
       include: {
@@ -24,8 +51,8 @@ export async function GET(req: NextRequest) {
 
     const leaderboard = users.map((u, index) => {
       const handleClean = u.handle ? u.handle.replace(/^@/, '') : `user_${u.id.slice(0, 6)}`;
-      const avatar = getInitialsAvatarSvg(u.displayName, handleClean);
-      const score = u.scans[0]?.score ?? 0;
+      const avatar = u.avatarUrl || getInitialsAvatarSvg(u.displayName, handleClean);
+      const latestScore = u.scans[0]?.score ?? null;
 
       return {
         rank: index + 1,
@@ -33,7 +60,7 @@ export async function GET(req: NextRequest) {
         name: u.displayName,
         handle: `@${handleClean}`,
         avatar,
-        score,
+        score: latestScore,
         tier: u.tier,
         streak: u.streak?.currentCount ?? 0,
         points: u.lifetimePoints,
@@ -43,6 +70,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      scope,
       leaderboard,
       topThree: leaderboard.slice(0, 3),
       rest: leaderboard.slice(3),

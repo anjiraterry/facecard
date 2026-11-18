@@ -111,6 +111,23 @@ model User {
   abuseFlags         AbuseFlag[]
   auditLogs          AuditLog[]
   authSessions       AuthSession[]
+
+  // Atelier relations
+  atelierBags        ShoppingBag[]
+  atelierWishlist    WishlistItem[]
+  atelierAddresses   Address[]
+  atelierCheckouts   CheckoutSession[]
+  atelierOrders      Order[]
+  skinProfile        SkinProfile?
+  skinConsents       SkinConsent[]
+  skincareRoutines   SkincareRoutine[]
+
+  // Governance, social & support relations
+  consentRecords      ConsentRecord[]
+  friendshipsSent     Friendship[]    @relation("FriendshipRequester")
+  friendshipsReceived Friendship[]    @relation("FriendshipAddressee")
+  cardSnapshots       CardSnapshot[]
+  supportTickets      SupportTicket[]
 }
 
 /// Server-side login session. Only a SHA-256 hash of the random cookie token is stored.
@@ -306,6 +323,8 @@ model FaceOff {
   winnerId             String?       @db.Uuid
   rematchCount         Int           @default(0)
   feeAmount            Int           @default(0)
+  challengerLockedAt   DateTime?
+  opponentLockedAt     DateTime?
   expiresAt            DateTime
   resolvedAt           DateTime?
   createdAt            DateTime      @default(now())
@@ -341,19 +360,21 @@ model FaceOffAttempt {
 }
 
 model ShareCard {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @db.Uuid
-  publicId  String    @unique
-  scanId    String?   @db.Uuid
-  faceOffId String?   @db.Uuid
-  blobKey   String
-  expiresAt DateTime
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
+  id         String        @id @default(uuid()) @db.Uuid
+  userId     String        @db.Uuid
+  publicId   String        @unique
+  scanId     String?       @db.Uuid
+  faceOffId  String?       @db.Uuid
+  snapshotId String?       @db.Uuid
+  blobKey    String
+  expiresAt  DateTime
+  deletedAt  DateTime?
+  createdAt  DateTime      @default(now())
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scan      Scan?     @relation(fields: [scanId], references: [id], onDelete: SetNull)
-  faceOff   FaceOff?  @relation(fields: [faceOffId], references: [id], onDelete: SetNull)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scan       Scan?         @relation(fields: [scanId], references: [id], onDelete: SetNull)
+  faceOff    FaceOff?      @relation(fields: [faceOffId], references: [id], onDelete: SetNull)
+  snapshot   CardSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
 
   @@index([publicId])
   @@index([expiresAt])
@@ -408,4 +429,887 @@ model AuditLog {
   @@index([actorId])
   @@index([action])
   @@index([createdAt])
+}
+
+// ==========================================
+// THE ATELIER — SKINCARE COMMERCE & ROUTINES
+// ==========================================
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum RitualStepKind {
+  CLEANSE
+  TREAT
+  HYDRATE
+  PROTECT
+}
+
+enum InventoryMovementType {
+  STOCK_RECEIVED
+  RESERVED
+  RESERVATION_RELEASED
+  SALE
+  RETURN_RESTOCK
+  DAMAGED
+  EXPIRED
+  ADJUSTMENT
+}
+
+enum ReservationStatus {
+  ACTIVE
+  CONSUMED
+  RELEASED
+  EXPIRED
+}
+
+enum BagStatus {
+  ACTIVE
+  CONVERTED
+  ABANDONED
+}
+
+enum CheckoutStatus {
+  OPEN
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum FulfilmentStatus {
+  UNFULFILLED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  PAYSTACK
+}
+
+enum SkinType {
+  NORMAL
+  DRY
+  OILY
+  COMBINATION
+  UNSURE
+}
+
+enum SensitivityLevel {
+  NOT_REPORTED
+  OCCASIONAL
+  FREQUENT
+  UNSURE
+}
+
+enum RoutineExperience {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum RoutinePreference {
+  MINIMAL
+  BALANCED
+  ADVANCED
+}
+
+enum TimeOfDay {
+  AM
+  PM
+}
+
+model Brand {
+  id          String           @id @default(uuid()) @db.Uuid
+  slug        String           @unique
+  name        String
+  description String?
+  country     String?
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  products    AtelierProduct[]
+}
+
+model ProductCategory {
+  id          String           @id @default(uuid()) @db.Uuid
+  slug        String           @unique
+  name        String
+  description String?
+  parentId    String?          @db.Uuid
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+
+  parent      ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ProductCategory[] @relation("CategoryTree")
+  products    AtelierProduct[]
+}
+
+model AtelierProduct {
+  id              String              @id @default(uuid()) @db.Uuid
+  slug            String              @unique
+  brandId         String              @db.Uuid
+  categoryId      String              @db.Uuid
+  name            String
+  subtitle        String?
+  description     String
+  benefits        String[]
+  howToUse        String?
+  warnings        String?
+  ingredientList  String?
+  countryOfOrigin String?
+  ritualStep      RitualStepKind      @default(TREAT)
+  status          ProductStatus       @default(DRAFT)
+  featured        Boolean             @default(false)
+  publishedAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  archivedAt      DateTime?
+
+  brand           Brand               @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  category        ProductCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  variants        ProductVariant[]
+  images          ProductImage[]
+  ingredients     ProductIngredient[]
+  concerns        ProductConcern[]
+  skinTypes       ProductSkinType[]
+  collections     CollectionProduct[]
+  wishlistItems   WishlistItem[]
+  routineSteps    RoutineStepProduct[]
+
+  @@index([status, featured])
+  @@index([categoryId])
+  @@index([brandId])
+}
+
+model ProductVariant {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  productId           String                 @db.Uuid
+  sku                 String                 @unique
+  barcode             String?                @unique
+  name                String
+  sizeLabel           String?
+  volumeMl            Decimal?               @db.Decimal(10, 2)
+  weightGrams         Decimal?               @db.Decimal(10, 2)
+  priceMinor          BigInt
+  compareAtPriceMinor BigInt?
+  costPriceMinor      BigInt?
+  currency            String                 @default("NGN")
+  isActive            Boolean                @default(true)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  product             AtelierProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventoryLevels     InventoryLevel[]
+  inventoryMovements  InventoryMovement[]
+  reservations        InventoryReservation[]
+  bagItems            BagItem[]
+  orderItems          OrderItem[]
+
+  @@index([productId, isActive])
+}
+
+model ProductImage {
+  id        String         @id @default(uuid()) @db.Uuid
+  productId String         @db.Uuid
+  objectKey String
+  altText   String?
+  sortOrder Int            @default(0)
+  isPrimary Boolean        @default(false)
+  createdAt DateTime       @default(now())
+
+  product   AtelierProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+}
+
+model Ingredient {
+  id                String              @id @default(uuid()) @db.Uuid
+  slug              String              @unique
+  name              String
+  inciName          String?
+  summary           String?
+  isPotentialIrritant Boolean           @default(false)
+
+  products          ProductIngredient[]
+}
+
+model ProductIngredient {
+  productId    String         @db.Uuid
+  ingredientId String         @db.Uuid
+  isKeyActive  Boolean        @default(false)
+
+  product      AtelierProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient     @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@id([productId, ingredientId])
+}
+
+model SkinConcern {
+  id          String               @id @default(uuid()) @db.Uuid
+  slug        String               @unique
+  name        String
+  description String?
+
+  products    ProductConcern[]
+  profiles    SkinProfileConcern[]
+}
+
+model ProductConcern {
+  productId String         @db.Uuid
+  concernId String         @db.Uuid
+  strength  Int            @default(1)
+
+  product   AtelierProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  concern   SkinConcern    @relation(fields: [concernId], references: [id], onDelete: Cascade)
+
+  @@id([productId, concernId])
+}
+
+model ProductSkinType {
+  productId String         @db.Uuid
+  skinType  SkinType
+
+  product   AtelierProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([productId, skinType])
+}
+
+model Collection {
+  id          String              @id @default(uuid()) @db.Uuid
+  slug        String              @unique
+  name        String
+  description String?
+  active      Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+
+  products    CollectionProduct[]
+}
+
+model CollectionProduct {
+  collectionId String         @db.Uuid
+  productId    String         @db.Uuid
+  sortOrder    Int            @default(0)
+
+  collection   Collection     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product      AtelierProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, productId])
+}
+
+model InventoryLocation {
+  id          String                 @id @default(uuid()) @db.Uuid
+  code        String                 @unique
+  name        String
+  city        String?
+  state       String?
+  country     String                 @default("NG")
+  isDefault   Boolean                @default(false)
+  active      Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+
+  levels      InventoryLevel[]
+  movements   InventoryMovement[]
+  reservations InventoryReservation[]
+}
+
+model InventoryLevel {
+  id           String            @id @default(uuid()) @db.Uuid
+  variantId    String            @db.Uuid
+  locationId   String            @db.Uuid
+  onHand       Int               @default(0)
+  reserved     Int               @default(0)
+  reorderLevel Int               @default(5)
+  version      Int               @default(1)
+  updatedAt    DateTime          @updatedAt
+
+  variant      ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  location     InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, locationId])
+}
+
+model InventoryMovement {
+  id            String                @id @default(uuid()) @db.Uuid
+  variantId     String                @db.Uuid
+  locationId    String                @db.Uuid
+  type          InventoryMovementType
+  onHandDelta   Int
+  reservedDelta Int
+  referenceType String
+  referenceId   String
+  operationKey  String                @unique
+  performedById String?               @db.Uuid
+  reason        String?
+  createdAt     DateTime              @default(now())
+
+  variant       ProductVariant        @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  location      InventoryLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@index([variantId, createdAt])
+}
+
+model InventoryReservation {
+  id                String            @id @default(uuid()) @db.Uuid
+  checkoutSessionId String            @db.Uuid
+  variantId         String            @db.Uuid
+  locationId        String            @db.Uuid
+  quantity          Int
+  status            ReservationStatus @default(ACTIVE)
+  expiresAt         DateTime
+  consumedAt        DateTime?
+  releasedAt        DateTime?
+  createdAt         DateTime          @default(now())
+
+  checkoutSession   CheckoutSession   @relation(fields: [checkoutSessionId], references: [id], onDelete: Cascade)
+  variant           ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  location          InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@index([status, expiresAt])
+  @@index([checkoutSessionId])
+}
+
+model ShoppingBag {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  status    BagStatus @default(ACTIVE)
+  currency  String    @default("NGN")
+  version   Int       @default(1)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     BagItem[]
+
+  @@index([userId, status])
+}
+
+model BagItem {
+  id        String         @id @default(uuid()) @db.Uuid
+  bagId     String         @db.Uuid
+  variantId String         @db.Uuid
+  quantity  Int            @default(1)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  bag       ShoppingBag    @relation(fields: [bagId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([bagId, variantId])
+}
+
+model WishlistItem {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @db.Uuid
+  productId String         @db.Uuid
+  createdAt DateTime       @default(now())
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   AtelierProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model Address {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  label         String?
+  recipientName String
+  phone         String
+  line1         String
+  line2         String?
+  city          String
+  state         String
+  country       String   @default("NG")
+  postalCode    String?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model DeliveryZone {
+  id        String         @id @default(uuid()) @db.Uuid
+  code      String         @unique
+  name      String
+  states    String[]
+  active    Boolean        @default(true)
+
+  rates     ShippingRate[]
+}
+
+model ShippingRate {
+  id            String       @id @default(uuid()) @db.Uuid
+  zoneId        String       @db.Uuid
+  name          String
+  amountMinor   BigInt
+  currency      String       @default("NGN")
+  estimatedDays String?
+  active        Boolean      @default(true)
+
+  zone          DeliveryZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+}
+
+model CheckoutSession {
+  id             String                 @id @default(uuid()) @db.Uuid
+  userId         String                 @db.Uuid
+  bagId          String?                @db.Uuid
+  status         CheckoutStatus         @default(OPEN)
+  currency       String                 @default("NGN")
+  subtotalMinor  BigInt
+  discountMinor  BigInt                 @default(0)
+  shippingMinor  BigInt                 @default(0)
+  taxMinor       BigInt                 @default(0)
+  totalMinor     BigInt
+  addressSnapshot Json
+  expiresAt      DateTime
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reservations   InventoryReservation[]
+  order          Order?
+
+  @@index([userId, status])
+  @@index([expiresAt])
+}
+
+model Order {
+  id                String             @id @default(uuid()) @db.Uuid
+  orderNumber       String             @unique
+  userId            String             @db.Uuid
+  checkoutSessionId String             @unique @db.Uuid
+  currency          String             @default("NGN")
+  subtotalMinor     BigInt
+  discountMinor     BigInt             @default(0)
+  shippingMinor     BigInt             @default(0)
+  taxMinor          BigInt             @default(0)
+  totalMinor        BigInt
+  orderStatus       OrderStatus        @default(PENDING_PAYMENT)
+  paymentStatus     PaymentStatus      @default(PENDING)
+  fulfilmentStatus  FulfilmentStatus   @default(UNFULFILLED)
+  placedAt          DateTime           @default(now())
+  paidAt            DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  checkoutSession   CheckoutSession    @relation(fields: [checkoutSessionId], references: [id], onDelete: Restrict)
+  items             OrderItem[]
+  address           OrderAddress?
+  statusEvents      OrderStatusEvent[]
+  transactions      PaymentTransaction[]
+
+  @@index([userId, createdAt])
+}
+
+model OrderItem {
+  id                  String         @id @default(uuid()) @db.Uuid
+  orderId             String         @db.Uuid
+  variantId           String         @db.Uuid
+  productNameSnapshot String
+  brandNameSnapshot   String
+  variantNameSnapshot String
+  skuSnapshot         String
+  imageKeySnapshot    String?
+  quantity            Int
+  unitPriceMinor      BigInt
+  discountMinor       BigInt         @default(0)
+  taxMinor            BigInt         @default(0)
+  lineTotalMinor      BigInt
+
+  order               Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant             ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
+model OrderAddress {
+  id            String  @id @default(uuid()) @db.Uuid
+  orderId       String  @unique @db.Uuid
+  recipientName String
+  phone         String
+  line1         String
+  line2         String?
+  city          String
+  state         String
+  country       String
+  postalCode    String?
+
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model OrderStatusEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  orderId     String   @db.Uuid
+  fromStatus  String?
+  toStatus    String
+  note        String?
+  actorId     String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model PaymentTransaction {
+  id                    String          @id @default(uuid()) @db.Uuid
+  orderId               String          @db.Uuid
+  provider              PaymentProvider @default(PAYSTACK)
+  reference             String          @unique
+  providerTransactionId String?
+  amountMinor           BigInt
+  currency              String          @default("NGN")
+  status                PaymentStatus   @default(PENDING)
+  failureReason         String?
+  verifiedAt            DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  order                 Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
+model PaymentWebhookEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  provider    PaymentProvider @default(PAYSTACK)
+  eventId     String    @unique
+  eventType   String
+  reference   String?
+  payload     Json
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([reference])
+}
+
+model SkinProfile {
+  id                   String                   @id @default(uuid()) @db.Uuid
+  userId               String                   @unique @db.Uuid
+  skinType             SkinType                 @default(UNSURE)
+  sensitivityLevel     SensitivityLevel?
+  experienceLevel      RoutineExperience?
+  routinePreference    RoutinePreference?
+  budgetMinMinor       BigInt?
+  budgetMaxMinor       BigInt?
+  preferredCurrency    String                   @default("NGN")
+  questionnaireVersion Int                      @default(1)
+  completedAt          DateTime?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  concerns             SkinProfileConcern[]
+  sensitivities        SkinProfileSensitivity[]
+}
+
+model SkinProfileConcern {
+  skinProfileId String      @db.Uuid
+  concernId     String      @db.Uuid
+  priority      Int         @default(1)
+
+  skinProfile   SkinProfile @relation(fields: [skinProfileId], references: [id], onDelete: Cascade)
+  concern       SkinConcern @relation(fields: [concernId], references: [id], onDelete: Cascade)
+
+  @@id([skinProfileId, concernId])
+}
+
+model SkinProfileSensitivity {
+  id            String      @id @default(uuid()) @db.Uuid
+  skinProfileId String      @db.Uuid
+  label         String
+
+  skinProfile   SkinProfile @relation(fields: [skinProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([skinProfileId, label])
+}
+
+model SkinConsent {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  version     String
+  grantedAt   DateTime  @default(now())
+  withdrawnAt DateTime?
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, grantedAt])
+}
+
+model SkincareRoutine {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @db.Uuid
+  name      String        @default("My Daily Ritual")
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps     RoutineStep[]
+
+  @@index([userId, isActive])
+}
+
+model RoutineStep {
+  id         String               @id @default(uuid()) @db.Uuid
+  routineId  String               @db.Uuid
+  timeOfDay  TimeOfDay
+  stepNumber Int
+  stepTitle  String
+  guidance   String?
+
+  routine    SkincareRoutine      @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  products   RoutineStepProduct[]
+
+  @@unique([routineId, timeOfDay, stepNumber])
+}
+
+model RoutineStepProduct {
+  stepId    String         @db.Uuid
+  productId String         @db.Uuid
+
+  step      RoutineStep    @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  product   AtelierProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([stepId, productId])
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// GOVERNANCE, SOCIAL, IMMUTABLE SNAPSHOTS & CONTROL CENTRE
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum ConsentPurpose {
+  AGE_CONFIRMATION
+  TERMS_PRIVACY
+  PORTRAIT_PROCESSING
+  SKINCARE_PERSONALISATION
+  PUBLIC_SHARE
+}
+
+model ConsentRecord {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @db.Uuid
+  purpose     ConsentPurpose
+  version     String
+  grantedAt   DateTime       @default(now())
+  withdrawnAt DateTime?
+  ip          String?
+  userAgent   String?
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+model Friendship {
+  id          String           @id @default(uuid()) @db.Uuid
+  requesterId String           @db.Uuid
+  addresseeId String           @db.Uuid
+  status      FriendshipStatus @default(ACCEPTED)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  requester   User             @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User             @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([requesterId, status])
+  @@index([addresseeId, status])
+}
+
+model CardSnapshot {
+  id              String      @id @default(uuid()) @db.Uuid
+  userId          String      @db.Uuid
+  cardId          String
+  cardholderName  String
+  handle          String?
+  tier            Tier
+  score           Float
+  band            String?
+  title           String
+  skinSlug        String
+  frameSlug       String
+  streakDays      Int         @default(0)
+  multiplier      Float       @default(1.0)
+  templateVersion String      @default("1.0")
+  createdAt       DateTime    @default(now())
+
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shareCards      ShareCard[]
+
+  @@index([userId, createdAt])
+}
+
+enum StaffStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+model StaffRole {
+  id          String      @id @default(uuid()) @db.Uuid
+  slug        String      @unique
+  name        String
+  description String?
+  permissions String[]    @default([])
+  isSystem    Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  users       StaffUser[]
+}
+
+model StaffUser {
+  id           String          @id @default(uuid()) @db.Uuid
+  email        String          @unique
+  fullName     String
+  passwordHash String
+  status       StaffStatus     @default(ACTIVE)
+  roleId       String          @db.Uuid
+  lastLoginAt  DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  role         StaffRole         @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  sessions     StaffSession[]
+  auditLogs    StaffAuditLog[]
+  proposedApprovals ApprovalRequest[] @relation("ApprovalProposer")
+  reviewedApprovals ApprovalRequest[] @relation("ApprovalReviewer")
+
+  @@index([roleId])
+}
+
+model StaffSession {
+  id          String    @id @default(uuid()) @db.Uuid
+  staffUserId String    @db.Uuid
+  tokenHash   String    @unique
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime  @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+
+  @@index([staffUserId])
+  @@index([expiresAt])
+}
+
+model StaffAuditLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  staffUserId String?   @db.Uuid
+  action      String
+  targetType  String
+  targetId    String?
+  reason      String?
+  detail      Json?
+  ip          String?
+  createdAt   DateTime  @default(now())
+
+  staffUser   StaffUser? @relation(fields: [staffUserId], references: [id], onDelete: SetNull)
+
+  @@index([staffUserId, createdAt])
+  @@index([action])
+  @@index([targetType, targetId])
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model SupportTicket {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String?             @db.Uuid
+  email     String?
+  subject   String
+  category  String
+  status    SupportTicketStatus @default(OPEN)
+  priority  String              @default("NORMAL")
+  orderId   String?             @db.Uuid
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  user      User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  messages  SupportMessage[]
+
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
+model SupportMessage {
+  id         String        @id @default(uuid()) @db.Uuid
+  ticketId   String        @db.Uuid
+  senderType String        // USER | STAFF | SYSTEM
+  senderId   String?       @db.Uuid
+  body       String
+  createdAt  DateTime      @default(now())
+
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ApprovalRequest {
+  id           String         @id @default(uuid()) @db.Uuid
+  proposerId   String         @db.Uuid
+  reviewerId   String?        @db.Uuid
+  actionType   String         // POINTS_ADJUSTMENT | STOCK_WRITE_OFF | USER_SUSPENSION | REFUND_REQUEST
+  targetType   String
+  targetId     String
+  payload      Json
+  reason       String
+  status       ApprovalStatus @default(PENDING)
+  decisionNote String?
+  reviewedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  proposer     StaffUser      @relation("ApprovalProposer", fields: [proposerId], references: [id], onDelete: Restrict)
+  reviewer     StaffUser?     @relation("ApprovalReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([proposerId])
+  @@index([targetType, targetId])
 }

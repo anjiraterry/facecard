@@ -13,11 +13,10 @@ import {
   Swords, 
   Users,
   ChevronRight,
-  Sparkles,
+  Layers,
   AlertCircle,
   Camera
 } from 'lucide-react';
-import { BottomNav } from '@/components/navigation/BottomNav';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { FaceOffMode } from '@/types';
 import { useFaceoff } from '@/hooks/useFaceoff';
@@ -26,6 +25,9 @@ import { UserAvatar } from '@/components/common/UserAvatar';
 import { useToast } from '@/components/common/ToastProvider';
 import { DuelDetailModal } from '@/components/faceoff/DuelDetailModal';
 import { DuelItem } from '@/services/faceoffService';
+import { EmptyState } from '@/components/ui/StateViews';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FramerTabPanel } from '@/components/ui/MotionPrimitives';
 
 function FaceOffContent() {
   const router = useRouter();
@@ -148,7 +150,7 @@ function FaceOffContent() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32">
+    <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32 md:pl-16 lg:pl-52">
       {/* Subtle Ethereal Ambient Background */}
       <div 
         className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-75 dark:opacity-25"
@@ -161,36 +163,18 @@ function FaceOffContent() {
         }}
       />
 
-      <main className="relative z-10 max-w-md mx-auto px-5 pt-5 space-y-5">
+      <main className="relative z-10 max-w-6xl xl:max-w-7xl mx-auto px-5 sm:px-8 pt-5 space-y-5">
         
-        {/* Top Header Row (Clean Transparent, Centered Title) */}
-        <header className="relative flex items-center justify-between h-10 px-1">
-          <Link
-            href="/"
-            className="w-9 h-9 flex items-center justify-center text-[var(--text-main)] transition-transform active:scale-95"
-            title="Back to Feed"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2]" />
-          </Link>
-
-          <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
-            <span className="text-xl font-bold tracking-tight text-[var(--text-main)]">
-              arena
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-main)]">
-              <Coins className="w-4 h-4 text-[#6366F1]" />
-              <span>{spendableBalance ?? 0}</span>
-            </div>
-          </div>
-        </header>
+        <PageHeader
+          title="Arena"
+          backHref="/home"
+          backLabel="Back to home"
+          points={spendableBalance ?? 0}
+        />
 
         {/* Unclaimed Face Card Warning Banner */}
         {!cardLoading && !activeCard?.id && (
-          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between shadow-xs">
+          <div className="p-4 rounded-2xl bg-[var(--warning-surface)] border border-[var(--warning)]/25 flex items-center justify-between shadow-xs">
             <div className="space-y-0.5">
               <span className="text-xs font-bold text-amber-700 dark:text-amber-300 block">
                 Face Card Not Claimed
@@ -201,7 +185,7 @@ function FaceOffContent() {
             </div>
             <Link
               href="/card"
-              className="py-1.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-xs active:scale-95 transition-all shrink-0"
+              className="py-1.5 px-3 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] text-xs font-bold shadow-xs active:scale-95 transition-all shrink-0"
             >
               Claim Card
             </Link>
@@ -210,9 +194,9 @@ function FaceOffContent() {
 
         {/* Incoming Challenge Banner if arriving via link */}
         {duelParam && (
-          <div className="p-4 rounded-2xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-between shadow-sm">
+          <div className="p-4 rounded-2xl bg-[var(--surface-accent)] border border-[var(--border-card)] flex items-center justify-between shadow-sm">
             <div className="space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-300 block">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[var(--accent-brand)] block">
                 Incoming Duel Invite
               </span>
               <span className="text-xs font-bold text-[var(--text-main)] block">
@@ -228,7 +212,7 @@ function FaceOffContent() {
                   router.push(`/arena/invite/${duelParam}`);
                 }
               }}
-              className="py-1.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
+              className="py-1.5 px-3 rounded-xl bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
             >
               View Match
             </button>
@@ -239,7 +223,7 @@ function FaceOffContent() {
         {incomingDirectRequests.length > 0 && (
           <section className="space-y-2.5">
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-300 flex items-center gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wider text-[var(--accent-brand)] flex items-center gap-1.5">
                 <Swords className="w-3.5 h-3.5 animate-pulse" /> Action Required ({incomingDirectRequests.length})
               </span>
               <span className="text-[10px] text-[var(--text-muted)]">Direct Challenge</span>
@@ -248,7 +232,7 @@ function FaceOffContent() {
               <div 
                 key={req.id}
                 onClick={() => setSelectedDuel(req)}
-                className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-500/15 via-indigo-500/15 to-pink-500/15 border border-purple-500/30 flex items-center justify-between shadow-xs cursor-pointer hover:border-purple-400/50 transition-all"
+                className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-500/15 via-indigo-500/15 to-pink-500/15 border border-[var(--border-card)] flex items-center justify-between shadow-xs cursor-pointer hover:border-[var(--border-strong)] transition-all"
               >
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <UserAvatar
@@ -261,7 +245,7 @@ function FaceOffContent() {
                     <span className="text-xs font-bold text-[var(--text-main)] block truncate">
                       {req.handle} challenged you
                     </span>
-                    <span className="text-[10px] text-purple-600 dark:text-purple-300 font-semibold block">
+                    <span className="text-[10px] text-[var(--accent-brand)] font-semibold block">
                       {req.stake} • {req.requiredTier || req.tier} Division
                     </span>
                   </div>
@@ -273,7 +257,7 @@ function FaceOffContent() {
                     e.stopPropagation();
                     handleAcceptDuel(req.id, req.handle);
                   }}
-                  className="py-1.5 px-3 rounded-xl bg-[#6366F1] hover:bg-[#5558E6] text-white text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                  className="py-1.5 px-3 rounded-xl bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <Swords className="w-3.5 h-3.5" />
                   <span>{joiningId === req.id ? 'Joining...' : 'Accept Match'}</span>
@@ -288,7 +272,7 @@ function FaceOffContent() {
           <section className="space-y-2.5">
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-bold text-[var(--text-main)] flex items-center gap-1.5">
-                <Flame className="w-3.5 h-3.5 text-[#FF7A50]" /> Your Active Duels ({myActiveClashes.length})
+                <Flame className="w-3.5 h-3.5 text-[var(--accent-brand)]" /> Your Active Duels ({myActiveClashes.length})
               </span>
               <span className="text-[10px] text-[var(--text-muted)]">Tap to view match</span>
             </div>
@@ -297,7 +281,7 @@ function FaceOffContent() {
                 <div
                   key={duel.id}
                   onClick={() => setSelectedDuel(duel)}
-                  className="p-3 rounded-2xl bg-white/90 dark:bg-[#140826]/85 border border-black/[0.06] dark:border-white/10 shadow-xs flex items-center justify-between cursor-pointer hover:border-purple-400/40 transition-all"
+                  className="p-3 rounded-2xl bg-[var(--surface)] border border-[var(--border-card)] shadow-xs flex items-center justify-between cursor-pointer hover:border-[var(--border-strong)] transition-all"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <UserAvatar
@@ -318,7 +302,7 @@ function FaceOffContent() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     {duel.status === 'WAITING' ? (
-                      <span className="py-1 px-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold border border-amber-500/20">
+                      <span className="py-1 px-2.5 rounded-xl bg-[var(--warning-surface)] text-amber-600 dark:text-amber-400 text-[10px] font-bold border border-amber-500/20">
                         Awaiting Opponent
                       </span>
                     ) : (
@@ -327,7 +311,7 @@ function FaceOffContent() {
                           e.stopPropagation();
                           router.push(`/scan?duelId=${duel.id}`);
                         }}
-                        className="py-1 px-3 rounded-xl bg-[#6366F1] hover:bg-[#5558E6] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                        className="py-1 px-3 rounded-xl bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition-transform active:scale-95 cursor-pointer"
                       >
                         <Camera className="w-3 h-3" />
                         <span>Take Match Scan</span>
@@ -342,11 +326,11 @@ function FaceOffContent() {
 
         {/* Direct Challenge Opponent Banner if coming from /friends */}
         {opponentParam && (
-          <div className="p-4 rounded-2xl bg-[#6366F1]/15 border border-[#6366F1]/30 flex items-center justify-between shadow-sm animate-fade-in">
+          <div className="p-4 rounded-2xl bg-[var(--accent-primary)] border border-[var(--accent-brand)]/30 flex items-center justify-between shadow-sm animate-fade-in">
             <div className="flex items-center gap-2.5">
-              <Swords className="w-5 h-5 text-[#6366F1] animate-pulse" />
+              <Swords className="w-5 h-5 text-[var(--accent-brand)] animate-pulse" />
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#6366F1] dark:text-purple-300 block">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[var(--accent-brand)] dark:text-[#D2B8C9] block">
                   Direct Clash Ready
                 </span>
                 <span className="text-xs font-bold text-[var(--text-main)] block">
@@ -356,7 +340,7 @@ function FaceOffContent() {
             </div>
             <a
               href="#create-challenge"
-              className="py-1.5 px-3 rounded-xl bg-[#6366F1] text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
+              className="py-1.5 px-3 rounded-xl bg-[var(--accent-primary)] text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
             >
               Set Wager
             </a>
@@ -375,7 +359,7 @@ function FaceOffContent() {
                   className="w-8 h-8 rounded-full object-cover ring-2 ring-white dark:ring-[#140826] shadow-xs"
                 />
               ))}
-              <div className="w-8 h-8 rounded-full bg-[#140826] text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#140826] shadow-xs">
+              <div className="w-8 h-8 rounded-full bg-[#251E24] text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#140826] shadow-xs">
                 +{liveDuels.length}
               </div>
             </div>
@@ -395,27 +379,27 @@ function FaceOffContent() {
         <section className="grid grid-cols-2 gap-3">
           {/* You Card */}
           {cardLoading ? (
-            <div className="p-4 rounded-[28px] bg-white/85 dark:bg-[#140826]/75 border border-black/5 dark:border-white/10 shadow-sm space-y-3 animate-pulse">
+            <div className="p-4 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-3 animate-pulse">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-white/10 shrink-0" />
+                <div className="w-10 h-10 rounded-full bg-[var(--surface-secondary)] shrink-0" />
                 <div className="space-y-1.5 flex-1">
-                  <div className="h-3 w-16 bg-neutral-200 dark:bg-white/10 rounded" />
-                  <div className="h-2.5 w-12 bg-neutral-200/60 dark:bg-white/5 rounded" />
+                  <div className="h-3 w-16 bg-[var(--surface-secondary)] rounded" />
+                  <div className="h-2.5 w-12 bg-[var(--surface-secondary)] rounded" />
                 </div>
               </div>
               <div className="space-y-1.5 pt-1">
-                <div className="h-3 w-20 bg-neutral-200/70 dark:bg-white/10 rounded" />
-                <div className="h-3 w-16 bg-neutral-200/70 dark:bg-white/10 rounded" />
+                <div className="h-3 w-20 bg-[var(--surface-secondary)] rounded" />
+                <div className="h-3 w-16 bg-[var(--surface-secondary)] rounded" />
               </div>
             </div>
           ) : (
-            <div className="p-4 rounded-[28px] bg-white/85 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/95 dark:border-white/10 shadow-sm space-y-3">
+            <div className="p-4 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-3">
               <div className="flex items-center gap-2.5">
                 <UserAvatar
                   name={activeCard?.handle || activeCard?.cardholderName || 'You'}
                   src={activeCard?.avatarUrl}
                   size="md"
-                  className="w-10 h-10 ring-2 ring-[#6366F1]"
+                  className="w-10 h-10 ring-2 ring-[var(--focus-ring)]"
                 />
                 <div className="min-w-0">
                   <span className="text-xs font-bold block text-[var(--text-main)] truncate max-w-[100px]">
@@ -428,12 +412,12 @@ function FaceOffContent() {
               </div>
 
               <div className="space-y-1 text-xs">
-                <div className="flex items-center gap-1.5 text-[#6366F1] font-bold">
+                <div className="flex items-center gap-1.5 text-[var(--accent-brand)] font-bold">
                   <Star className="w-3.5 h-3.5 fill-current" />
                   <span>{(spendableBalance ?? 0).toLocaleString()} points</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[#FF7A50] font-bold">
-                  <Flame className="w-3.5 h-3.5 fill-[#FF7A50]" />
+                <div className="flex items-center gap-1.5 text-[var(--accent-brand)] font-bold">
+                  <Flame className="w-3.5 h-3.5 fill-[var(--accent-brand)]" />
                   <span>{activeCard ? `${activeCard.streakDays} day streak` : '0 day streak'}</span>
                 </div>
               </div>
@@ -443,7 +427,7 @@ function FaceOffContent() {
           {/* Featured Opponent Card */}
           <div 
             onClick={() => featuredOpponent && setSelectedDuel(featuredOpponent)}
-            className="p-4 rounded-[28px] bg-white/85 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/95 dark:border-white/10 shadow-sm space-y-3 cursor-pointer hover:border-purple-400/30 active:scale-[0.99] transition-all"
+            className="p-4 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-3 cursor-pointer hover:border-[var(--border-strong)] active:scale-[0.99] transition-all"
           >
             {featuredOpponent ? (
               <div className="flex items-center gap-2.5">
@@ -464,7 +448,7 @@ function FaceOffContent() {
               </div>
             ) : (
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center text-[var(--text-muted)] font-bold text-xs">
+                <div className="w-10 h-10 rounded-full bg-[var(--bg-surface-warm)] flex items-center justify-center text-[var(--text-muted)] font-bold text-xs">
                   ?
                 </div>
                 <div>
@@ -475,12 +459,12 @@ function FaceOffContent() {
             )}
 
             <div className="space-y-1 text-xs">
-              <div className="flex items-center gap-1.5 text-[#6366F1] font-bold">
+              <div className="flex items-center gap-1.5 text-[var(--accent-brand)] font-bold">
                 <Star className="w-3.5 h-3.5 fill-current" />
                 <span>{featuredOpponent ? featuredOpponent.stake : 'Open Match'}</span>
               </div>
-              <div className="flex items-center gap-1.5 text-[#FF7A50] font-bold">
-                <Flame className="w-3.5 h-3.5 fill-[#FF7A50]" />
+              <div className="flex items-center gap-1.5 text-[var(--accent-brand)] font-bold">
+                <Flame className="w-3.5 h-3.5 fill-[var(--accent-brand)]" />
                 <span>{featuredOpponent ? (featuredOpponent.requiredTier || featuredOpponent.tier) : 'Arena Tier'}</span>
               </div>
             </div>
@@ -514,8 +498,8 @@ function FaceOffContent() {
                 onClick={() => setSelectedDivision(tab.id as typeof selectedDivision)}
                 className={`py-1 px-3 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
                   selectedDivision === tab.id
-                    ? 'bg-[#140826] text-white shadow-xs dark:bg-white dark:text-[#140826]'
-                    : 'bg-black/5 dark:bg-white/5 text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    ? 'bg-[#251E24] text-white shadow-xs dark:bg-white dark:text-[#251E24]'
+                    : 'bg-[var(--surface-secondary)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 {tab.label}
@@ -523,24 +507,26 @@ function FaceOffContent() {
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <FramerTabPanel tabKey={selectedDivision}>
+            <div className="grid grid-cols-2 gap-3">
             {isLoading ? (
               <>
-                <div className="aspect-[3/4] rounded-[28px] bg-neutral-200/70 dark:bg-white/[0.06] animate-pulse border border-black/5 dark:border-white/10" />
-                <div className="aspect-[3/4] rounded-[28px] bg-neutral-200/70 dark:bg-white/[0.06] animate-pulse border border-black/5 dark:border-white/10" />
+                <div className="aspect-[3/4] rounded-[28px] bg-[var(--surface-secondary)] animate-pulse border border-[var(--border-card)]" />
+                <div className="aspect-[3/4] rounded-[28px] bg-[var(--surface-secondary)] animate-pulse border border-[var(--border-card)]" />
               </>
             ) : displayedDuels.length === 0 ? (
-              <div className="col-span-2 p-8 text-center rounded-[28px] bg-white/60 dark:bg-white/[0.04] border border-dashed border-black/10 dark:border-white/10 space-y-2">
-                <Swords className="w-7 h-7 mx-auto text-[var(--text-muted)] opacity-60" />
-                <p className="text-xs font-bold text-[var(--text-main)]">No active duels in this division</p>
-                <p className="text-[10px] text-[var(--text-muted)]">Create a challenge below to stake points and duel!</p>
+              <div className="col-span-2">
+                <EmptyState
+                  title="No active duels in this division"
+                  description="Create a challenge below to stake points and duel."
+                />
               </div>
             ) : (
               displayedDuels.map((duel) => (
                 <div
                   key={duel.id}
                   onClick={() => setSelectedDuel(duel)}
-                  className="relative aspect-[3/4] rounded-[28px] overflow-hidden group bg-white dark:bg-[#140826] shadow-sm border border-black/[0.04] dark:border-white/10 cursor-pointer hover:border-purple-400/40 hover:shadow-md transition-all active:scale-[0.99]"
+                  className="relative aspect-[3/4] rounded-[28px] overflow-hidden group bg-[var(--surface)] shadow-sm border border-[var(--border-card)] cursor-pointer hover:border-[var(--border-strong)] hover:shadow-md transition-all active:scale-[0.99]"
                   title="Click to view full match details and opponent profile"
                 >
                   <img
@@ -550,17 +536,17 @@ function FaceOffContent() {
                   />
 
                   {/* Tier Pill Badge top left */}
-                  <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[9px] font-black border border-white/20 uppercase tracking-wider">
+                  <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/60 text-white text-[9px] font-black border border-white/20 uppercase tracking-wider">
                     {duel.requiredTier || duel.tier}
                   </div>
 
                   {/* Score Tag with Frosted Pill top right */}
-                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] font-bold border border-white/20">
+                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold border border-white/20">
                     ★ {duel.score}
                   </div>
 
                   {/* Bottom Overlay Capsule Drawer */}
-                  <div className="absolute bottom-2.5 inset-x-2.5 p-2.5 rounded-[20px] bg-[#140826]/90 text-white backdrop-blur-xl space-y-1.5 border border-purple-400/20">
+                  <div className="absolute bottom-2.5 inset-x-2.5 p-2.5 rounded-[20px] bg-[#251E24] text-white space-y-1.5 border border-[var(--border-card)]">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 min-w-0 max-w-[105px]">
                         <img
@@ -604,13 +590,14 @@ function FaceOffContent() {
                 </div>
               ))
             )}
-          </div>
+            </div>
+          </FramerTabPanel>
         </section>
 
         {/* Create Private Duel Box */}
         <section 
           id="create-challenge"
-          className="p-4 rounded-[28px] bg-white/85 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/95 dark:border-white/10 shadow-sm space-y-4 scroll-mt-6"
+          className="p-4 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-4 scroll-mt-6"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -621,7 +608,7 @@ function FaceOffContent() {
                 Challenge an opponent directly or host in the open arena.
               </p>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-black/5 dark:bg-white/10 text-[#71717A] dark:text-zinc-300">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-surface-warm)] text-[#71717A] dark:text-zinc-300">
               Arena
             </span>
           </div>
@@ -636,52 +623,53 @@ function FaceOffContent() {
               value={targetHandle}
               onChange={(e) => setTargetHandle(e.target.value)}
               placeholder="@username (Leave blank for open arena)"
-              className="w-full py-2 px-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs font-medium text-[var(--text-main)] placeholder:text-[var(--text-muted)] focus:outline-hidden focus:border-[#6366F1]"
+              className="w-full py-2 px-3 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-card)] text-xs font-medium text-[var(--text-main)] placeholder:text-[var(--text-muted)] focus:outline-hidden focus:border-[var(--accent-brand)]"
             />
           </div>
 
           {/* Mode Selector */}
-          <div className="flex items-center gap-1.5 p-0">
+          <div className="flex items-center p-1 rounded-full bg-[var(--surface-secondary)] border border-[var(--border)] gap-1">
             <button
+              type="button"
               onClick={() => { setMode('STAKED'); setInviteCode(null); }}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2 px-3 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
                 mode === 'STAKED'
-                  ? 'bg-[#DDD6FE] dark:bg-[#7C3AED]/40 text-[#140826] dark:text-purple-100 border border-[#C4B5FD] dark:border-purple-500/40 shadow-xs'
-                  : 'text-[#71717A] dark:text-zinc-300 hover:text-[#18181B] dark:hover:text-white bg-black/5 dark:bg-white/5'
+                  ? 'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[var(--shadow-xs)]'
+                  : 'text-[var(--foreground-secondary)] hover:text-[var(--foreground)]'
               }`}
             >
-              <Coins className="w-3.5 h-3.5 text-current" />
-              <span>Staked</span>
+              Staked
             </button>
 
             <button
+              type="button"
               onClick={() => { setMode('FRIENDLY'); setInviteCode(null); }}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2 px-3 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
                 mode === 'FRIENDLY'
-                  ? 'bg-[#DDD6FE] dark:bg-[#7C3AED]/40 text-[#140826] dark:text-purple-100 border border-[#C4B5FD] dark:border-purple-500/40 shadow-xs'
-                  : 'text-[#71717A] dark:text-zinc-300 hover:text-[#18181B] dark:hover:text-white bg-black/5 dark:bg-white/5'
+                  ? 'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[var(--shadow-xs)]'
+                  : 'text-[var(--foreground-secondary)] hover:text-[var(--foreground)]'
               }`}
             >
-              <Users className="w-3.5 h-3.5 text-current" />
-              <span>Friendly (Zero Risk)</span>
+              Friendly (Zero Risk)
             </button>
           </div>
 
           {/* Stake Amount Selector */}
           {mode === 'STAKED' && (
             <div className="space-y-2">
-              <label className="text-xs font-medium text-[#71717A] dark:text-zinc-400 block">
+              <label className="text-xs font-medium text-[var(--foreground-secondary)] block">
                 Stake Amount:
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {STAKE_OPTIONS.map((amt) => (
                   <button
+                    type="button"
                     key={amt}
                     onClick={() => setStakeAmount(amt)}
-                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+                    className={`py-2 px-2 rounded-full text-xs font-semibold border transition-colors cursor-pointer tabular-nums ${
                       stakeAmount === amt
-                        ? 'border-[#C4B5FD] dark:border-purple-500/40 bg-[#DDD6FE] dark:bg-[#7C3AED]/40 text-[#140826] dark:text-purple-100 shadow-xs'
-                        : 'border-transparent bg-white/50 dark:bg-white/5 text-[#71717A] dark:text-zinc-300 hover:text-[#18181B] dark:hover:text-white'
+                        ? 'border-transparent bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[var(--shadow-xs)]'
+                        : 'border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)]'
                     }`}
                   >
                     {amt} PTS
@@ -694,16 +682,16 @@ function FaceOffContent() {
           {/* Action Button */}
           {!inviteCode ? (
             <button
+              type="button"
               onClick={handleCreateChallenge}
-              className="w-full py-3.5 rounded-full bg-[#140826] hover:bg-[#241040] text-white text-xs font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_8px_24px_rgba(20,8,38,0.3)] border border-purple-400/20 cursor-pointer"
+              className="w-full h-12 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] text-xs font-semibold flex items-center justify-center transition-colors active:scale-[0.98] shadow-[var(--shadow-xs)] cursor-pointer"
             >
-              <Swords className="w-4 h-4 text-white" />
               <span>Create Match Challenge</span>
             </button>
           ) : (
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#140826] border border-black/[0.06] dark:border-white/10 space-y-3">
-              <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center space-y-1">
-                <span className="text-[11px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider block">
+            <div className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border-card)] space-y-3">
+              <div className="p-3 rounded-xl bg-[var(--bg-surface-warm)] border border-[var(--border-card)] text-center space-y-1">
+                <span className="text-[11px] font-bold text-[var(--accent-brand)] uppercase tracking-wider block">
                   Challenge Created!
                 </span>
                 <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
@@ -716,14 +704,14 @@ function FaceOffContent() {
               </div>
               <button
                 onClick={copyInviteLink}
-                className="w-full py-2.5 rounded-xl bg-[#6366F1] hover:bg-[#5558E6] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer"
               >
                 {copied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
                 <span>{copied ? 'Copied to Clipboard!' : 'Copy Match Invite Link'}</span>
               </button>
               <button
                 onClick={() => { setInviteCode(null); setCreatedDuelId(null); }}
-                className="w-full py-2 rounded-xl bg-black/5 dark:bg-white/10 hover:bg-black/10 text-[var(--text-main)] text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer"
+                className="w-full py-2 rounded-xl bg-[var(--bg-surface-warm)] hover:bg-black/10 text-[var(--text-main)] text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer"
               >
                 Done
               </button>
@@ -744,8 +732,6 @@ function FaceOffContent() {
         currentUserTier={activeCard?.tier}
         currentUserScore={activeCard?.score}
       />
-
-      <BottomNav />
     </div>
   );
 }

@@ -1,29 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Montserrat } from "next/font/google";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { ToastProvider } from "@/components/common/ToastProvider";
+import { OfflineBanner } from "@/components/ui/StateViews";
+import { BottomNav } from "@/components/navigation/BottomNav";
 import "./globals.css";
 
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  variable: "--font-montserrat",
-  display: "swap",
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
-});
-
 export const metadata: Metadata = {
-  title: "Facecard — Collectible Facecards & AI Lethality Ratings",
+  title: "Face Card — Editorial Beauty Intelligence & Collectible Cards",
   description:
-    "Face card never declines. Turn your selfie into a collectible Facecard scored on Lethality (0–100).",
-  applicationName: "Facecard",
+    "Discover your facial harmony, photo craft, and skin radiance. Collect your tiered Face Card and curate your personal beauty ritual.",
+  applicationName: "Face Card",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
 };
 
 export default function RootLayout({
@@ -32,24 +25,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`h-full scroll-smooth ${montserrat.variable}`} suppressHydrationWarning>
+    <html lang="en" className="h-full scroll-smooth" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://api.fontshare.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700,800,900&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col font-sans antialiased selection:bg-[#6366F1] selection:text-white transition-colors duration-200">
+      <body className="min-h-full flex flex-col font-sans antialiased selection:bg-[var(--accent-soft)] selection:text-[var(--text-main)] transition-colors duration-200">
         <ThemeProvider>
           <QueryProvider>
             <ToastProvider>
+              <OfflineBanner />
               {children}
+              <BottomNav />
             </ToastProvider>
           </QueryProvider>
         </ThemeProvider>
@@ -57,4 +48,3 @@ export default function RootLayout({
     </html>
   );
 }
-

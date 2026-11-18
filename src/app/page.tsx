@@ -3,18 +3,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { 
-  Sparkles, 
-  Swords, 
-  Camera, 
-  ArrowRight, 
-  ShieldCheck, 
-  KeyRound,
-  CreditCard
-} from 'lucide-react';
 import { FaceCard } from '@/components/card/FaceCard';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { ClaimFaceCardModal } from '@/components/card/ClaimFaceCardModal';
+import { Button } from '@/components/ui/Button';
+import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { FaceCardData } from '@/types';
 
 export default function LandingPage() {
@@ -34,21 +27,21 @@ export default function LandingPage() {
   const showcaseCard: FaceCardData = {
     id: 'landing-showcase',
     tier: 'BLACK',
-    cardholderName: '@alexcross',
-    handle: '@alexcross',
-    title: 'Lethal Weapon',
+    cardholderName: 'Amara Okafor',
+    handle: '@amara',
+    title: 'Velvet Matte',
     score: 96,
     band: 'LETHAL',
     streakDays: 21,
     multiplier: 1.4,
   };
 
-  const lilacCard: FaceCardData = {
-    id: 'landing-lilac',
+  const classicCard: FaceCardData = {
+    id: 'landing-classic',
     tier: 'CLASSIC',
-    cardholderName: '@mayachen',
+    cardholderName: 'Maya Chen',
     handle: '@mayachen',
-    title: 'Certified Classic',
+    title: 'Lilac Satin',
     score: 78,
     band: 'DANGEROUS',
     streakDays: 7,
@@ -56,213 +49,196 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased overflow-x-hidden selection:bg-[#E8D744] selection:text-[#1A1A1A] transition-colors duration-200">
-      {/* Dynamic Orla Ambient Background */}
-      <div 
-        className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-70 dark:opacity-25"
-        style={{
-          background: `
-            radial-gradient(ellipse at 50% -10%, rgba(232, 215, 68, 0.16) 0%, transparent 55%),
-            radial-gradient(ellipse at 85% 35%, rgba(242, 166, 162, 0.12) 0%, transparent 50%),
-            radial-gradient(ellipse at 15% 65%, rgba(179, 191, 240, 0.14) 0%, transparent 50%)
-          `
-        }}
-      />
-
-      {/* Top Navigation Bar */}
-      <header className="relative z-20 max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 group">
-          <span className="text-xl sm:text-2xl font-black tracking-widest uppercase text-[var(--text-main)]">
-            FACECARD
+    <div className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)] font-sans antialiased overflow-x-hidden transition-colors duration-200">
+      {/* Top Navigation */}
+      <header className="relative z-20 max-w-7xl mx-auto px-5 sm:px-8 py-6 flex items-center justify-between gap-4">
+        <Link href="/" className="flex items-center shrink-0">
+          <span className="font-sans text-xl sm:text-2xl font-extrabold tracking-[-0.03em] lowercase text-[var(--foreground)]">
+            facecard.
           </span>
         </Link>
 
-        <nav className="flex items-center gap-3 sm:gap-4">
+        <nav aria-label="Landing navigation" className="flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
-          <button
-            onClick={openLoginModal}
-            className="text-xs sm:text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors px-3 py-1.5 cursor-pointer"
-          >
+          <Button variant="ghost" size="sm" onClick={openLoginModal}>
             Sign In
-          </button>
-          <button
-            onClick={openClaimModal}
-            className="text-xs sm:text-sm font-bold px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-[#1A1A1A] hover:bg-black text-white dark:bg-white dark:hover:bg-neutral-100 dark:text-[#1A1A1A] shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer"
+          </Button>
+          <Link
+            href="/atelier"
+            className="inline-flex items-center justify-center h-9 px-4 rounded-full text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity shadow-[var(--shadow-xs)]"
           >
-            Claim Your Card
-          </button>
+            Atelier
+          </Link>
         </nav>
       </header>
 
-      {/* Hero Section */}
-      <main className="relative z-10 max-w-5xl mx-auto px-6 pt-10 sm:pt-16 pb-24 space-y-20">
-        
-        {/* Main Headline & Pitch */}
+      <main className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pt-8 sm:pt-14 pb-24 space-y-20 sm:space-y-24">
+        {/* Editorial Hero */}
         <section className="text-center max-w-3xl mx-auto space-y-6">
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.08] text-[var(--text-main)]">
-            Your Face Has Value. <br />
-            <span className="bg-gradient-to-r from-[#1A1A1A] via-[#9333EA] to-[#D9628E] dark:from-[#E8D744] dark:via-[#F2A6A2] dark:to-[#B3BFF0] bg-clip-text text-transparent">
-              Claim Your Facecard.
-            </span>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--brand-plum)]">
+            The Face Card That Never Declines
+          </p>
+
+          <h1 className="font-display text-5xl sm:text-6xl lg:text-[72px] font-semibold tracking-[-0.03em] leading-[1.02] text-[var(--foreground)]">
+            Beauty is yours. <br />
+            <span className="text-[var(--brand-plum)]">Own it.</span>
           </h1>
 
-          <p className="text-sm sm:text-lg text-[var(--text-muted)] max-w-xl mx-auto leading-relaxed">
-            The objective AI facial lethality rating and collectible card game. High aura, verified geometry, certified lethality. Face card never declines.
+          <p className="text-sm sm:text-base text-[var(--foreground-secondary)] max-w-xl mx-auto leading-relaxed">
+            Discover your skin, express yourself, and carry the face card that never declines.
+            Collect your tiered Face Card, build daily rituals, and connect with your circle.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">
-            <button
-              onClick={openClaimModal}
-              className="w-full sm:w-auto px-8 py-4 rounded-full text-sm font-bold bg-[#1A1A1A] hover:bg-black text-white dark:bg-white dark:hover:bg-neutral-100 dark:text-[#1A1A1A] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>Claim Your Card</span>
-            </button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+            <Button variant="primary" size="lg" onClick={openClaimModal} className="w-full sm:w-auto">
+              Claim Your Card
+            </Button>
 
-            <button
-              onClick={openLoginModal}
-              className="w-full sm:w-auto px-8 py-4 rounded-full text-sm font-bold border border-black/15 dark:border-white/20 bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 text-[var(--text-main)] shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
-            >
-              <KeyRound className="w-4 h-4 text-current" />
-              <span>Enter with PIN</span>
-            </button>
+            <Button variant="secondary" size="lg" onClick={openLoginModal} className="w-full sm:w-auto">
+              Enter with PIN
+            </Button>
           </div>
         </section>
 
-        {/* Dual Interactive Cards Showcase */}
+        {/* Dual Collectible Tier Showcase */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-center">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            transition={{ duration: 0.4, delay: 0.05 }}
             className="space-y-3"
           >
-            <div className="flex items-center justify-between px-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-                <span>Tier 4: Black Card</span>
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--foreground-muted)]">
+                Black Card · Velvet Matte
               </span>
-              <span className="text-[11px] font-bold text-purple-600 dark:text-purple-300">
-                Lethality 96/100
+              <span className="text-xs font-semibold text-[var(--foreground)] tabular-nums">
+                Index 96/100
               </span>
             </div>
-            <FaceCard card={showcaseCard} interactive={true} />
+            <FaceCard card={showcaseCard} variant="hero" interactive={true} />
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            transition={{ duration: 0.4, delay: 0.12 }}
             className="space-y-3"
           >
-            <div className="flex items-center justify-between px-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
-                <span>Tier 1: Classic Lilac</span>
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--foreground-muted)]">
+                Classic · Lilac Satin
               </span>
-              <span className="text-[11px] font-bold text-purple-600 dark:text-purple-300">
-                Lethality 78/100
+              <span className="text-xs font-semibold text-[var(--foreground)] tabular-nums">
+                Index 78/100
               </span>
             </div>
-            <FaceCard card={lilacCard} interactive={true} />
+            <FaceCard card={classicCard} variant="hero" interactive={true} />
           </motion.div>
         </section>
 
-        {/* 3 Pillar Features */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8">
-          <div className="p-7 rounded-[32px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-300 flex items-center justify-center">
-              <Camera className="w-6 h-6 stroke-[2]" />
-            </div>
-            <h3 className="text-base font-extrabold text-[var(--text-main)]">
-              AI Lethality Scoring
-            </h3>
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-              7-factor diagnostic formula evaluating facial symmetry, lighting craft, expression, and aura. Objective, calibrated, and consistent.
+        {/* Three Clean Editorial Pillars */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <SurfaceCard variant="default" padding="lg" className="space-y-2.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--brand-plum)] block">
+              01 · Analysis
+            </span>
+            <h2 className="text-lg font-semibold text-[var(--foreground)]">
+              Lighting &amp; Craft
+            </h2>
+            <p className="text-xs sm:text-sm text-[var(--foreground-secondary)] leading-relaxed">
+              Evaluates studio lighting, focal sharpness, framing, expression, and skin clarity — calibrated across every skin tone.
             </p>
-          </div>
+          </SurfaceCard>
 
-          <div className="p-7 rounded-[32px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 stroke-[2]" />
-            </div>
-            <h3 className="text-base font-extrabold text-[var(--text-main)]">
-              Collectible Prestige Cards
-            </h3>
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-              Ascend from Classic Lilac to Gold Bullion, Titanium Platinum, and the elusive Black Card. Each Facecard is uniquely certified with your streak multiplier.
+          <SurfaceCard variant="default" padding="lg" className="space-y-2.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--brand-plum)] block">
+              02 · Editions
+            </span>
+            <h2 className="text-lg font-semibold text-[var(--foreground)]">
+              Collectible Tiers
+            </h2>
+            <p className="text-xs sm:text-sm text-[var(--foreground-secondary)] leading-relaxed">
+              Progress from Dusty Lilac Classic to Brushed Gold, Pearlescent Platinum, and Velvet Matte Black through daily streaks.
             </p>
-          </div>
+          </SurfaceCard>
 
-          <div className="p-7 rounded-[32px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-300 flex items-center justify-center">
-              <Swords className="w-6 h-6 stroke-[2]" />
-            </div>
-            <h3 className="text-base font-extrabold text-[var(--text-main)]">
-              P2P Arena Duels
-            </h3>
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-              Stake points against friends or battle in public matchmaking. 1v1 lethality comparisons settle the score. Winner takes the pot.
+          <SurfaceCard variant="default" padding="lg" className="space-y-2.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--brand-plum)] block">
+              03 · Community
+            </span>
+            <h2 className="text-lg font-semibold text-[var(--foreground)]">
+              Curated Arena Duels
+            </h2>
+            <p className="text-xs sm:text-sm text-[var(--foreground-secondary)] leading-relaxed">
+              Invite friends to friendly or staked portrait face-offs with same-tier parity and instant ephemeral scoring.
             </p>
-          </div>
+          </SurfaceCard>
         </section>
 
-        {/* Live Status Ticker */}
-        <section className="p-6 rounded-[28px] bg-white/60 dark:bg-[#140826]/60 backdrop-blur-md border border-white/80 dark:border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          <div>
-            <span className="text-2xl font-black text-[var(--text-main)] block">24,800+</span>
-            <span className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Facecards Issued</span>
+        {/* Skincare Atelier Callout */}
+        <SurfaceCard variant="warm" padding="lg" className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-1.5 max-w-xl">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--brand-plum)]">
+              Skincare Commerce
+            </span>
+            <h2 className="text-2xl font-semibold text-[var(--foreground)]">
+              Atelier
+            </h2>
+            <p className="text-xs sm:text-sm text-[var(--foreground-secondary)] leading-relaxed">
+              Curated formulations, personalised AM/PM routines, and seamless NGN checkout designed for melanin-rich skin.
+            </p>
           </div>
-          <div>
-            <span className="text-2xl font-black text-purple-600 dark:text-purple-300 block">8,920+</span>
-            <span className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Duels Settled</span>
-          </div>
-          <div>
-            <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 block">100%</span>
-            <span className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">On-Device Privacy</span>
-          </div>
-          <div>
-            <span className="text-2xl font-black text-[#FF7A50] block">0 Declines</span>
-            <span className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Face Card Status</span>
-          </div>
-        </section>
+          <Link
+            href="/atelier"
+            className="inline-flex items-center justify-center h-11 px-6 rounded-full bg-[var(--surface)] border border-[var(--border)] text-xs sm:text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors shrink-0"
+          >
+            Explore the Atelier
+          </Link>
+        </SurfaceCard>
 
-        {/* Bottom CTA Banner */}
-        <section className="p-10 rounded-[36px] bg-gradient-to-br from-[#140826] via-[#210D3A] to-[#2D124E] text-white text-center space-y-6 shadow-2xl border border-purple-400/25">
-          <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white max-w-md mx-auto">
-            Ready to claim your official Facecard?
+        {/* Bottom Editorial CTA */}
+        <SurfaceCard variant="dark" padding="lg" className="text-center space-y-5 py-10 sm:py-12">
+          <h2 className="text-2xl sm:text-4xl font-semibold text-[#FAF7F4] max-w-md mx-auto leading-tight">
+            Ready to claim your official Face Card?
           </h2>
-          <p className="text-xs sm:text-sm text-purple-200/80 max-w-sm mx-auto">
-            Takes 10 seconds. Put your name, pick your handle, set a 4-digit PIN, and start playing.
+          <p className="text-xs sm:text-sm text-[#EBDCD5]/80 max-w-md mx-auto leading-relaxed">
+            Set your name, reserve your handle, and choose a 4-digit PIN in moments.
           </p>
-          <div>
+          <div className="pt-1">
             <button
+              type="button"
               onClick={openClaimModal}
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-sm font-bold bg-white text-[#140826] hover:bg-zinc-100 shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              className="inline-flex items-center justify-center h-12 px-8 rounded-full text-sm font-semibold bg-[#FAF7F4] text-[#251E24] hover:bg-[#EBDCD5] active:scale-[0.98] transition-all cursor-pointer"
             >
-              <span>Claim Your Card</span>
-              <ArrowRight className="w-4 h-4" />
+              Claim Your Card
             </button>
           </div>
-        </section>
-
+        </SurfaceCard>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-black/5 dark:border-white/10 py-8 px-6 text-center text-xs text-[var(--text-muted)]">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="font-extrabold tracking-wider uppercase">
-            FACECARD © 2026
+      <footer className="relative z-10 border-t border-[var(--border)] py-8 px-6 text-xs text-[var(--foreground-muted)]">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span className="font-sans text-sm font-extrabold tracking-[-0.03em] lowercase text-[var(--foreground)]">
+            facecard. © 2026
           </span>
-          <div className="flex gap-6 font-semibold">
-            <button onClick={openLoginModal} className="hover:text-[var(--text-main)] transition-colors cursor-pointer">Sign In</button>
-            <button onClick={openClaimModal} className="hover:text-[var(--text-main)] transition-colors cursor-pointer">Claim Your Card</button>
-            <Link href="/arena" className="hover:text-[var(--text-main)] transition-colors">Arena</Link>
+          <div className="flex flex-wrap justify-center gap-6 font-medium">
+            <button type="button" onClick={openLoginModal} className="hover:text-[var(--foreground)] transition-colors cursor-pointer">
+              Sign In
+            </button>
+            <button type="button" onClick={openClaimModal} className="hover:text-[var(--foreground)] transition-colors cursor-pointer">
+              Claim Card
+            </button>
+            <Link href="/faceoff" className="hover:text-[var(--foreground)] transition-colors">
+              Arena
+            </Link>
+            <Link href="/atelier" className="hover:text-[var(--foreground)] transition-colors">
+              The Skin Edit
+            </Link>
           </div>
         </div>
       </footer>
 
-      {/* Claim / PIN Login Modal */}
       <ClaimFaceCardModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}

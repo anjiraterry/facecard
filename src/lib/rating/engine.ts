@@ -25,6 +25,7 @@ export interface ScoredFaceResult {
   verdictLine: string;
   tips: string[];
   qualityGate: QualityGateResult;
+  scoringSource: 'AI_VISION' | 'FEATURE_VECTOR' | 'DETERMINISTIC_TEST_FALLBACK';
   evaluatedAt: string;
 }
 
@@ -345,6 +346,7 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
   const tone = input.toneMode || 'HYPE';
 
   let quality: QualityGateResult;
+  let scoringSource: ScoredFaceResult['scoringSource'] = 'DETERMINISTIC_TEST_FALLBACK';
   let photoCraftLighting = 88;
   let photoCraftSharpness = 85;
   let photoCraftFraming = 90;
@@ -356,6 +358,7 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
   let auraScoreVal = 88;
 
   if (input.featureVector) {
+    scoringSource = 'FEATURE_VECTOR';
     const fv = input.featureVector;
     const framingScore =
       'framing' in fv.qualityGate
@@ -388,6 +391,7 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
       const aiScores = await callAiGatewayVision(imageStr);
 
       if (aiScores) {
+        scoringSource = 'AI_VISION';
         photoCraftLighting = Math.max(0, Math.min(100, aiScores.lighting ?? 85));
         photoCraftSharpness = Math.max(0, Math.min(100, aiScores.sharpness ?? quality.sharpness));
         photoCraftFraming = Math.max(0, Math.min(100, aiScores.framing ?? quality.framing));
@@ -398,7 +402,11 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
         expressionScoreVal = Math.max(0, Math.min(100, aiScores.expression ?? 85));
         auraScoreVal = Math.max(0, Math.min(100, aiScores.aura ?? 87));
       } else {
-        // 2. Deterministic feature extraction from image hash and entropy distribution
+        if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SCORING_FALLBACK !== 'true') {
+          throw new Error('AI portrait analysis is temporarily unavailable. Please try again shortly.');
+        }
+        scoringSource = 'DETERMINISTIC_TEST_FALLBACK';
+        // 2. Deterministic feature extraction for dev/test only (never used for prod rewards)
         const hash = crypto.createHash('sha256').update(imageStr).digest();
         const seed1 = hash[0] / 255;
         const seed2 = hash[1] / 255;
@@ -481,6 +489,7 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
     verdictLine,
     tips: tips.slice(0, 2),
     qualityGate: quality,
+    scoringSource,
     evaluatedAt: new Date().toISOString(),
   };
 }

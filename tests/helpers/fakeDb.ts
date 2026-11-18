@@ -23,6 +23,9 @@ function matches(row: Row, where: Row = {}): boolean {
         }
         return value === cond.equals;
       }
+      if ('not' in cond) {
+        return value !== cond.not;
+      }
       if ('gt' in cond && !(value > cond.gt)) return false;
       if ('gte' in cond && !(value >= cond.gte)) return false;
       if ('lt' in cond && !(value < cond.lt)) return false;
@@ -142,9 +145,10 @@ export function createFakeDb() {
       const sum = _sum?.amount ? found.reduce((acc, r) => acc + (r.amount || 0), 0) : 0;
       return { _sum: { amount: sum } };
     },
-    async groupBy({ by }: { by: string[]; _sum?: { amount?: boolean } }) {
+    async groupBy({ by, where }: { by: string[]; where?: Row; _sum?: { amount?: boolean } }) {
       const groups = new Map<string, number>();
-      for (const row of pointsLedgerTable.rows) {
+      const source = where ? pointsLedgerTable.rows.filter((r) => matches(r, where)) : pointsLedgerTable.rows;
+      for (const row of source) {
         const groupKey = by.map((k) => row[k]).join(':');
         const current = groups.get(groupKey) || 0;
         groups.set(groupKey, current + (row.amount || 0));

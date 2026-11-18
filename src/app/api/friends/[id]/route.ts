@@ -60,15 +60,15 @@ export async function GET(
     const isSelf = sessionUser ? sessionUser.id === user.id : false;
 
     if (sessionUser && !isSelf) {
-      // Check friendship via AuditLog
-      const friendLog = await db.auditLog.findFirst({
+      // Check friendship via dedicated Friendship table
+      const friendship = await db.friendship.findFirst({
         where: {
-          actorId: sessionUser.id,
-          action: 'ADD_FRIEND',
-          targetId: user.id,
+          requesterId: sessionUser.id,
+          addresseeId: user.id,
+          status: 'ACCEPTED',
         },
       });
-      isFriend = Boolean(friendLog);
+      isFriend = Boolean(friendship);
 
       // Check active or pending clash between viewer and target
       const ongoing = await db.faceOff.findFirst({
@@ -200,25 +200,20 @@ export async function POST(
       return NextResponse.json({ error: 'Cannot add yourself as a friend' }, { status: 400 });
     }
 
-    const existing = await db.auditLog.findFirst({
+    await db.friendship.upsert({
       where: {
-        actorId: sessionUser.id,
-        action: 'ADD_FRIEND',
-        targetId: target.id,
+        requesterId_addresseeId: {
+          requesterId: sessionUser.id,
+          addresseeId: target.id,
+        },
+      },
+      update: { status: 'ACCEPTED' },
+      create: {
+        requesterId: sessionUser.id,
+        addresseeId: target.id,
+        status: 'ACCEPTED',
       },
     });
-
-    if (!existing) {
-      await db.auditLog.create({
-        data: {
-          actorId: sessionUser.id,
-          action: 'ADD_FRIEND',
-          targetType: 'USER',
-          targetId: target.id,
-          detail: { targetHandle: target.handle, displayName: target.displayName },
-        },
-      });
-    }
 
     return NextResponse.json({
       success: true,
@@ -260,11 +255,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    await db.auditLog.deleteMany({
+    await db.friendship.deleteMany({
       where: {
-        actorId: sessionUser.id,
-        action: 'ADD_FRIEND',
-        targetId: target.id,
+        requesterId: sessionUser.id,
+        addresseeId: target.id,
       },
     });
 

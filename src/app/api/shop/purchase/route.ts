@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'itemId is required' }, { status: 400 });
     }
 
-    const idempotencyKey = parseIdempotencyKey(req) || `shop-purchase-${sessionUser.id}-${itemId}`;
+    const idempotencyKey = parseIdempotencyKey(req) || `shop-purchase-${sessionUser.id}-${itemId}-${randomUUID()}`;
 
     const result = await runIdempotent(
       sessionUser.id,

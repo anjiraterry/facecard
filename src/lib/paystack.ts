@@ -92,13 +92,16 @@ export async function initializePaystackTransaction(
 
 /**
  * Validates Paystack webhook HMAC SHA512 signatures.
+ * Fails closed when secretKey is missing or signature does not match.
  */
 export function verifyPaystackWebhookSignature(
   rawBody: string,
   signature: string,
   secretKey = process.env.PAYSTACK_SECRET_KEY || ''
 ): boolean {
-  if (!secretKey) return true; // dev bypass
+  if (!secretKey || !signature) return false;
   const hash = crypto.createHmac('sha512', secretKey).update(rawBody).digest('hex');
-  return hash === signature;
+  const a = Buffer.from(hash, 'utf8');
+  const b = Buffer.from(signature, 'utf8');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }

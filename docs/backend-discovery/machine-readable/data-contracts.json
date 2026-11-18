@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-11-18",
+  "contracts": [
+    { "id": "CONTRACT-01", "name": "FaceCardData", "file": "src/types/index.ts:56-70", "persisted": "partial", "notes": "Maps to User + Card + latest Scan" },
+    { "id": "CONTRACT-02", "name": "LethalityResult", "file": "src/types/index.ts:43-54", "persisted": "partial", "notes": "Returned by POST /api/scan" },
+    { "id": "CONTRACT-03", "name": "CategoryBreakdown", "file": "src/types/index.ts:33-41", "persisted": "yes_json", "notes": "Stored in Scan.categoryScores" },
+    { "id": "CONTRACT-04", "name": "UserProfile", "file": "src/services/authService.ts:3-21", "persisted": "partial", "notes": "bio, location, dob not in User table" },
+    { "id": "CONTRACT-05", "name": "ShopItemData", "file": "src/services/shopService.ts:3-16", "persisted": "yes", "notes": "Backed by ShopItem + UserItem + Card" },
+    { "id": "CONTRACT-06", "name": "DuelItem", "file": "src/services/faceoffService.ts:3-25", "persisted": "yes", "notes": "status omits TIE_REMATCH, EXPIRED, CANCELLED" },
+    { "id": "CONTRACT-07", "name": "SkincareProductSpec", "file": "src/components/commerce/types.ts:9-19", "persisted": "no", "notes": "Atelier preview only" },
+    { "id": "CONTRACT-08", "name": "BagLineItem", "file": "src/components/commerce/types.ts:21-24", "persisted": "no", "notes": "Atelier preview only" },
+    { "id": "CONTRACT-09", "name": "OrderRecordPlaceholder", "file": "src/components/commerce/types.ts:26-32", "persisted": "no", "notes": "Atelier preview only" },
+    { "id": "CONTRACT-10", "name": "RoutineStepSlot", "file": "src/components/commerce/types.ts:34-40", "persisted": "no", "notes": "Atelier preview only" }
+  ]
+}

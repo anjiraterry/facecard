@@ -2,47 +2,43 @@
 
 import React, { useState, useRef } from 'react';
 import Link from 'next/link';
-import { 
-  ArrowLeft, 
-  Share2, 
-  Flame, 
-  Award, 
+import {
+  ArrowLeft,
+  Share2,
+  Flame,
+  Award,
   Coins,
   ArrowUpRight,
   ArrowDownRight,
   User,
   Snowflake,
   Swords,
-  Sparkles,
-  Zap,
-  Check,
-  Download,
-  Calendar,
+  Layers,
   Camera,
   Lock,
   CheckCircle2,
-  CreditCard
+  CreditCard,
 } from 'lucide-react';
 import { FaceCard } from '@/components/card/FaceCard';
 import { ShareCardModal } from '@/components/card/ShareCardModal';
-import { BottomNav } from '@/components/navigation/BottomNav';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
-import { FaceCardData, Tier } from '@/types';
-import { useCard } from '@/hooks/useCard';
 import { FaceCardSkeleton } from '@/components/common/Skeleton';
-
-import { CardTierItem } from '@/services/cardService';
+import { SurfaceCard } from '@/components/ui/SurfaceCard';
+import { EmptyState } from '@/components/ui/StateViews';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FramerTabPanel } from '@/components/ui/MotionPrimitives';
+import { FaceCardData } from '@/types';
+import { useCard } from '@/hooks/useCard';
 
 export default function CardPage() {
   const [activeLedgerTab, setActiveLedgerTab] = useState<'FUNDING' | 'SPENDS'>('FUNDING');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(1);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const cardSlideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Live backend data from useCard hook
   const {
     activeCard: backendCard,
     tiers: backendTiers,
@@ -71,172 +67,125 @@ export default function CardPage() {
 
   const userCard: FaceCardData | null = backendCard;
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
-  };
-
-  const handleShare = () => {
-    setIsShareModalOpen(true);
-  };
-
   return (
-    <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-28">
-      {/* Subtle Ethereal Ambient Background */}
-      <div 
-        className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-75 dark:opacity-25"
-        style={{
-          background: `
-            radial-gradient(ellipse at 50% -5%, rgba(99, 102, 241, 0.06) 0%, transparent 55%),
-            radial-gradient(ellipse at 85% 35%, rgba(139, 92, 246, 0.04) 0%, transparent 45%),
-            radial-gradient(ellipse at 20% 75%, rgba(56, 189, 248, 0.04) 0%, transparent 50%)
-          `
-        }}
-      />
+    <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-28 md:pl-16 lg:pl-52">
+      <main className="relative z-10 max-w-6xl xl:max-w-7xl mx-auto px-5 sm:px-8 pt-5 space-y-5">
+        <PageHeader
+          title="Card & Tiers"
+          backHref="/home"
+          backLabel="Back to home"
+          points={backendSpendable ?? 0}
+        />
 
-      {/* Floating Feedback Toast */}
-      {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-[#140826] text-white text-xs font-bold shadow-xl flex items-center gap-2 border border-purple-400/20 animate-fade-in">
-          <Check className="w-4 h-4 text-emerald-400" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      <main className="relative z-10 max-w-md mx-auto px-5 pt-6 space-y-6">
-        
-        {/* Top Header Row (Centered Title, Transparent, No Background) */}
-        <header className="relative flex items-center justify-between h-10 px-1">
-          <Link
-            href="/"
-            className="w-9 h-9 flex items-center justify-center text-[var(--text-main)] transition-transform active:scale-95"
-            title="Back to Feed"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2]" />
-          </Link>
-
-          <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
-            <span className="text-xl font-bold tracking-tight text-[var(--text-main)]">
-              card
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <ThemeToggle />
-            <Link
-              href="/profile"
-              className="w-9 h-9 flex items-center justify-center text-[var(--text-main)] transition-transform active:scale-95"
-              title="View Profile & Friends"
-            >
-              <User className="w-5 h-5 stroke-[2]" />
-            </Link>
-          </div>
-        </header>
-
-        {/* Balance Hero & Quick Stats */}
-        {/* Balance Hero & Quick Stats */}
+        {/* Balance Hero */}
         <section className="grid grid-cols-2 gap-3">
           {isLoading ? (
             <>
-              <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 border border-white/90 dark:border-white/10 shadow-sm space-y-2 animate-pulse">
-                <div className="h-3 w-16 rounded bg-neutral-200 dark:bg-white/10" />
-                <div className="h-6 w-24 rounded bg-neutral-200 dark:bg-white/15" />
-                <div className="h-2.5 w-28 rounded bg-neutral-200/60 dark:bg-white/5" />
+              <div className="p-4 rounded-[24px] bg-[var(--bg-surface)] border border-[var(--border-card)] space-y-2 animate-pulse">
+                <div className="h-3 w-16 rounded bg-[var(--bg-surface-warm)]" />
+                <div className="h-6 w-24 rounded bg-[var(--bg-surface-warm)]" />
               </div>
-              <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 border border-white/90 dark:border-white/10 shadow-sm space-y-2 animate-pulse">
-                <div className="h-3 w-16 rounded bg-neutral-200 dark:bg-white/10" />
-                <div className="h-6 w-24 rounded bg-neutral-200 dark:bg-white/15" />
-                <div className="h-2.5 w-28 rounded bg-neutral-200/60 dark:bg-white/5" />
+              <div className="p-4 rounded-[24px] bg-[var(--bg-surface)] border border-[var(--border-card)] space-y-2 animate-pulse">
+                <div className="h-3 w-16 rounded bg-[var(--bg-surface-warm)]" />
+                <div className="h-6 w-24 rounded bg-[var(--bg-surface-warm)]" />
               </div>
             </>
           ) : (
             <>
-              {/* Spendable Points Card */}
-              <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-1">
+              <SurfaceCard variant="default" padding="sm" className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
-                    <Coins className="w-3.5 h-3.5 text-[#6366F1]" />
+                    <Coins className="w-3.5 h-3.5 text-[var(--accent-brand)]" />
                     Spendable
                   </span>
-                  <Link href="/shop" className="text-[10px] font-bold text-[#6366F1] dark:text-purple-300 hover:underline">
+                  <Link href="/shop" className="text-[11px] font-semibold text-[var(--accent-brand)] hover:underline">
                     Shop →
                   </Link>
                 </div>
-                <div className="text-xl font-extrabold text-[var(--text-main)] tracking-tight">
-                  {spendablePoints.toLocaleString()} <span className="text-xs font-bold text-[var(--text-muted)]">PTS</span>
+                <div className="text-xl font-bold text-[var(--text-main)] tabular-nums">
+                  {spendablePoints.toLocaleString()}{' '}
+                  <span className="text-xs font-medium text-[var(--text-muted)]">PTS</span>
                 </div>
-                <p className="text-[10px] text-[var(--text-muted)]">
-                  Usable in shop & arena duels
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  For boutique &amp; arena stakes
                 </p>
-              </div>
+              </SurfaceCard>
 
-              {/* Lifetime Points & Multiplier Card */}
-              <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-1">
+              <SurfaceCard variant="default" padding="sm" className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
-                    <Flame className="w-3.5 h-3.5 text-[#FF7A50] fill-[#FF7A50]" />
+                    <Flame className="w-3.5 h-3.5 text-[var(--accent-brand)]" />
                     Lifetime
                   </span>
-                  <span className="text-[10px] font-bold text-[#FF7A50]">
-                    ×{userCard ? (userCard.multiplier || 1.0).toFixed(1) : '1.0'} Boost
+                  <span className="text-[11px] font-semibold text-[var(--accent-brand)] tabular-nums">
+                    ×{userCard ? (userCard.multiplier || 1.0).toFixed(1) : '1.0'}
                   </span>
                 </div>
-                <div className="text-xl font-extrabold text-[var(--text-main)] tracking-tight">
-                  {lifetimePoints.toLocaleString()} <span className="text-xs font-bold text-[var(--text-muted)]">PTS</span>
+                <div className="text-xl font-bold text-[var(--text-main)] tabular-nums">
+                  {lifetimePoints.toLocaleString()}{' '}
+                  <span className="text-xs font-medium text-[var(--text-muted)]">PTS</span>
                 </div>
-                <p className="text-[10px] text-[var(--text-muted)]">
+                <p className="text-[11px] text-[var(--text-muted)] tabular-nums">
                   {userCard ? userCard.streakDays : 0}-Day Streak Active
                 </p>
-              </div>
+              </SurfaceCard>
             </>
           )}
         </section>
 
-        {/* The Collectible Face Card Section: Horizontal Slider */}
+        {/* Collectible Tier Carousel */}
         <section className="space-y-3">
           {isLoading && sliderCards.length === 0 ? (
             <FaceCardSkeleton />
           ) : sliderCards.length === 0 ? (
-            <div className="p-6 rounded-[28px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 text-center space-y-4 shadow-sm">
-              <div className="w-12 h-12 mx-auto rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-300 flex items-center justify-center">
+            <SurfaceCard variant="default" padding="lg" className="text-center space-y-4">
+              <div className="w-12 h-12 mx-auto rounded-full bg-[var(--bg-surface-warm)] text-[var(--accent-brand)] flex items-center justify-center">
                 <CreditCard className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-sm font-extrabold text-[var(--text-main)]">Claim Your Personal FaceCard</h3>
+                <h2 className="font-display text-2xl font-semibold text-[var(--text-main)]">
+                  Claim Your Face Card
+                </h2>
                 <p className="text-xs text-[var(--text-muted)] max-w-xs mx-auto">
-                  Sign in or take a verified selfie to unlock your official AI lethality score and collectible tier card.
+                  Sign in or take a portrait scan to unlock your collectible tier card.
                 </p>
               </div>
               <Link
                 href="/sign-in?redirect=/card"
-                className="inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full bg-[#140826] dark:bg-white text-white dark:text-[#140826] text-xs font-bold shadow-md active:scale-95 transition-transform"
+                className="inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full bg-[var(--accent-primary)] text-[var(--bg-page)] text-xs font-semibold"
               >
-                <span>Sign In to Claim FaceCard</span>
+                <span>Sign In to Claim Card</span>
               </Link>
-            </div>
+            </SurfaceCard>
           ) : (
             <>
-              {/* Quick Indicator Tabs for the Horizontal Slider */}
-              <div className="flex items-center gap-1.5 p-0 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                 {sliderCards.map((tierItem, idx) => {
                   const isSelected = selectedSlideIndex === idx;
                   return (
                     <button
                       key={tierItem.id}
+                      type="button"
                       onClick={() => scrollToSlide(idx)}
-                      className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-xl whitespace-nowrap transition-all ${
+                      className={`flex-1 py-2 px-3 text-xs font-semibold rounded-full whitespace-nowrap transition-colors cursor-pointer ${
                         isSelected
-                          ? 'bg-[#DDD6FE] text-[#140826] shadow-xs'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-black/[0.03] dark:bg-white/[0.05]'
+                          ? 'bg-[var(--accent-primary)] text-[var(--bg-page)] shadow-[var(--shadow-sm)]'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-surface-warm)]'
                       }`}
                     >
-                      {tierItem.tier === 'CLASSIC' ? 'Classic' : tierItem.tier === 'GOLD' ? 'Gold ★' : tierItem.tier === 'PLATINUM' ? 'Platinum' : 'Black Card'}
+                      {tierItem.tier === 'CLASSIC'
+                        ? 'Classic'
+                        : tierItem.tier === 'GOLD'
+                        ? 'Gold'
+                        : tierItem.tier === 'PLATINUM'
+                        ? 'Platinum'
+                        : 'Black Card'}
                     </button>
                   );
                 })}
               </div>
 
-              {/* Horizontal Slider: Surpassed, Current Active, and In-Progress/Locked with Custom Scrollbar */}
-              <div 
+              <div
                 ref={sliderRef}
                 className="flex gap-4 overflow-x-auto snap-x snap-mandatory py-2 px-1 custom-scrollbar scroll-smooth"
               >
@@ -244,199 +193,182 @@ export default function CardPage() {
                   const isCurrentActive = item.status === 'ACTIVE';
                   const isSurpassed = item.status === 'SURPASSED';
                   const isLockedOrProgress = item.status === 'IN_PROGRESS' || item.status === 'LOCKED';
-                  const pct = Math.min(100, Math.round((item.prerequisites.pointsCurrent / (item.prerequisites.pointsTarget || 1)) * 100));
+                  const pct = Math.min(
+                    100,
+                    Math.round((item.prerequisites.pointsCurrent / (item.prerequisites.pointsTarget || 1)) * 100)
+                  );
 
-              return (
-                <div 
-                  key={item.id}
-                  ref={(el) => { cardSlideRefs.current[idx] = el; }}
-                  className="w-[88vw] max-w-[370px] shrink-0 snap-center space-y-3"
+                  return (
+                    <div
+                      key={item.id}
+                      ref={(el) => { cardSlideRefs.current[idx] = el; }}
+                      className="w-[86vw] max-w-[380px] shrink-0 snap-center space-y-3"
+                    >
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] px-2.5 py-0.5 rounded-full bg-[var(--bg-surface-warm)] border border-[var(--border-card)] text-[var(--text-main)]">
+                          {item.statusBadge}
+                        </span>
+                        <span className="text-[11px] font-semibold text-[var(--text-muted)] tabular-nums">
+                          Tier {idx + 1} of 4
+                        </span>
+                      </div>
+
+                      <div className="relative">
+                        {isCurrentActive && (
+                          <div className="p-1 rounded-[28px] ring-2 ring-[var(--accent-brand)]/50">
+                            <FaceCard card={item.card} interactive={true} />
+                          </div>
+                        )}
+
+                        {isSurpassed && <FaceCard card={item.card} interactive={true} />}
+
+                        {isLockedOrProgress && (
+                          <div
+                            className={`relative rounded-[24px] overflow-hidden transition-all ${
+                              item.status === 'IN_PROGRESS' ? 'opacity-85' : 'opacity-65'
+                            }`}
+                          >
+                            <FaceCard card={item.card} variant="preview" interactive={false} isLockedPreview={true} />
+                            <div className="absolute inset-0 bg-[#251E24]/30 backdrop-blur-[1.5px] flex items-center justify-center p-4">
+                              <div className="px-4 py-2 rounded-full bg-[#251E24]/90 border border-[#EBDCD5]/25 text-[#FAF7F4] text-xs font-semibold flex items-center gap-2 shadow-md">
+                                <Lock className="w-3.5 h-3.5 text-[#EBDCD5]" />
+                                <span>{item.status === 'IN_PROGRESS' ? `${pct}% Ready` : 'Edition Locked'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <SurfaceCard variant="default" padding="sm" className="space-y-2">
+                        {isCurrentActive && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-[var(--text-main)] flex items-center gap-1.5">
+                                <CheckCircle2 className="w-4 h-4 text-[var(--status-success)]" />
+                                <span>Active Edition</span>
+                              </span>
+                              <span className="text-[11px] font-semibold text-[var(--accent-brand)]">Equipped</span>
+                            </div>
+                            <p className="text-[11px] text-[var(--text-muted)]">{item.prerequisites.summary}</p>
+                          </div>
+                        )}
+
+                        {isSurpassed && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-[var(--text-main)] flex items-center gap-1.5">
+                                <CheckCircle2 className="w-4 h-4 text-[var(--accent-brand)]" />
+                                <span>Unlocked &amp; Surpassed</span>
+                              </span>
+                              <span className="text-[11px] font-semibold text-[var(--text-muted)]">Archived</span>
+                            </div>
+                            <p className="text-[11px] text-[var(--text-muted)]">{item.prerequisites.summary}</p>
+                          </div>
+                        )}
+
+                        {isLockedOrProgress && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-[var(--text-main)] flex items-center gap-1.5">
+                                <Lock className="w-3.5 h-3.5 text-[var(--accent-brand)]" />
+                                <span>Unlock Progress</span>
+                              </span>
+                              <span className="text-[11px] font-semibold text-[var(--text-muted)] tabular-nums">
+                                {pct}%
+                              </span>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="w-full h-2 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-500 bg-[var(--accent-brand)]"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <div className="flex justify-between text-[10px] text-[var(--text-muted)] tabular-nums">
+                                <span>
+                                  {item.prerequisites.pointsCurrent.toLocaleString()} /{' '}
+                                  {item.prerequisites.pointsTarget.toLocaleString()} PTS
+                                </span>
+                                <span>
+                                  Index {item.prerequisites.scoreTarget}+ · {item.prerequisites.streakTarget}D Streak
+                                </span>
+                              </div>
+                            </div>
+
+                            <p className="text-[11px] text-[var(--text-muted)] italic">{item.prerequisites.summary}</p>
+                          </div>
+                        )}
+                      </SurfaceCard>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-3 pt-1">
+                <Button variant="primary" size="lg" className="flex-1" onClick={() => setIsShareModalOpen(true)}>
+                  Share Card
+                </Button>
+
+                <Link
+                  href="/faceoff"
+                  className="flex-1 h-12 px-4 rounded-full bg-[var(--bg-secondary)] hover:bg-[var(--accent-soft)] text-[var(--text-main)] border border-[var(--border-card)] flex items-center justify-center text-xs sm:text-sm font-semibold transition-colors"
                 >
-                  {/* Slide Top Pill Badge & Status Header */}
-                  <div className="flex items-center justify-between px-1">
-                    <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${item.badgeStyle}`}>
-                      {item.statusBadge}
+                  Arena
+                </Link>
+              </div>
+
+              <SurfaceCard variant="default" padding="sm" className="space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-[var(--text-main)] flex items-center gap-1.5">
+                    <Award className="w-4 h-4 text-[var(--accent-brand)]" />
+                    <span>
+                      Next:{' '}
+                      {userCard?.tier === 'CLASSIC'
+                        ? 'Gold'
+                        : userCard?.tier === 'GOLD'
+                        ? 'Platinum'
+                        : 'Black Card'}{' '}
+                      Tier
                     </span>
-                    <span className="text-[11px] font-mono font-bold text-[var(--text-muted)]">
-                      Tier {idx + 1}/4
-                    </span>
-                  </div>
-
-                  {/* The FaceCard Container with Dimmed/Grayed-Out State for Locked Cards */}
-                  <div className="relative">
-                    {isCurrentActive && (
-                      <div className="p-1 rounded-[30px] ring-2 ring-[#FF7A50]/50 shadow-[0_10px_32px_rgba(255,122,80,0.2)]">
-                        <FaceCard card={item.card} interactive={true} />
-                      </div>
-                    )}
-
-                    {isSurpassed && (
-                      <FaceCard card={item.card} interactive={true} />
-                    )}
-
-                    {isLockedOrProgress && (
-                      <div className={`relative rounded-[28px] overflow-hidden transition-all ${
-                        item.status === 'IN_PROGRESS' 
-                          ? 'grayscale-[60%] opacity-85 hover:grayscale-[30%] hover:opacity-95' 
-                          : 'grayscale-[90%] opacity-60 hover:grayscale-[60%] hover:opacity-85'
-                      }`}>
-                        <FaceCard card={item.card} interactive={false} />
-
-                        {/* Floating Frosted Lock Pill Overlay */}
-                        <div className="absolute inset-0 bg-black/25 dark:bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4">
-                          <div className="px-4 py-2 rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-bold flex items-center gap-2 shadow-xl">
-                            <Lock className="w-3.5 h-3.5 text-amber-300" />
-                            <span>{item.status === 'IN_PROGRESS' ? 'Prerequisites (47% Ready)' : 'Prestige Locked'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Prerequisites / Status Information Box Beneath Card */}
-                  <div className="p-3.5 rounded-[22px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-xs space-y-2">
-                    {isCurrentActive && (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-[var(--text-main)] flex items-center gap-1.5">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                            <span>Current Equiped Tier</span>
-                          </span>
-                          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                            Active Card
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-[var(--text-muted)]">
-                          {item.prerequisites.summary}
-                        </p>
-                      </div>
-                    )}
-
-                    {isSurpassed && (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-[var(--text-main)] flex items-center gap-1.5">
-                            <CheckCircle2 className="w-4 h-4 text-purple-500" />
-                            <span>Unlocked & Surpassed</span>
-                          </span>
-                          <span className="text-[10px] font-bold text-purple-600 dark:text-purple-300">
-                            Archived ✓
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-[var(--text-muted)]">
-                          {item.prerequisites.summary}
-                        </p>
-                      </div>
-                    )}
-
-                    {isLockedOrProgress && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-[var(--text-main)] flex items-center gap-1.5">
-                            <Lock className="w-3.5 h-3.5 text-amber-500" />
-                            <span>Prerequisites to Unlock</span>
-                          </span>
-                          <span className="font-mono text-[10px] font-bold text-[var(--text-muted)]">
-                            {pct}% Progress
-                          </span>
-                        </div>
-
-                        {/* Purple-Lilac-Peach Gradient Progress Bar */}
-                        <div className="space-y-1">
-                          <div className="w-full h-2 rounded-full bg-black/[0.05] dark:bg-white/10 overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-500"
-                              style={{ 
-                                width: `${pct}%`,
-                                background: 'linear-gradient(90deg, #7C3AED 0%, #C4B5FD 50%, #FF8A65 100%)'
-                              }}
-                            />
-                          </div>
-                          <div className="flex justify-between text-[10px] text-[var(--text-muted)] font-medium">
-                            <span>Points: {item.prerequisites.pointsCurrent.toLocaleString()} / {item.prerequisites.pointsTarget.toLocaleString()} PTS</span>
-                            <span>Score {item.prerequisites.scoreTarget}+ & {item.prerequisites.streakTarget}D Streak</span>
-                          </div>
-                        </div>
-
-                        <p className="text-[10px] text-[var(--text-muted)] italic">
-                          {item.prerequisites.summary}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  </span>
+                  <span className="font-semibold text-[var(--text-muted)] tabular-nums">{progressPercent}%</span>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Action Row: Really Dark Purple "Share Card" & Lilac "Arena" Buttons (Equal Width) */}
-          <div className="flex items-center gap-3 pt-1">
-            <button
-              onClick={handleShare}
-              className="flex-1 py-3.5 px-4 rounded-full bg-[#140826] hover:bg-[#241040] text-white text-xs font-bold transition-all shadow-[0_8px_24px_rgba(20,8,38,0.35)] active:scale-95 border border-purple-500/20 flex items-center justify-center gap-2"
-            >
-              <Share2 className="w-4 h-4 text-white" />
-              <span>Share Card</span>
-            </button>
-
-            <Link
-              href="/faceoff"
-              className="flex-1 py-3.5 px-4 rounded-full bg-[#EDE9FE] dark:bg-[#6366F1]/20 hover:bg-[#DDD6FE] dark:hover:bg-[#6366F1]/30 text-[#140826] dark:text-purple-200 border border-[#DDD6FE] dark:border-purple-500/30 flex items-center justify-center gap-2 text-xs font-bold transition-all active:scale-95 shadow-xs"
-              title="Stake Card in Arena"
-            >
-              <Swords className="w-4 h-4 text-current" />
-              <span>Arena</span>
-            </Link>
-          </div>
-
-          {/* Tier Progression Card (Purple-Lilac-Peach Gradient) */}
-          <div className="p-4 rounded-[24px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 space-y-2.5 shadow-sm">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-[var(--text-main)] flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-[#6366F1]" />
-                <span>Next: {userCard?.tier === 'CLASSIC' ? 'Gold' : userCard?.tier === 'GOLD' ? 'Platinum' : 'Black Card'} Tier Status</span>
-              </span>
-              <span className="font-mono font-bold text-[var(--text-muted)]">
-                {progressPercent}%
-              </span>
-            </div>
-            <div className="w-full h-2.5 rounded-full bg-black/[0.05] dark:bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ 
-                  width: `${progressPercent}%`,
-                  background: 'linear-gradient(90deg, #7C3AED 0%, #C4B5FD 50%, #FF8A65 100%)'
-                }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
-              <span>{lifetimePoints.toLocaleString()} lifetime pts</span>
-              <span>{nextTierPoints.toLocaleString()} pts required</span>
-            </div>
-          </div>
-          </>
+                <div className="w-full h-2 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 bg-[var(--accent-brand)]"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] tabular-nums">
+                  <span>{lifetimePoints.toLocaleString()} lifetime pts</span>
+                  <span>{nextTierPoints.toLocaleString()} pts required</span>
+                </div>
+              </SurfaceCard>
+            </>
           )}
         </section>
 
-        {/* Card Ledgers: Funding History from Selfies | Point Balance Spends */}
+        {/* Ledger */}
         <section className="space-y-3.5">
-          {/* Capsule Tab Switcher (Lilac Active Tab) */}
-          <div className="flex items-center gap-1.5 p-0">
+          <div className="flex items-center gap-1.5 p-1 rounded-full bg-[var(--bg-surface-warm)] border border-[var(--border-subtle)]">
             <button
+              type="button"
               onClick={() => setActiveLedgerTab('FUNDING')}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+              className={`flex-1 py-2 text-xs font-semibold rounded-full transition-colors cursor-pointer ${
                 activeLedgerTab === 'FUNDING'
-                  ? 'bg-[#DDD6FE] text-[#140826] shadow-xs'
+                  ? 'bg-[var(--accent-primary)] text-[var(--bg-page)] shadow-[var(--shadow-sm)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
               Funding History ({fundingList.length})
             </button>
             <button
+              type="button"
               onClick={() => setActiveLedgerTab('SPENDS')}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+              className={`flex-1 py-2 text-xs font-semibold rounded-full transition-colors cursor-pointer ${
                 activeLedgerTab === 'SPENDS'
-                  ? 'bg-[#DDD6FE] text-[#140826] shadow-xs'
+                  ? 'bg-[var(--accent-primary)] text-[var(--bg-page)] shadow-[var(--shadow-sm)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
@@ -444,167 +376,146 @@ export default function CardPage() {
             </button>
           </div>
 
-          {/* Ledger Content: Tab 1 - Funding History from Selfies */}
+          <FramerTabPanel tabKey={activeLedgerTab}>
           {activeLedgerTab === 'FUNDING' && (
             <div className="space-y-3">
               <div className="px-1 flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs font-bold text-[var(--text-main)]">
-                    Selfie Funding Ledger
-                  </h3>
-                  <p className="text-[10px] text-[var(--text-muted)]">
-                    Points credited directly from verified selfies
-                  </p>
+                  <h3 className="text-xs font-semibold text-[var(--text-main)]">Portrait Funding Ledger</h3>
+                  <p className="text-[11px] text-[var(--text-muted)]">Points credited from verified scans</p>
                 </div>
                 <Link
                   href="/scan"
-                  className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#140826] text-white hover:bg-[#241040] flex items-center gap-1 transition-all border border-purple-400/20"
+                  className="px-3 py-1.5 rounded-full text-[11px] font-semibold bg-[var(--accent-primary)] text-[var(--bg-page)] hover:bg-[var(--accent-primary-hover)] flex items-center gap-1 transition-colors"
                 >
                   <Camera className="w-3 h-3" />
-                  <span>New Selfie</span>
+                  <span>New Scan</span>
                 </Link>
               </div>
 
               <div className="space-y-2.5">
                 {fundingList.length === 0 ? (
-                  <div className="p-8 text-center rounded-[22px] bg-white/50 dark:bg-white/[0.04] border border-dashed border-black/10 dark:border-white/10 space-y-2">
-                    <Camera className="w-7 h-7 mx-auto text-[var(--text-muted)] opacity-60" />
-                    <p className="text-xs font-bold text-[var(--text-main)]">No selfie funding events yet</p>
-                    <p className="text-[10px] text-[var(--text-muted)]">Take your daily selfie to earn points and level up your card.</p>
-                  </div>
+                  <EmptyState
+                    title="No funding events yet"
+                    description="Complete a daily scan to earn points and progress your edition."
+                    actionLabel="Take a Scan"
+                    actionHref="/scan"
+                  />
                 ) : (
                   fundingList.map((item) => (
-                    <div
+                    <SurfaceCard
                       key={item.id}
-                      className="p-3 rounded-[22px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-xs flex items-center justify-between gap-3 hover:bg-white dark:hover:bg-[#140826]/90 transition-all"
+                      variant="default"
+                      padding="sm"
+                      className="flex items-center justify-between gap-3"
                     >
-                      {/* Selfie Thumbnail & Info */}
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative w-12 h-14 rounded-[14px] overflow-hidden shrink-0 ring-1 ring-black/10 dark:ring-white/10 shadow-2xs">
+                        <div className="relative w-12 h-14 rounded-xl overflow-hidden shrink-0 border border-[var(--border-card)]">
                           <img
                             src={item.thumbnail}
-                            alt={`Selfie #${item.scanNumber}`}
+                            alt={`Scan #${item.scanNumber}`}
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute top-1 left-1 px-1 py-0.2 rounded-md bg-black/60 backdrop-blur-xs text-white text-[8px] font-bold">
+                          <div className="absolute top-1 left-1 px-1 rounded bg-[#251E24]/75 text-[#FAF7F4] text-[8px] font-bold">
                             #{item.scanNumber}
                           </div>
                         </div>
 
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-[var(--text-main)] truncate">
-                              Selfie #{item.scanNumber}
+                            <span className="text-xs font-semibold text-[var(--text-main)] truncate">
+                              Scan #{item.scanNumber}
                             </span>
-                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
-                              ★ {item.score}
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-surface-warm)] text-[var(--text-main)] tabular-nums">
+                              {item.score}
                             </span>
                           </div>
-                          <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">
-                            {item.breakdown}
-                          </p>
-                          <span className="text-[9px] text-[var(--text-muted)] font-medium block mt-0.5">
-                            {item.date}
-                          </span>
+                          <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">{item.breakdown}</p>
+                          <span className="text-[10px] text-[var(--text-muted)] block mt-0.5">{item.date}</span>
                         </div>
                       </div>
 
-                      {/* Credit Amount Badge */}
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center justify-end gap-0.5">
-                          <ArrowUpRight className="w-3.5 h-3.5" />
-                          +{item.pointsEarned} PTS
+                      <div className="text-right shrink-0 tabular-nums">
+                        <span className="text-xs font-bold text-[var(--status-success)] flex items-center justify-end gap-0.5">
+                          <ArrowUpRight className="w-3.5 h-3.5" />+{item.pointsEarned} PTS
                         </span>
-                        <span className="text-[9px] font-semibold text-[var(--text-muted)] block mt-0.5">
-                          Funded ✓
-                        </span>
+                        <span className="text-[10px] text-[var(--text-muted)] block mt-0.5">Credited</span>
                       </div>
-                    </div>
+                    </SurfaceCard>
                   ))
                 )}
               </div>
             </div>
           )}
 
-          {/* Ledger Content: Tab 2 - Point Balance Spends */}
           {activeLedgerTab === 'SPENDS' && (
             <div className="space-y-3">
               <div className="px-1">
-                <h3 className="text-xs font-bold text-[var(--text-main)]">
-                  Point Balance Expenditures
-                </h3>
-                <p className="text-[10px] text-[var(--text-muted)]">
-                  Debits from perks, shop cosmetics & staked arena duels
-                </p>
+                <h3 className="text-xs font-semibold text-[var(--text-main)]">Point Expenditures</h3>
+                <p className="text-[11px] text-[var(--text-muted)]">Boutique perks, finishes &amp; arena stakes</p>
               </div>
 
               <div className="space-y-2.5">
                 {spendsList.length === 0 ? (
-                  <div className="p-8 text-center rounded-[22px] bg-white/50 dark:bg-white/[0.04] border border-dashed border-black/10 dark:border-white/10 space-y-2">
-                    <Coins className="w-7 h-7 mx-auto text-[var(--text-muted)] opacity-60" />
-                    <p className="text-xs font-bold text-[var(--text-main)]">No expenditures yet</p>
-                    <p className="text-[10px] text-[var(--text-muted)]">Spend points in the shop for perks, card cosmetics, and arena stakes.</p>
-                  </div>
+                  <EmptyState
+                    title="No expenditures yet"
+                    description="Redeem points in the boutique or stake them in Arena duels."
+                    actionLabel="Visit Boutique"
+                    actionHref="/shop"
+                  />
                 ) : (
                   spendsList.map((spend) => {
-                    const Icon = spend.category.includes('Perk') ? Snowflake : spend.category.includes('Cosmetic') ? Sparkles : Swords;
+                    const Icon = spend.category.includes('Perk')
+                      ? Snowflake
+                      : spend.category.includes('Cosmetic')
+                      ? Layers
+                      : Swords;
                     return (
-                      <div
+                      <SurfaceCard
                         key={spend.id}
-                        className="p-3.5 rounded-[22px] bg-white/80 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-xs flex items-center justify-between gap-3 hover:bg-white dark:hover:bg-[#140826]/90 transition-all"
+                        variant="default"
+                        padding="sm"
+                        className="flex items-center justify-between gap-3"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${spend.iconBg} shadow-2xs`}>
+                          <div className="w-10 h-10 rounded-2xl bg-[var(--bg-surface-warm)] border border-[var(--border-subtle)] text-[var(--accent-brand)] flex items-center justify-center shrink-0">
                             <Icon className="w-4 h-4" />
                           </div>
 
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-[var(--text-main)] truncate">
+                              <span className="text-xs font-semibold text-[var(--text-main)] truncate">
                                 {spend.title}
                               </span>
-                              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-black/[0.04] dark:bg-white/10 text-[var(--text-muted)]">
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-[var(--bg-surface-warm)] text-[var(--text-muted)]">
                                 {spend.category}
                               </span>
                             </div>
-                            <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">
-                              {spend.note}
-                            </p>
-                            <span className="text-[9px] text-[var(--text-muted)] font-medium block mt-0.5">
-                              {spend.date}
-                            </span>
+                            <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">{spend.note}</p>
+                            <span className="text-[10px] text-[var(--text-muted)] block mt-0.5">{spend.date}</span>
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
-                          <span className="text-xs font-extrabold text-[#E11D48] flex items-center justify-end gap-0.5">
-                            <ArrowDownRight className="w-3.5 h-3.5" />
-                            -{spend.pointsSpent} PTS
+                        <div className="text-right shrink-0 tabular-nums">
+                          <span className="text-xs font-bold text-[var(--status-danger)] flex items-center justify-end gap-0.5">
+                            <ArrowDownRight className="w-3.5 h-3.5" />-{spend.pointsSpent} PTS
                           </span>
-                          <span className="text-[9px] font-semibold text-[var(--text-muted)] block mt-0.5">
-                            {spend.status}
-                          </span>
+                          <span className="text-[10px] text-[var(--text-muted)] block mt-0.5">{spend.status}</span>
                         </div>
-                      </div>
+                      </SurfaceCard>
                     );
                   })
                 )}
               </div>
             </div>
           )}
+          </FramerTabPanel>
         </section>
-
       </main>
 
       {userCard && (
-        <ShareCardModal
-          isOpen={isShareModalOpen}
-          onClose={() => setIsShareModalOpen(false)}
-          card={userCard}
-        />
+        <ShareCardModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} card={userCard} />
       )}
-
-      <BottomNav />
     </div>
   );
 }

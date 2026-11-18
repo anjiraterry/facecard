@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" fill="none">
+  <rect width="400" height="500" fill="#F5EFEA"/>
+  <circle cx="200" cy="250" r="138" fill="#F3E3C9" opacity="0.45"/>
+  <path d="M138 118H262L248 336H152L138 118Z" fill="#FAF7F4" stroke="#96788D" stroke-width="2"/>
+  <rect x="166" y="336" width="68" height="46" rx="8" fill="#251E24"/>
+  <rect x="156" y="176" width="88" height="106" rx="6" fill="#FFFFFF" stroke="#E6DDD6"/>
+  <text x="200" y="208" text-anchor="middle" font-family="Georgia, serif" font-size="10" letter-spacing="2" fill="#96788D">LAGOS GLOW</text>
+  <text x="200" y="232" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="600" fill="#251E24">INVISIBLE DEW</text>
+  <text x="200" y="250" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#6E626B">SPF 50+ PA++++ · 50 ml</text>
+</svg>

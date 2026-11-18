@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" fill="none">
+  <rect width="400" height="500" fill="#F5EFEA"/>
+  <circle cx="200" cy="260" r="135" fill="#D2B8C9" opacity="0.28"/>
+  <path d="M188 92C188 85 212 85 212 92V128H188V92Z" fill="#251E24"/>
+  <rect x="172" y="128" width="56" height="28" rx="5" fill="#96788D"/>
+  <path d="M168 156H232L248 188V376C248 390 237 400 223 400H177C163 400 152 390 152 376V188L168 156Z" fill="#FAF7F4" stroke="#96788D" stroke-width="2"/>
+  <rect x="166" y="220" width="68" height="122" rx="6" fill="#FFFFFF" stroke="#E6DDD6"/>
+  <text x="200" y="252" text-anchor="middle" font-family="Georgia, serif" font-size="10" letter-spacing="2" fill="#96788D">LAGOS GLOW</text>
+  <text x="200" y="278" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="600" fill="#251E24">RADIANCE 5%</text>
+  <text x="200" y="297" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#6E626B">Niacinamide · 30 ml</text>
+  <line x1="176" y1="316" x2="224" y2="316" stroke="#D2B8C9" stroke-width="1.5"/>
+</svg>

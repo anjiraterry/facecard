@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-11-18",
+  "dependencies": [
+    { "id": "DEP-01", "from": "FEAT-02", "to": "FEAT-04", "kind": "implemented", "description": "Solo scans credit SPENDABLE & LIFETIME points via postLedger()" },
+    { "id": "DEP-02", "from": "FEAT-04", "to": "FEAT-03", "kind": "implemented", "description": "LIFETIME points auto-upgrade User.tier" },
+    { "id": "DEP-03", "from": "FEAT-05", "to": "FEAT-03", "kind": "implemented", "description": "Boutique cosmetics equip onto Card" },
+    { "id": "DEP-04", "from": "FEAT-05", "to": "FEAT-02", "kind": "implemented_partial", "description": "streak-freeze protects Scan streak; boost-aura-2x is not yet applied" },
+    { "id": "DEP-05", "from": "FEAT-07", "to": "FEAT-02", "kind": "implemented", "description": "Arena duels submit FACEOFF scans via /api/scan" },
+    { "id": "DEP-06", "from": "FEAT-07", "to": "FEAT-04", "kind": "implemented", "description": "Arena stakes, payouts, refunds, and 25 PTS win bonus use postLedger()" },
+    { "id": "DEP-07", "from": "FEAT-02", "to": "FEAT-06", "kind": "proposed", "description": "Scan skinClarity telemetry intended to drive Atelier product & routine recommendations" },
+    { "id": "DEP-08", "from": "FEAT-06", "to": "FEAT-10", "kind": "proposed", "description": "Atelier checkout requires Paystack payment initialization & webhook confirmation" }
+  ]
+}

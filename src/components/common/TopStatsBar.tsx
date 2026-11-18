@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { Plus, Gem, Star, Flame } from 'lucide-react';
 
 interface TopStatsBarProps {
   gems?: number;
@@ -13,33 +13,30 @@ interface TopStatsBarProps {
 export function TopStatsBar({ gems = 120, stars = 850, streak = 7 }: TopStatsBarProps) {
   return (
     <div className="flex items-center justify-between py-2 px-1">
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Gems / Spendable Points */}
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-[#1A1A1E] border border-black/[0.04] dark:border-white/10 shadow-sm text-xs font-bold text-[#1A1A1A] dark:text-white">
-          <span className="text-sm">💎</span>
+      <div className="flex items-center gap-2 sm:gap-2.5">
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-card)] shadow-[var(--shadow-sm)] text-xs font-semibold text-[var(--text-main)] tabular-nums">
+          <Gem className="w-3.5 h-3.5 text-[var(--accent-brand)]" />
           <span>{gems.toLocaleString()}</span>
         </div>
 
-        {/* Stars / Lifetime Points */}
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-[#1A1A1E] border border-black/[0.04] dark:border-white/10 shadow-sm text-xs font-bold text-[#1A1A1A] dark:text-white">
-          <span className="text-sm text-[#F5B800]">★</span>
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-card)] shadow-[var(--shadow-sm)] text-xs font-semibold text-[var(--text-main)] tabular-nums">
+          <Star className="w-3.5 h-3.5 text-[var(--accent-brand)]" />
           <span>{stars.toLocaleString()}</span>
         </div>
 
-        {/* Streak */}
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-[#1A1A1E] border border-black/[0.04] dark:border-white/10 shadow-sm text-xs font-bold text-[#1A1A1A] dark:text-white">
-          <span className="text-sm">🔥</span>
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-card)] shadow-[var(--shadow-sm)] text-xs font-semibold text-[var(--text-main)] tabular-nums">
+          <Flame className="w-3.5 h-3.5 text-[var(--accent-brand)]" />
           <span>{streak}</span>
         </div>
       </div>
 
-      {/* Plus Action Button */}
       <Link
         href="/scan"
-        className="w-8 h-8 rounded-full bg-[#78C257] hover:bg-[#6EB54E] text-white flex items-center justify-center shadow-sm transition-transform active:scale-95"
+        className="w-8 h-8 rounded-full bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--bg-page)] flex items-center justify-center shadow-[var(--shadow-sm)] transition-transform active:scale-95"
         title="Start Daily Scan"
+        aria-label="Start Daily Scan"
       >
-        <Plus className="w-5 h-5 stroke-[2.5]" />
+        <Plus className="w-4 h-4 stroke-[2.2]" />
       </Link>
     </div>
   );

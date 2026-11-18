@@ -262,21 +262,61 @@ export async function resolveFaceOff(duelId: string) {
 
   return db.$transaction(async (tx) => {
     // 1. Atomic state guard to prevent double resolution
+    const isSecondTie = isTie && (duel.rematchCount ?? 0) >= 1;
+    const nextStatus = isTie
+      ? isSecondTie
+        ? FaceOffStatus.COMPLETED
+        : FaceOffStatus.TIE_REMATCH
+      : FaceOffStatus.COMPLETED;
+
     const claimed = await tx.faceOff.updateMany({
       where: {
         id: duel.id,
         status: { in: [FaceOffStatus.ACTIVE, FaceOffStatus.TIE_REMATCH] },
       },
       data: {
-        status: isTie ? FaceOffStatus.TIE_REMATCH : FaceOffStatus.COMPLETED,
-        rematchCount: isTie ? { increment: 1 } : undefined,
+        status: nextStatus,
+        rematchCount: isTie && !isSecondTie ? { increment: 1 } : undefined,
+        challengerLockedAt: isTie && !isSecondTie ? null : undefined,
+        opponentLockedAt: isTie && !isSecondTie ? null : undefined,
         winnerId: isTie ? null : winnerId,
-        resolvedAt: isTie ? null : new Date(),
+        resolvedAt: isTie && !isSecondTie ? null : new Date(),
       },
     });
 
     if (claimed.count === 0) {
       throw new FaceOffError('Duel has already been resolved.', 409);
+    }
+
+    if (isSecondTie) {
+      if (isStaked && duel.stake > 0) {
+        await postLedger(tx, {
+          userId: duel.challengerId,
+          type: 'FACEOFF_REFUND',
+          amount: duel.stake,
+          balanceKind: 'SPENDABLE',
+          refType: 'FACEOFF',
+          refId: duel.id,
+          idempotencyKey: `faceoff-tie-refund:${duel.id}:challenger`,
+        });
+        await postLedger(tx, {
+          userId: duel.opponentId!,
+          type: 'FACEOFF_REFUND',
+          amount: duel.stake,
+          balanceKind: 'SPENDABLE',
+          refType: 'FACEOFF',
+          refId: duel.id,
+          idempotencyKey: `faceoff-tie-refund:${duel.id}:opponent`,
+        });
+      }
+      return {
+        success: true,
+        duelId: duel.id,
+        status: 'COMPLETED',
+        outcome: 'DRAW_REFUNDED',
+        challengerScore,
+        opponentScore,
+      };
     }
 
     if (isTie) {
@@ -316,18 +356,9 @@ export async function resolveFaceOff(duelId: string) {
         idempotencyKey: `faceoff-payout:${duel.id}:${winnerId}`,
       });
 
-      // Record system fee (inflation sink record)
-      await tx.pointsLedger.create({
-        data: {
-          userId: winnerId,
-          type: 'FACEOFF_FEE',
-          amount: systemFee,
-          balanceKind: 'SPENDABLE',
-          refType: 'FACEOFF',
-          refId: duel.id,
-          idempotencyKey: `faceoff-fee:${duel.id}`,
-        },
-      });
+      // System fee is recorded on FaceOff.feeAmount; do not write a positive SPENDABLE
+      // PointsLedger row against winnerId without a balance update, as that corrupts
+      // reconcileLedger() for every staked duel winner.
     }
 
     // Award victory bonus (fixed 25 PTS)

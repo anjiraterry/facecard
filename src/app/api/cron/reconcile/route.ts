@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { reconcileAllLedgers } from '@/lib/ledger';
 import { expireStaleDuels } from '@/lib/faceoff';
+import { releaseExpiredReservations } from '@/lib/atelier/orders';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,12 +22,15 @@ export async function GET(req: NextRequest) {
 
     const { usersChecked, drifted } = await reconcileAllLedgers();
     const { expiredWaitingCount } = await expireStaleDuels();
+    const releasedReservationsCount = await releaseExpiredReservations();
 
     return NextResponse.json({
       status: drifted.length === 0 ? 'healthy' : 'drift_detected',
       timestamp: new Date().toISOString(),
       usersChecked,
       driftedCount: drifted.length,
+      expiredWaitingCount,
+      releasedReservationsCount,
       driftedUsers: drifted.slice(0, 50), // Cap payload if many drifted
       actionTaken: drifted.length === 0 ? 'none_needed' : 'alert_triggered',
     });

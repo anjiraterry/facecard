@@ -62,9 +62,6 @@ export async function POST(req: NextRequest) {
             tier: 'CLASSIC',
             lifetimePoints: 0,
             spendableBalance: 0,
-            ageConfirmedAt: new Date(),
-            consentAt: new Date(),
-            consentVersion: '1.0-NDPA',
             streak: {
               create: {
                 id: randomUUID(),

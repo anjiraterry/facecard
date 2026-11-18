@@ -10,8 +10,8 @@ import {
   Share2, 
   Flame, 
   Check, 
-  Sparkles, 
-  ShieldCheck, 
+  Layers, 
+  CheckCircle2, 
   TrendingUp, 
   UserPlus,
   UserCheck,
@@ -196,7 +196,7 @@ function FriendProfileContent() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32">
-        <main className="max-w-md mx-auto px-4 sm:px-5 pt-5 sm:pt-6 space-y-5">
+        <main className="max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-8 pt-5 sm:pt-6 space-y-5">
           <header className="relative flex items-center justify-between h-10 px-1">
             <Link href="/friends" className="w-9 h-9 flex items-center justify-center text-[var(--text-main)]">
               <ArrowLeft className="w-5 h-5 stroke-[2]" />
@@ -204,12 +204,12 @@ function FriendProfileContent() {
             <span className="text-lg font-bold tracking-tight text-[var(--text-main)]">profile</span>
             <div className="w-9 h-9" />
           </header>
-          <div className="p-5 rounded-[28px] bg-white/70 dark:bg-[#140826]/70 border border-black/5 dark:border-white/10 animate-pulse space-y-4">
+          <div className="p-5 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] animate-pulse space-y-4">
             <div className="flex items-center gap-3.5">
-              <div className="w-14 h-14 rounded-full bg-neutral-200 dark:bg-white/10 shrink-0" />
+              <div className="w-14 h-14 rounded-full bg-[var(--surface-secondary)] shrink-0" />
               <div className="space-y-2 flex-1">
-                <div className="h-4 w-32 bg-neutral-200 dark:bg-white/10 rounded" />
-                <div className="h-3 w-20 bg-neutral-200/60 dark:bg-white/5 rounded" />
+                <div className="h-4 w-32 bg-[var(--surface-secondary)] rounded" />
+                <div className="h-3 w-20 bg-[var(--surface-secondary)] rounded" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 pt-2 border-t border-black/5 dark:border-white/5">
@@ -228,7 +228,7 @@ function FriendProfileContent() {
   if (!profile) {
     return (
       <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <div className="w-14 h-14 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center text-[var(--text-muted)]">
+        <div className="w-14 h-14 rounded-full bg-[var(--bg-surface-warm)] flex items-center justify-center text-[var(--text-muted)]">
           <AlertCircle className="w-6 h-6" />
         </div>
         <div className="space-y-1">
@@ -240,13 +240,13 @@ function FriendProfileContent() {
         <div className="flex items-center gap-2 pt-2">
           <Link
             href="/faceoff"
-            className="py-2.5 px-5 rounded-full bg-[#140826] dark:bg-white text-white dark:text-[#140826] text-xs font-bold shadow-sm active:scale-95 transition-transform"
+            className="py-2.5 px-5 rounded-full bg-[#251E24] dark:bg-white text-white dark:text-[#251E24] text-xs font-bold shadow-sm active:scale-95 transition-transform"
           >
             Explore Arena
           </Link>
           <Link
             href="/friends"
-            className="py-2.5 px-5 rounded-full bg-black/5 dark:bg-white/10 text-[var(--text-main)] text-xs font-bold hover:bg-black/10 transition-colors"
+            className="py-2.5 px-5 rounded-full bg-[var(--bg-surface-warm)] text-[var(--text-main)] text-xs font-bold hover:bg-black/10 transition-colors"
           >
             Back to Friends
           </Link>
@@ -268,7 +268,7 @@ function FriendProfileContent() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32 transition-colors duration-200">
+    <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32 transition-colors duration-200 md:pl-16 lg:pl-52">
       {/* Subtle Ethereal Ambient Background (Matching profile/page.tsx) */}
       <div 
         className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-70 dark:opacity-30"
@@ -283,13 +283,13 @@ function FriendProfileContent() {
 
       {/* Floating Feedback Toast */}
       {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-[#140826] text-white text-xs font-bold shadow-xl flex items-center gap-2 border border-purple-400/20 animate-fade-in">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-[#251E24] text-white text-xs font-bold shadow-xl flex items-center gap-2 border border-[var(--border-card)] animate-fade-in">
           <Check className="w-4 h-4 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      <main className="relative z-10 max-w-md mx-auto px-4 sm:px-5 pt-5 sm:pt-6 space-y-5">
+      <main className="relative z-10 max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-8 pt-5 sm:pt-6 space-y-5">
         
         {/* Top Header Row */}
         <header className="relative flex items-center justify-between h-10 px-1">
@@ -323,7 +323,7 @@ function FriendProfileContent() {
         {profile.isSelf && (
           <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-500" />
+              <Layers className="w-4 h-4 text-indigo-500" />
               <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
                 This is your public collectible card view
               </span>
@@ -340,11 +340,11 @@ function FriendProfileContent() {
 
         {/* Active Duel In Progress Banner Indicator */}
         {profile.activeDuelWithYou && (
-          <div className="p-3.5 rounded-2xl bg-[#FF7A50]/15 border border-[#FF7A50]/30 flex items-center justify-between shadow-xs">
+          <div className="p-3.5 rounded-2xl bg-[var(--accent-brand)]/15 border border-[#FF7A50]/30 flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-2">
-              <Swords className="w-4 h-4 text-[#FF7A50] animate-pulse" />
+              <Swords className="w-4 h-4 text-[var(--accent-brand)] animate-pulse" />
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#FF7A50] block leading-tight">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[var(--accent-brand)] block leading-tight">
                   Active Duel In Progress
                 </span>
                 <span className="text-xs font-bold text-[var(--text-main)]">
@@ -354,7 +354,7 @@ function FriendProfileContent() {
             </div>
             <Link
               href={`/faceoff/${profile.activeDuelWithYou.id}`}
-              className="py-1.5 px-3 rounded-full bg-[#FF7A50] hover:bg-[#e06840] text-white text-xs font-bold shadow-xs active:scale-95 transition-transform"
+              className="py-1.5 px-3 rounded-full bg-[var(--accent-brand)] hover:bg-[#e06840] text-white text-xs font-bold shadow-xs active:scale-95 transition-transform"
             >
               View Duel
             </Link>
@@ -362,7 +362,7 @@ function FriendProfileContent() {
         )}
 
         {/* User Identity Banner (Identical layout to profile/page.tsx) */}
-        <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-4">
+        <section className="p-5 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-4">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3.5">
               <div className="relative">
@@ -377,7 +377,7 @@ function FriendProfileContent() {
                   <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#140826]" />
                 )}
                 {profile.status === 'in_arena' && (
-                  <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#FF7A50] ring-2 ring-white dark:ring-[#140826]" />
+                  <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[var(--accent-brand)] ring-2 ring-white dark:ring-[#140826]" />
                 )}
               </div>
 
@@ -399,8 +399,8 @@ function FriendProfileContent() {
                   }`}>
                     {profile.tier} Tier
                   </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-950/60 text-[#FF7A50] flex items-center gap-1">
-                    <Flame className="w-3 h-3 fill-[#FF7A50]" />
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-950/60 text-[var(--accent-brand)] flex items-center gap-1">
+                    <Flame className="w-3 h-3 fill-[var(--accent-brand)]" />
                     {profile.streak} Day{profile.streak === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -416,7 +416,7 @@ function FriendProfileContent() {
                     <span>Friends</span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-black/5 dark:bg-white/10 text-[var(--text-muted)]">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-[var(--bg-surface-warm)] text-[var(--text-muted)]">
                     Not Friends
                   </span>
                 )}
@@ -454,7 +454,7 @@ function FriendProfileContent() {
               Verified Face Card
             </span>
             <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" />
+              <CheckCircle2 className="w-3.5 h-3.5" />
               AI Certified
             </span>
           </div>
@@ -468,7 +468,7 @@ function FriendProfileContent() {
             {profile.activeDuelWithYou ? (
               <Link
                 href={`/faceoff?duel=${profile.activeDuelWithYou.inviteCode || profile.activeDuelWithYou.id}`}
-                className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-full text-xs font-bold bg-[#6366F1] hover:bg-[#5558E6] text-white shadow-[0_8px_24px_rgba(99,102,241,0.25)] active:scale-[0.99] transition-transform"
+                className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-full text-xs font-bold bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white shadow-[0_8px_24px_rgba(99,102,241,0.25)] active:scale-[0.99] transition-transform"
               >
                 <Swords className="w-4 h-4 text-white animate-pulse" />
                 <span>View Active Clash</span>
@@ -476,9 +476,9 @@ function FriendProfileContent() {
             ) : (
               <Link
                 href={`/faceoff?opponent=${profile.handle}`}
-                className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-full text-xs font-bold bg-[#140826] dark:bg-white hover:bg-[#241040] dark:hover:bg-zinc-200 text-white dark:text-[#140826] shadow-[0_8px_24px_rgba(20,8,38,0.25)] active:scale-[0.99] transition-transform"
+                className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-full text-xs font-bold bg-[#251E24] dark:bg-white hover:bg-[#3A2F38] dark:hover:bg-zinc-200 text-white dark:text-[#251E24] shadow-[0_8px_24px_rgba(20,8,38,0.25)] active:scale-[0.99] transition-transform"
               >
-                <Swords className="w-4 h-4 text-white dark:text-[#140826]" />
+                <Swords className="w-4 h-4 text-white dark:text-[#251E24]" />
                 <span>Challenge to Duel</span>
               </Link>
             )}
@@ -488,8 +488,8 @@ function FriendProfileContent() {
               disabled={isTogglingFriend}
               className={`flex items-center justify-center gap-2 py-3.5 px-4 rounded-full text-xs font-bold border transition-all active:scale-[0.99] shadow-xs ${
                 profile.isFriend
-                  ? 'border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-[var(--text-main)]'
-                  : 'border-[#DDD6FE] dark:border-purple-500/30 bg-[#EDE9FE] dark:bg-[#6366F1]/20 hover:bg-[#DDD6FE] text-[#140826] dark:text-purple-200'
+                  ? 'border-[var(--border-card)] bg-[var(--bg-surface-warm)] hover:bg-black/10 dark:hover:bg-white/15 text-[var(--text-main)]'
+                  : 'border-[#D2B8C9] dark:border-[var(--border-card)] bg-[var(--bg-surface-warm)] dark:bg-[var(--accent-primary)] hover:bg-[#EBDCD5] text-[#251E24] dark:text-purple-200'
               }`}
             >
               {profile.isFriend ? (
@@ -499,7 +499,7 @@ function FriendProfileContent() {
                 </>
               ) : (
                 <>
-                  <UserPlus className="w-4 h-4 text-[#6366F1] dark:text-purple-300" />
+                  <UserPlus className="w-4 h-4 text-[var(--accent-brand)] dark:text-[#D2B8C9]" />
                   <span>{isTogglingFriend ? 'Adding...' : 'Add Friend'}</span>
                 </>
               )}
@@ -509,14 +509,14 @@ function FriendProfileContent() {
           <section className="flex items-center gap-3">
             <Link
               href="/profile"
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 px-4 rounded-full text-xs font-bold bg-[#140826] dark:bg-white text-white dark:text-[#140826] shadow-sm active:scale-95 transition-transform"
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 px-4 rounded-full text-xs font-bold bg-[#251E24] dark:bg-white text-white dark:text-[#251E24] shadow-sm active:scale-95 transition-transform"
             >
               <Edit3 className="w-4 h-4" />
               <span>Edit Profile & Settings</span>
             </Link>
             <button
               onClick={handleShare}
-              className="py-3.5 px-5 rounded-full text-xs font-bold border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 text-[var(--text-main)] active:scale-95 transition-transform"
+              className="py-3.5 px-5 rounded-full text-xs font-bold border border-[var(--border-card)] bg-black/5 dark:bg-white/5 hover:bg-black/10 text-[var(--text-main)] active:scale-95 transition-transform"
             >
               Share Card
             </button>
@@ -525,13 +525,13 @@ function FriendProfileContent() {
 
         {/* Head-to-Head Duel Indicator & Record */}
         {!profile.isSelf && (
-          <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-3">
+          <section className="p-5 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-purple-500" />
+                <TrendingUp className="w-3.5 h-3.5 text-[var(--accent-brand)]" />
                 <span>Head-to-Head Clash Record</span>
               </h2>
-              <span className="text-[11px] font-bold text-purple-600 dark:text-purple-300">
+              <span className="text-[11px] font-bold text-[var(--accent-brand)]">
                 {profile.headToHeadWithYou.played > 0 
                   ? `${profile.headToHeadWithYou.played} Duel${profile.headToHeadWithYou.played === 1 ? '' : 's'} Fought`
                   : 'Never Dueled'
@@ -563,7 +563,7 @@ function FriendProfileContent() {
                 </div>
               </div>
             ) : (
-              <div className="p-3.5 rounded-2xl bg-black/[0.02] dark:bg-white/[0.03] border border-dashed border-black/10 dark:border-white/10 text-center space-y-1">
+              <div className="p-3.5 rounded-2xl bg-[var(--bg-surface-warm)] border border-dashed border-[var(--border-card)] text-center space-y-1">
                 <p className="text-xs font-bold text-[var(--text-main)]">You haven’t dueled {profile.handle} yet</p>
                 <p className="text-[11px] text-[var(--text-muted)]">Challenge them in the arena to stake points and claim victory!</p>
               </div>
@@ -572,7 +572,7 @@ function FriendProfileContent() {
         )}
 
         {/* View-Only Personal Details Card (Member since, Tier, Lifetime PTS) */}
-        <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-3">
+        <section className="p-5 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-3">
           <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
             Cardholder Information
           </h2>
@@ -580,7 +580,7 @@ function FriendProfileContent() {
           <div className="space-y-2.5 pt-1 text-xs">
             <div className="flex items-center justify-between py-1 border-b border-black/[0.04] dark:border-white/[0.06]">
               <span className="text-[var(--text-muted)] flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#6366F1]" />
+                <Calendar className="w-4 h-4 text-[var(--accent-brand)]" />
                 <span>Member Since</span>
               </span>
               <span className="font-bold text-[var(--text-main)]">
@@ -590,7 +590,7 @@ function FriendProfileContent() {
 
             <div className="flex items-center justify-between py-1 border-b border-black/[0.04] dark:border-white/[0.06]">
               <span className="text-[var(--text-muted)] flex items-center gap-2">
-                <Award className="w-4 h-4 text-[#6366F1]" />
+                <Award className="w-4 h-4 text-[var(--accent-brand)]" />
                 <span>Division Class</span>
               </span>
               <span className="font-bold text-[var(--text-main)]">
@@ -600,7 +600,7 @@ function FriendProfileContent() {
 
             <div className="flex items-center justify-between py-1 border-b border-black/[0.04] dark:border-white/[0.06]">
               <span className="text-[var(--text-muted)] flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#6366F1]" />
+                <Layers className="w-4 h-4 text-[var(--accent-brand)]" />
                 <span>Lifetime Prestige</span>
               </span>
               <span className="font-bold text-[var(--text-main)]">
@@ -610,13 +610,13 @@ function FriendProfileContent() {
 
             <div className="flex items-center justify-between py-1">
               <span className="text-[var(--text-muted)] flex items-center gap-2">
-                <Coins className="w-4 h-4 text-[#6366F1]" />
+                <Coins className="w-4 h-4 text-[var(--accent-brand)]" />
                 <span>Community Courtesy</span>
               </span>
               <button
                 onClick={handleGiftPoints}
                 disabled={isGifting || profile.isSelf}
-                className="text-[11px] font-bold text-[#6366F1] dark:text-purple-300 hover:underline flex items-center gap-1 active:scale-95 transition-transform"
+                className="text-[11px] font-bold text-[var(--accent-brand)] dark:text-[#D2B8C9] hover:underline flex items-center gap-1 active:scale-95 transition-transform"
               >
                 <Gift className="w-3.5 h-3.5" />
                 <span>{isGifting ? 'Gifting...' : 'Send 50 PTS Boost'}</span>
@@ -626,7 +626,7 @@ function FriendProfileContent() {
         </section>
 
         {/* Diagnostic Lethal Formula Sub-scores */}
-        <section className="p-5 rounded-[28px] bg-white/80 dark:bg-[#140826]/80 backdrop-blur-xl border border-white/90 dark:border-white/10 shadow-sm space-y-3">
+        <section className="p-5 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-3">
           <div className="flex items-center justify-between pb-1">
             <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
               Diagnostic Lethal Formula
@@ -642,7 +642,7 @@ function FriendProfileContent() {
                 <span>Photo Craft & Lighting</span>
                 <span className="font-mono font-bold">{profile.breakdown.photoCraft}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
                 <div className="h-full bg-[#0EA5E9] rounded-full" style={{ width: `${profile.breakdown.photoCraft}%` }} />
               </div>
             </div>
@@ -652,7 +652,7 @@ function FriendProfileContent() {
                 <span>Facial Harmony & Symmetry</span>
                 <span className="font-mono font-bold">{profile.breakdown.harmony}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
                 <div className="h-full bg-[#A855F7] rounded-full" style={{ width: `${profile.breakdown.harmony}%` }} />
               </div>
             </div>
@@ -662,7 +662,7 @@ function FriendProfileContent() {
                 <span>Skin Clarity & Glow</span>
                 <span className="font-mono font-bold">{profile.breakdown.skinClarity}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
                 <div className="h-full bg-[#38BDF8] rounded-full" style={{ width: `${profile.breakdown.skinClarity}%` }} />
               </div>
             </div>
@@ -672,8 +672,8 @@ function FriendProfileContent() {
                 <span>Expression & Eye Contact</span>
                 <span className="font-mono font-bold">{profile.breakdown.expression}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
-                <div className="h-full bg-[#6366F1] rounded-full" style={{ width: `${profile.breakdown.expression}%` }} />
+              <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
+                <div className="h-full bg-[var(--accent-primary)] rounded-full" style={{ width: `${profile.breakdown.expression}%` }} />
               </div>
             </div>
 
@@ -682,7 +682,7 @@ function FriendProfileContent() {
                 <span>Aura & Presence</span>
                 <span className="font-mono font-bold">{profile.breakdown.aura}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
                 <div className="h-full bg-[#EC4899] rounded-full" style={{ width: `${profile.breakdown.aura}%` }} />
               </div>
             </div>

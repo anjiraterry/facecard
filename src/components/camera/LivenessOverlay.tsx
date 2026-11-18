@@ -8,9 +8,7 @@ import {
   Eye, 
   Smile, 
   CheckCircle2, 
-  ShieldCheck, 
   RefreshCw,
-  Sparkles,
   Camera
 } from 'lucide-react';
 import { 
@@ -186,17 +184,17 @@ export function LivenessOverlay({
   const renderActionIcon = (icon: string) => {
     switch (icon) {
       case 'arrow-left':
-        return <ArrowLeft className="w-6 h-6 stroke-[3] animate-pulse text-indigo-400" />;
+        return <ArrowLeft className="w-6 h-6 stroke-[2.5] animate-pulse text-[#EBDCD5]" />;
       case 'arrow-right':
-        return <ArrowRight className="w-6 h-6 stroke-[3] animate-pulse text-indigo-400" />;
+        return <ArrowRight className="w-6 h-6 stroke-[2.5] animate-pulse text-[#EBDCD5]" />;
       case 'eye':
-        return <Eye className="w-6 h-6 stroke-[2.5] animate-bounce text-emerald-400" />;
+        return <Eye className="w-6 h-6 stroke-[2.2] animate-bounce text-[#78B894]" />;
       case 'arrow-up':
-        return <ArrowUp className="w-6 h-6 stroke-[3] animate-pulse text-indigo-400" />;
+        return <ArrowUp className="w-6 h-6 stroke-[2.5] animate-pulse text-[#EBDCD5]" />;
       case 'smile':
-        return <Smile className="w-6 h-6 stroke-[2.5] text-amber-400" />;
+        return <Smile className="w-6 h-6 stroke-[2.2] text-[#E5CA99]" />;
       default:
-        return <ShieldCheck className="w-6 h-6 text-purple-400" />;
+        return <CheckCircle2 className="w-6 h-6 text-[#D2B8C9]" />;
     }
   };
 
@@ -207,12 +205,12 @@ export function LivenessOverlay({
 
       {/* Top Liveness Progress Bar */}
       <div className="absolute top-3 inset-x-3 z-30 flex flex-col items-center gap-1.5 pointer-events-none">
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-white shadow-lg">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-[10px] font-black uppercase tracking-wider">
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#251E24]/85 backdrop-blur-md border border-[#EBDCD5]/20 text-[#FAF7F4] shadow-md">
+          <CheckCircle2 className="w-3.5 h-3.5 text-[#78B894]" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">
             Active Liveness Check
           </span>
-          <span className="text-[10px] font-mono font-bold text-white/60">
+          <span className="text-[10px] font-semibold tabular-nums text-[#EBDCD5]/80">
             {allVerified ? '✓ Verified' : `Action ${currentStepIndex + 1} of ${sequence.length}`}
           </span>
         </div>
@@ -224,10 +222,10 @@ export function LivenessOverlay({
               key={idx}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 idx < currentStepIndex || allVerified
-                  ? 'w-8 bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                  ? 'w-8 bg-[#78B894]'
                   : idx === currentStepIndex
-                  ? 'w-8 bg-white'
-                  : 'w-4 bg-white/30'
+                  ? 'w-8 bg-[#FAF7F4]'
+                  : 'w-4 bg-[#FAF7F4]/30'
               }`}
             />
           ))}
@@ -239,17 +237,17 @@ export function LivenessOverlay({
         <div className="absolute top-16 inset-x-4 z-30 flex flex-col items-center pointer-events-auto">
           <div 
             onClick={handleManualActionPass}
-            className={`w-full max-w-[300px] p-3.5 rounded-2xl backdrop-blur-xl border shadow-xl flex items-center gap-3 transition-all cursor-pointer ${
+            className={`w-full max-w-[300px] p-3.5 rounded-2xl backdrop-blur-md border shadow-lg flex items-center gap-3 transition-all cursor-pointer ${
               stepSuccess
-                ? 'bg-emerald-950/80 border-emerald-400 text-white scale-105'
-                : 'bg-black/75 border-white/20 text-white'
+                ? 'bg-[#251E24]/90 border-[#78B894] text-[#FAF7F4] scale-[1.02]'
+                : 'bg-[#251E24]/85 border-[#EBDCD5]/25 text-[#FAF7F4]'
             }`}
             title="Perform action in front of camera (or tap to simulate)"
           >
             {/* Visual Icon with Progress Ring */}
-            <div className="relative w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10 overflow-hidden">
+            <div className="relative w-11 h-11 rounded-xl bg-[#FAF7F4]/10 flex items-center justify-center shrink-0 border border-[#EBDCD5]/15 overflow-hidden">
               {stepSuccess ? (
-                <CheckCircle2 className="w-6 h-6 text-emerald-400 animate-scale-in" />
+                <CheckCircle2 className="w-6 h-6 text-[#78B894]" />
               ) : (
                 renderActionIcon(currentChallenge.cueIcon)
               )}
@@ -257,7 +255,7 @@ export function LivenessOverlay({
               {/* Live progress fill */}
               {!stepSuccess && detectionProgress > 0 && (
                 <div 
-                  className="absolute bottom-0 inset-x-0 bg-emerald-500/40 transition-all duration-150"
+                  className="absolute bottom-0 inset-x-0 bg-[#78B894]/40 transition-all duration-150"
                   style={{ height: `${detectionProgress}%` }}
                 />
               )}
@@ -265,13 +263,13 @@ export function LivenessOverlay({
 
             {/* Instruction Text */}
             <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold tracking-wider uppercase text-purple-300 block">
-                {stepSuccess ? 'Motion Confirmed!' : `Prompt ${currentStepIndex + 1}:`}
+              <span className="text-[10px] font-semibold tracking-[0.08em] uppercase text-[#D2B8C9] block">
+                {stepSuccess ? 'Motion Confirmed' : `Step ${currentStepIndex + 1}`}
               </span>
-              <p className="text-xs font-black text-white leading-snug">
-                {stepSuccess ? 'Nice! Preparing next...' : currentChallenge.prompt}
+              <p className="text-xs font-bold text-[#FAF7F4] leading-snug">
+                {stepSuccess ? 'Preparing next step...' : currentChallenge.prompt}
               </p>
-              <span className="text-[10px] text-white/60 block font-medium">
+              <span className="text-[10px] text-[#EBDCD5]/75 block font-medium">
                 {stepSuccess ? 'Keep facing camera' : currentChallenge.subPrompt}
               </span>
             </div>
@@ -279,7 +277,7 @@ export function LivenessOverlay({
 
           {/* Coaching hint if taking > 6 seconds */}
           {stepSecondsElapsed >= 6 && !stepSuccess && (
-            <div className="mt-2 py-1 px-3 rounded-full bg-black/75 backdrop-blur-md border border-white/10 text-[10px] text-amber-300 text-center animate-fade-in flex items-center gap-1.5 shadow-md pointer-events-none">
+            <div className="mt-2 py-1 px-3 rounded-full bg-[#251E24]/85 backdrop-blur-md border border-[#EBDCD5]/15 text-[10px] text-[#DFB178] text-center flex items-center gap-1.5 shadow-md pointer-events-none">
               <span>Trouble detecting? Ensure good light or tap &apos;Skip&apos; below.</span>
             </div>
           )}
@@ -288,16 +286,16 @@ export function LivenessOverlay({
 
       {/* Verified Banner and Countdown Overlay */}
       {allVerified && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40 backdrop-blur-xs pointer-events-none">
-          <div className="p-5 rounded-3xl bg-black/85 border border-emerald-400/40 shadow-2xl text-center space-y-2 text-white max-w-[260px] animate-scale-in">
-            <div className="w-12 h-12 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-400/40 shadow-[0_0_24px_rgba(52,211,153,0.4)]">
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#251E24]/50 backdrop-blur-xs pointer-events-none">
+          <div className="p-5 rounded-3xl bg-[#251E24]/95 border border-[#EBDCD5]/25 shadow-2xl text-center space-y-2 text-[#FAF7F4] max-w-[260px]">
+            <div className="w-12 h-12 mx-auto rounded-full bg-[#78B894]/20 text-[#78B894] flex items-center justify-center border border-[#78B894]/40">
               <CheckCircle2 className="w-7 h-7" />
             </div>
-            <h3 className="text-sm font-black text-white">Live Human Verified</h3>
-            <p className="text-[11px] text-white/70">Anti-spoof passed. Capturing your verified portrait...</p>
+            <h3 className="font-display text-lg font-semibold text-[#FAF7F4]">Live Portrait Verified</h3>
+            <p className="text-[11px] text-[#EBDCD5]/80">Capturing your verified portrait...</p>
             {countdown !== null && (
-              <div className="text-3xl font-black text-emerald-400 pt-1 font-mono">
-                {countdown > 0 ? countdown : '📸'}
+              <div className="text-3xl font-bold text-[#EBDCD5] pt-1 tabular-nums">
+                {countdown > 0 ? countdown : 'Ready'}
               </div>
             )}
           </div>

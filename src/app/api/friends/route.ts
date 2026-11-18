@@ -31,15 +31,15 @@ export async function GET(req: NextRequest) {
     const query = searchParams.get('q')?.toLowerCase();
     const isSuggested = searchParams.get('suggested') === 'true' || searchParams.get('all') === 'true';
 
-    // Find users added as friends by this sessionUser
-    const friendLogs = await db.auditLog.findMany({
+    // Find users added as friends by this sessionUser via Friendship table
+    const friendships = await db.friendship.findMany({
       where: {
-        actorId: sessionUser.id,
-        action: 'ADD_FRIEND',
+        requesterId: sessionUser.id,
+        status: 'ACCEPTED',
       },
-      select: { targetId: true },
+      select: { addresseeId: true },
     });
-    const friendIds = new Set(friendLogs.map((l) => l.targetId).filter(Boolean));
+    const friendIds = new Set(friendships.map((f) => f.addresseeId));
 
     const users = await db.user.findMany({
       where: {
@@ -166,26 +166,24 @@ export async function POST(req: NextRequest) {
     });
 
     if (found) {
-      // Record friendship link in AuditLog
-      const existing = await db.auditLog.findFirst({
+      if (found.id === sessionUser.id) {
+        return NextResponse.json({ error: 'Cannot add yourself as a friend' }, { status: 400 });
+      }
+      // Record friendship link in dedicated Friendship table
+      await db.friendship.upsert({
         where: {
-          actorId: sessionUser.id,
-          action: 'ADD_FRIEND',
-          targetId: found.id,
+          requesterId_addresseeId: {
+            requesterId: sessionUser.id,
+            addresseeId: found.id,
+          },
+        },
+        update: { status: 'ACCEPTED' },
+        create: {
+          requesterId: sessionUser.id,
+          addresseeId: found.id,
+          status: 'ACCEPTED',
         },
       });
-
-      if (!existing) {
-        await db.auditLog.create({
-          data: {
-            actorId: sessionUser.id,
-            action: 'ADD_FRIEND',
-            targetType: 'USER',
-            targetId: found.id,
-            detail: { targetHandle: cleanHandle, displayName: found.displayName },
-          },
-        });
-      }
     }
 
     return NextResponse.json({

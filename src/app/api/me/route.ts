@@ -105,12 +105,29 @@ export async function PATCH(req: NextRequest) {
 
     const updates = await req.json();
 
+    // Email changes require OTP verification via /api/auth/link-email; never allow unverified email overwrite here.
+    const nextDisplayName =
+      typeof updates.displayName === 'string' && updates.displayName.trim().length >= 2
+        ? updates.displayName.trim().slice(0, 50)
+        : sessionUser.displayName;
+
+    const nextHandle =
+      typeof updates.handle === 'string' && updates.handle.trim().length > 0
+        ? updates.handle.replace(/^@/, '').toLowerCase().trim()
+        : sessionUser.handle;
+
+    if (nextHandle && !/^[a-z0-9_]{3,20}$/.test(nextHandle)) {
+      return NextResponse.json(
+        { error: 'Username must be 3-20 characters and contain only letters, numbers, or underscores.' },
+        { status: 400 }
+      );
+    }
+
     const updated = await db.user.update({
       where: { id: sessionUser.id },
       data: {
-        displayName: updates.displayName ?? sessionUser.displayName,
-        handle: updates.handle ? updates.handle.replace(/^@/, '').toLowerCase().trim() : sessionUser.handle,
-        email: updates.email ?? sessionUser.email,
+        displayName: nextDisplayName,
+        handle: nextHandle,
       },
     });
 
@@ -142,24 +159,40 @@ export async function DELETE() {
     const { revokeAllUserSessions, clearSessionCookies } = await import('@/lib/auth/sessions');
     await revokeAllUserSessions(sessionUser.id);
 
-    // 2. Anonymize user record per NDPA right-to-be-forgotten
-    await db.user.update({
-      where: { id: sessionUser.id },
-      data: {
-        status: 'DELETED',
-        email: null,
-        handle: null,
-        displayName: 'Deleted Contender',
-        pinHash: null,
-        ageConfirmedAt: null,
-        consentAt: null,
-      },
-    });
+    // 2. Complete NDPA anonymization & erasure in a transaction (preserving pseudonymised financial/order audit rows)
+    const now = new Date();
+    await db.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: sessionUser.id },
+        data: {
+          status: 'DELETED',
+          email: null,
+          handle: null,
+          displayName: 'Deleted Contender',
+          pinHash: null,
+          avatarUrl: null,
+          ageConfirmedAt: null,
+          consentAt: null,
+        },
+      });
 
-    // 3. Clear public share cards
-    await db.shareCard.deleteMany({
-      where: { userId: sessionUser.id },
-    }).catch(() => undefined);
+      await tx.consentRecord.updateMany({
+        where: { userId: sessionUser.id, withdrawnAt: null },
+        data: { withdrawnAt: now },
+      });
+
+      await tx.shareCard.deleteMany({ where: { userId: sessionUser.id } });
+      await tx.cardSnapshot.deleteMany({ where: { userId: sessionUser.id } });
+      await tx.friendship.deleteMany({
+        where: { OR: [{ requesterId: sessionUser.id }, { addresseeId: sessionUser.id }] },
+      });
+      await tx.skinProfile.deleteMany({ where: { userId: sessionUser.id } });
+      await tx.skincareRoutine.deleteMany({ where: { userId: sessionUser.id } });
+      await tx.skinConsent.deleteMany({ where: { userId: sessionUser.id } });
+      await tx.address.deleteMany({ where: { userId: sessionUser.id } });
+      await tx.shoppingBag.deleteMany({ where: { userId: sessionUser.id } });
+      await tx.wishlistItem.deleteMany({ where: { userId: sessionUser.id } });
+    });
 
     const res = NextResponse.json({
       success: true,

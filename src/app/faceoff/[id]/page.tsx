@@ -7,7 +7,7 @@ import {
   ArrowLeft, 
   Swords, 
   Flame, 
-  ShieldCheck, 
+  CheckCircle2, 
   Coins, 
   Copy, 
   Check, 
@@ -119,14 +119,14 @@ function DuelDetailPageContent() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32">
-        <main className="max-w-md mx-auto px-5 pt-5 space-y-5 animate-pulse">
+        <main className="max-w-6xl xl:max-w-7xl mx-auto px-5 sm:px-8 pt-5 space-y-5 animate-pulse">
           <header className="flex items-center justify-between h-10 px-1">
-            <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-white/10" />
-            <div className="w-24 h-5 rounded bg-neutral-200 dark:bg-white/10" />
-            <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-white/10" />
+            <div className="w-9 h-9 rounded-full bg-[var(--surface-secondary)]" />
+            <div className="w-24 h-5 rounded bg-[var(--surface-secondary)]" />
+            <div className="w-9 h-9 rounded-full bg-[var(--surface-secondary)]" />
           </header>
-          <div className="h-64 rounded-[32px] bg-neutral-200 dark:bg-white/10" />
-          <div className="h-40 rounded-[24px] bg-neutral-200 dark:bg-white/10" />
+          <div className="h-64 rounded-[32px] bg-[var(--surface-secondary)]" />
+          <div className="h-40 rounded-[24px] bg-[var(--surface-secondary)]" />
         </main>
         <BottomNav />
       </div>
@@ -136,7 +136,7 @@ function DuelDetailPageContent() {
   if (!duel) {
     return (
       <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <div className="w-14 h-14 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center text-[var(--text-muted)]">
+        <div className="w-14 h-14 rounded-full bg-[var(--bg-surface-warm)] flex items-center justify-center text-[var(--text-muted)]">
           <AlertCircle className="w-6 h-6" />
         </div>
         <div className="space-y-1">
@@ -145,7 +145,7 @@ function DuelDetailPageContent() {
         </div>
         <Link
           href="/faceoff"
-          className="py-2.5 px-5 rounded-full bg-[#140826] dark:bg-white text-white dark:text-[#140826] text-xs font-bold shadow-sm"
+          className="py-2.5 px-5 rounded-full bg-[#251E24] dark:bg-white text-white dark:text-[#251E24] text-xs font-bold shadow-sm"
         >
           Return to Arena
         </Link>
@@ -160,7 +160,7 @@ function DuelDetailPageContent() {
   const challengerProfileUrl = `/friends/${duel.challenger.handle.replace(/^@/, '')}`;
 
   return (
-    <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32">
+    <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32 md:pl-16 lg:pl-52">
       {/* Dynamic Ambient Background */}
       <div 
         className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-75 dark:opacity-25"
@@ -173,7 +173,7 @@ function DuelDetailPageContent() {
         }}
       />
 
-      <main className="relative z-10 max-w-md mx-auto px-5 pt-5 space-y-5">
+      <main className="relative z-10 max-w-6xl xl:max-w-7xl mx-auto px-5 sm:px-8 pt-5 space-y-5">
         
         {/* Top Header */}
         <header className="relative flex items-center justify-between h-10 px-1">
@@ -199,10 +199,10 @@ function DuelDetailPageContent() {
         {/* Division & Status Pill */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-[#140826] text-white dark:bg-white dark:text-[#140826]">
+            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-[#251E24] text-white dark:bg-white dark:text-[#251E24]">
               {duel.challenger.tier} Division
             </span>
-            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-300">
+            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[var(--bg-surface-warm)] text-[var(--accent-brand)]">
               {duel.mode === 'STAKED' ? `${duel.stakeAmount} PTS Stake` : 'Friendly Match'}
             </span>
           </div>
@@ -214,7 +214,7 @@ function DuelDetailPageContent() {
         {/* Contender Stand-Off Cards */}
         <section className="grid grid-cols-2 gap-3 relative">
           {/* Challenger */}
-          <div className="p-4 rounded-[28px] bg-white/85 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/95 dark:border-white/10 shadow-sm space-y-3 flex flex-col justify-between">
+          <div className="p-4 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-3 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-2.5">
                 <UserAvatar
@@ -237,14 +237,14 @@ function DuelDetailPageContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--text-muted)]">Tier</span>
-                  <span className="font-bold text-purple-600 dark:text-purple-300">{duel.challenger.tier}</span>
+                  <span className="font-bold text-[var(--accent-brand)]">{duel.challenger.tier}</span>
                 </div>
               </div>
             </div>
 
             <Link
               href={challengerProfileUrl}
-              className="w-full py-2 rounded-xl bg-black/5 dark:bg-white/10 hover:bg-black/10 text-[var(--text-main)] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95"
+              className="w-full py-2 rounded-xl bg-[var(--bg-surface-warm)] hover:bg-black/10 text-[var(--text-main)] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95"
             >
               <span>View Profile</span>
               <ExternalLink className="w-3 h-3" />
@@ -252,7 +252,7 @@ function DuelDetailPageContent() {
           </div>
 
           {/* Opponent */}
-          <div className="p-4 rounded-[28px] bg-white/85 dark:bg-[#140826]/75 backdrop-blur-xl border border-white/95 dark:border-white/10 shadow-sm space-y-3 flex flex-col justify-between">
+          <div className="p-4 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-3 flex flex-col justify-between">
             <div>
               {duel.opponent ? (
                 <>
@@ -277,13 +277,13 @@ function DuelDetailPageContent() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--text-muted)]">Tier</span>
-                      <span className="font-bold text-purple-600 dark:text-purple-300">{duel.opponent.tier}</span>
+                      <span className="font-bold text-[var(--accent-brand)]">{duel.opponent.tier}</span>
                     </div>
                   </div>
                 </>
               ) : (
                 <div className="text-center py-4 space-y-1">
-                  <div className="w-10 h-10 mx-auto rounded-full bg-purple-500/10 text-purple-600 font-black flex items-center justify-center text-xs">
+                  <div className="w-10 h-10 mx-auto rounded-full bg-[var(--bg-surface-warm)] text-purple-600 font-black flex items-center justify-center text-xs">
                     ?
                   </div>
                   <span className="text-xs font-bold block text-[var(--text-main)]">Open Slot</span>
@@ -295,31 +295,31 @@ function DuelDetailPageContent() {
             {duel.opponent ? (
               <Link
                 href={`/friends/${duel.opponent.handle.replace(/^@/, '')}`}
-                className="w-full py-2 rounded-xl bg-black/5 dark:bg-white/10 hover:bg-black/10 text-[var(--text-main)] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95"
+                className="w-full py-2 rounded-xl bg-[var(--bg-surface-warm)] hover:bg-black/10 text-[var(--text-main)] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95"
               >
                 <span>View Profile</span>
                 <ExternalLink className="w-3 h-3" />
               </Link>
             ) : (
-              <div className="w-full py-2 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] text-[var(--text-muted)] text-[11px] font-semibold text-center">
+              <div className="w-full py-2 rounded-xl bg-[var(--bg-surface-warm)] text-[var(--text-muted)] text-[11px] font-semibold text-center">
                 Join to Clash
               </div>
             )}
           </div>
 
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#140826] dark:bg-white text-white dark:text-[#140826] font-black text-[10px] flex items-center justify-center shadow-lg border-2 border-white dark:border-[#140826]">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#251E24] dark:bg-white text-white dark:text-[#251E24] font-black text-[10px] flex items-center justify-center shadow-lg border-2 border-white dark:border-[var(--bg-surface)]">
             VS
           </div>
         </section>
 
         {/* Stakes Bounty Pool Card */}
-        <section className="p-4 rounded-[28px] bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-purple-500/20 space-y-2">
+        <section className="p-4 rounded-[28px] bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-[var(--border-card)] space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-              <Coins className="w-4 h-4 text-[#6366F1]" />
+              <Coins className="w-4 h-4 text-[var(--accent-brand)]" />
               <span>Prize Bounty Pool</span>
             </span>
-            <span className="text-sm font-black text-[#6366F1] dark:text-purple-300">
+            <span className="text-sm font-black text-[var(--accent-brand)] dark:text-[#D2B8C9]">
               {duel.mode === 'STAKED' ? `${totalPrize} PTS Winner Takes All` : 'Glory & Honor'}
             </span>
           </div>
@@ -337,9 +337,9 @@ function DuelDetailPageContent() {
         </section>
 
         {/* Official Arena Rules */}
-        <section className="p-4 rounded-[28px] bg-white/80 dark:bg-[#140826]/80 border border-black/[0.06] dark:border-white/10 space-y-2.5">
+        <section className="p-4 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] space-y-2.5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             <span>Arena Clash Protocols</span>
           </h3>
           <div className="space-y-2 text-xs text-[var(--text-muted)]">
@@ -355,7 +355,7 @@ function DuelDetailPageContent() {
             <button
               disabled={isJoining}
               onClick={handleAcceptDuel}
-              className="w-full py-4 rounded-full bg-[#140826] dark:bg-white hover:bg-[#251040] dark:hover:bg-zinc-200 text-white dark:text-[#140826] font-bold text-xs flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-transform"
+              className="w-full py-4 rounded-full bg-[#251E24] dark:bg-white hover:bg-[#3A2F38] dark:hover:bg-zinc-200 text-white dark:text-[#251E24] font-bold text-xs flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-transform"
             >
               <Swords className="w-4 h-4" />
               <span>{isJoining ? 'Entering Clash...' : `Accept Duel & Take Selfie (${duel.stakeAmount} PTS)`}</span>
@@ -363,7 +363,7 @@ function DuelDetailPageContent() {
           ) : isMine ? (
             <button
               onClick={copyLink}
-              className="w-full py-3.5 rounded-full bg-[#140826] dark:bg-white text-white dark:text-[#140826] font-bold text-xs flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-transform"
+              className="w-full py-3.5 rounded-full bg-[#251E24] dark:bg-white text-white dark:text-[#251E24] font-bold text-xs flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-transform"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               <span>{copied ? 'Duel Link Copied!' : 'Copy Match Invite Link'}</span>
@@ -376,7 +376,7 @@ function DuelDetailPageContent() {
 
           <Link
             href={challengerProfileUrl}
-            className="w-full py-3 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 text-[var(--text-main)] text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1.5"
+            className="w-full py-3 rounded-full bg-[var(--bg-surface-warm)] hover:bg-black/10 text-[var(--text-main)] text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1.5"
           >
             <User className="w-3.5 h-3.5" />
             <span>View Challenger Profile ({duel.challenger.handle})</span>

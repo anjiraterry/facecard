@@ -21,7 +21,14 @@ export async function POST(req: NextRequest) {
     }
 
     currentPhase = 'INPUT_VALIDATION';
-    const { displayName, handle, pin } = await req.json().catch(() => ({}));
+    const {
+      displayName,
+      handle,
+      pin,
+      ageConfirmed,
+      termsAccepted,
+      consentVersion = '1.0-NDPA',
+    } = await req.json().catch(() => ({}));
 
     // 1. Validation
     const cleanName = (displayName || '').trim();
@@ -92,9 +99,34 @@ export async function POST(req: NextRequest) {
           tier: 'CLASSIC',
           lifetimePoints: 0,
           spendableBalance: 0,
-          ageConfirmedAt: new Date(),
-          consentAt: new Date(),
-          consentVersion: '1.0-NDPA',
+          ...(ageConfirmed === true ? { ageConfirmedAt: new Date() } : {}),
+          ...(ageConfirmed === true && termsAccepted !== false
+            ? { consentAt: new Date(), consentVersion }
+            : {}),
+          ...(ageConfirmed === true
+            ? {
+                consentRecords: {
+                  create: [
+                    {
+                      purpose: 'AGE_CONFIRMATION',
+                      version: consentVersion,
+                      ip: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
+                      userAgent: req.headers.get('user-agent') || null,
+                    },
+                    ...(termsAccepted !== false
+                      ? [
+                          {
+                            purpose: 'TERMS_PRIVACY' as const,
+                            version: consentVersion,
+                            ip: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
+                            userAgent: req.headers.get('user-agent') || null,
+                          },
+                        ]
+                      : []),
+                  ],
+                },
+              }
+            : {}),
           streak: {
             create: {
               id: randomUUID(),
