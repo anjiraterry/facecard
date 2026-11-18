@@ -231,20 +231,45 @@ async function main() {
     },
   ];
 
-  const PRODUCT_IMAGE_URLS: Record<string, string> = {
-    'velvet-amino-cleanser':
-      'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80',
-    'radiance-niacinamide-serum':
-      'https://images.unsplash.com/photo-1782086816100-017c99c45109?auto=format&fit=crop&w=800&q=80',
-    'barrier-ceramide-cream':
-      'https://images.unsplash.com/photo-1691707895857-23090885ab4d?auto=format&fit=crop&w=800&q=80',
-    'invisible-dew-spf50':
-      'https://images.unsplash.com/photo-1623676714504-edd78728155e?auto=format&fit=crop&w=800&q=80',
-    'calm-azelaic-emulsion':
-      'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=800&q=80',
-    'morning-clarity-ritual-set':
-      'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80',
+  const PRODUCT_IMAGE_GALLERY: Record<string, Array<{ url: string; alt: string }>> = {
+    'velvet-amino-cleanser': [
+      { url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80', alt: 'Velvet Amino Gel Cleanser bottle' },
+      { url: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=900&q=80', alt: 'Velvet Amino Gel Cleanser texture & routine view' },
+      { url: 'https://images.unsplash.com/photo-1691707895857-23090885ab4d?auto=format&fit=crop&w=900&q=80', alt: 'Velvet Amino Gel Cleanser vanity display' },
+    ],
+    'radiance-niacinamide-serum': [
+      { url: 'https://images.unsplash.com/photo-1782086816100-017c99c45109?auto=format&fit=crop&w=900&q=80', alt: 'Radiance 5% Niacinamide Drops dropper' },
+      { url: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=900&q=80', alt: 'Radiance 5% Niacinamide Drops serum ritual' },
+      { url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80', alt: 'Radiance 5% Niacinamide Drops studio angle' },
+    ],
+    'barrier-ceramide-cream': [
+      { url: 'https://images.unsplash.com/photo-1691707895857-23090885ab4d?auto=format&fit=crop&w=900&q=80', alt: 'Barrier Repair Ceramide Cream jar' },
+      { url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80', alt: 'Barrier Repair Ceramide Cream close-up' },
+      { url: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=900&q=80', alt: 'Barrier Repair Ceramide Cream evening set' },
+    ],
+    'invisible-dew-spf50': [
+      { url: 'https://images.unsplash.com/photo-1623676714504-edd78728155e?auto=format&fit=crop&w=900&q=80', alt: 'Invisible Dew SPF 50+ fluid' },
+      { url: 'https://images.unsplash.com/photo-1691707895857-23090885ab4d?auto=format&fit=crop&w=900&q=80', alt: 'Invisible Dew SPF 50+ mirror view' },
+      { url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80', alt: 'Invisible Dew SPF 50+ daily protection' },
+    ],
+    'calm-azelaic-emulsion': [
+      { url: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=900&q=80', alt: 'Calm 10% Azelaic Emulsion bottle' },
+      { url: 'https://images.unsplash.com/photo-1782086816100-017c99c45109?auto=format&fit=crop&w=900&q=80', alt: 'Calm 10% Azelaic Emulsion treatment view' },
+      { url: 'https://images.unsplash.com/photo-1691707895857-23090885ab4d?auto=format&fit=crop&w=900&q=80', alt: 'Calm 10% Azelaic Emulsion studio shot' },
+    ],
+    'morning-clarity-ritual-set': [
+      { url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80', alt: 'Morning Clarity 3-Step Ritual collection' },
+      { url: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=900&q=80', alt: 'Morning Clarity 3-Step Ritual bottles' },
+      { url: 'https://images.unsplash.com/photo-1623676714504-edd78728155e?auto=format&fit=crop&w=900&q=80', alt: 'Morning Clarity 3-Step Ritual SPF included' },
+    ],
   };
+
+  const sampleReviewers = await prisma.user.findMany({
+    where: { status: 'ACTIVE' },
+    orderBy: { createdAt: 'asc' },
+    take: 2,
+    select: { id: true },
+  });
 
   for (const p of products) {
     const product = await prisma.atelierProduct.upsert({
@@ -279,15 +304,49 @@ async function main() {
     await prisma.productImage.deleteMany({
       where: { productId: product.id },
     });
-    await prisma.productImage.create({
-      data: {
-        productId: product.id,
-        objectKey: PRODUCT_IMAGE_URLS[p.slug] || 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80',
-        altText: p.name,
-        sortOrder: 0,
-        isPrimary: true,
-      },
-    });
+    const gallery = PRODUCT_IMAGE_GALLERY[p.slug] || [];
+    for (let idx = 0; idx < gallery.length; idx++) {
+      await prisma.productImage.create({
+        data: {
+          productId: product.id,
+          objectKey: gallery[idx].url,
+          altText: gallery[idx].alt,
+          sortOrder: idx,
+          isPrimary: idx === 0,
+        },
+      });
+    }
+
+    if (sampleReviewers[0]) {
+      await prisma.productReview.upsert({
+        where: { productId_userId: { productId: product.id, userId: sampleReviewers[0].id } },
+        update: {},
+        create: {
+          productId: product.id,
+          userId: sampleReviewers[0].id,
+          rating: 5,
+          title: 'Gentle, zero irritation in Lagos humidity',
+          body: `Used ${p.name} consistently for 3 weeks — absorbs cleanly with no heaviness or residue.`,
+          skinType: SkinType.COMBINATION,
+          verifiedPurchase: true,
+        },
+      });
+    }
+    if (sampleReviewers[1]) {
+      await prisma.productReview.upsert({
+        where: { productId_userId: { productId: product.id, userId: sampleReviewers[1].id } },
+        update: {},
+        create: {
+          productId: product.id,
+          userId: sampleReviewers[1].id,
+          rating: 4,
+          title: 'Noticeable clarity & barrier comfort',
+          body: `Pairs effortlessly with my daily AM/PM routine without pilling under sunscreen.`,
+          skinType: SkinType.NORMAL,
+          verifiedPurchase: true,
+        },
+      });
+    }
 
     const variant = await prisma.productVariant.upsert({
       where: { sku: p.sku },

@@ -75,9 +75,7 @@ export default function LandingPage() {
       <main className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pt-8 sm:pt-14 pb-24 space-y-20 sm:space-y-24">
         {/* Editorial Hero */}
         <section className="text-center max-w-3xl mx-auto space-y-6">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--brand-plum)]">
-            The Face Card That Never Declines
-          </p>
+    
 
           <h1 className="font-display text-5xl sm:text-6xl lg:text-[72px] font-semibold tracking-[-0.03em] leading-[1.02] text-[var(--foreground)]">
             Beauty is yours. <br />

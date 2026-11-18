@@ -47,7 +47,8 @@ export async function GET(req: NextRequest) {
         include: {
           brand: { select: { id: true, slug: true, name: true } },
           category: { select: { id: true, slug: true, name: true } },
-          images: { orderBy: { sortOrder: 'asc' }, take: 2 },
+          images: { orderBy: { sortOrder: 'asc' }, take: 5 },
+          reviews: { select: { rating: true } },
           variants: {
             where: { isActive: true },
             orderBy: { priceMinor: 'asc' },
@@ -67,14 +68,24 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const items = products.map((p) => ({
-      ...p,
-      variants: p.variants.map((v) => {
-        const available = v.inventoryLevels.reduce((acc, lvl) => acc + Math.max(0, lvl.onHand - lvl.reserved), 0);
-        const { inventoryLevels: _levels, ...rest } = v;
-        return { ...rest, availableStock: available, inStock: available > 0 };
-      }),
-    }));
+    const items = products.map((p) => {
+      const reviewCount = p.reviews.length;
+      const averageRating =
+        reviewCount > 0
+          ? Number((p.reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1))
+          : null;
+      const { reviews: _reviews, ...restProduct } = p;
+      return {
+        ...restProduct,
+        averageRating,
+        reviewCount,
+        variants: p.variants.map((v) => {
+          const available = v.inventoryLevels.reduce((acc, lvl) => acc + Math.max(0, lvl.onHand - lvl.reserved), 0);
+          const { inventoryLevels: _levels, ...rest } = v;
+          return { ...rest, availableStock: available, inStock: available > 0 };
+        }),
+      };
+    });
 
     return jsonResponse({
       success: true,

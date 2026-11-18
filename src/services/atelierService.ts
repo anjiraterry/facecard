@@ -13,6 +13,25 @@ export interface AtelierVariantDTO {
   inStock: boolean;
 }
 
+export interface AtelierReviewDTO {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string;
+  skinType: string | null;
+  verifiedPurchase: boolean;
+  createdAt: string;
+  user: { id: string; displayName: string; handle: string | null };
+}
+
+export interface AtelierResearchDTO {
+  summary: string;
+  keyActivesAnalysis: string[];
+  layeringGuidance: string;
+  cautions: string;
+  source: 'AI_MODEL' | 'FORMULATION_DATABASE';
+}
+
 export interface AtelierProductDTO {
   id: string;
   slug: string;
@@ -24,6 +43,8 @@ export interface AtelierProductDTO {
   warnings?: string | null;
   ritualStep: 'CLEANSE' | 'TREAT' | 'HYDRATE' | 'PROTECT';
   featured: boolean;
+  averageRating?: number | null;
+  reviewCount?: number;
   brand: { id: string; slug: string; name: string; country?: string | null };
   category: { id: string; slug: string; name: string };
   images: Array<{ id: string; objectKey: string; altText: string | null; isPrimary: boolean }>;
@@ -31,6 +52,7 @@ export interface AtelierProductDTO {
   ingredients?: Array<{ isKeyActive: boolean; ingredient: { id: string; name: string; inciName: string | null } }>;
   concerns?: Array<{ concern: { id: string; slug: string; name: string } }>;
   skinTypes?: Array<{ skinType: string }>;
+  reviews?: AtelierReviewDTO[];
 }
 
 export interface AtelierBagItemDTO {
@@ -271,5 +293,28 @@ export const atelierService = {
 
   async getOrders() {
     return apiRequest<{ success: boolean; orders: AtelierOrderDTO[] }>('/api/atelier/orders');
+  },
+
+  async submitProductReview(
+    slug: string,
+    data: { rating: number; title?: string; body: string; skinType?: string }
+  ) {
+    return apiRequest<{ success: boolean; review: AtelierReviewDTO }>(
+      `/api/atelier/products/${encodeURIComponent(slug)}/reviews`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  async researchProduct(slug: string, question?: string) {
+    return apiRequest<{ success: boolean; research: AtelierResearchDTO }>(
+      `/api/atelier/products/${encodeURIComponent(slug)}/research`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ question }),
+      }
+    );
   },
 };

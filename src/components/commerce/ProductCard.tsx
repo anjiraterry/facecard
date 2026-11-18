@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Layers, Eye, ShoppingBag } from 'lucide-react';
+import { Layers, Eye, ShoppingBag, Star } from 'lucide-react';
 import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { Button } from '@/components/ui/Button';
 import { AtelierProductDTO } from '@/services/atelierService';
@@ -74,12 +74,21 @@ export function ProductCard({ product, onInspect, onAddToBag, addingVariantId }:
           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--brand-plum)] block">
             {product.brand.name} · {product.category.name}
           </span>
-          <h3
-            onClick={() => onInspect?.(product)}
-            className="text-base font-semibold text-[var(--foreground)] leading-snug cursor-pointer hover:text-[var(--brand-plum)] transition-colors"
-          >
-            {product.name}
-          </h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3
+              onClick={() => onInspect?.(product)}
+              className="text-base font-semibold text-[var(--foreground)] leading-snug cursor-pointer hover:text-[var(--brand-plum)] transition-colors"
+            >
+              {product.name}
+            </h3>
+            {product.averageRating ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--foreground)] shrink-0 mt-0.5 tabular-nums">
+                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                {product.averageRating}
+                <span className="text-[var(--foreground-muted)] font-normal">({product.reviewCount ?? 0})</span>
+              </span>
+            ) : null}
+          </div>
           <p className="text-xs text-[var(--foreground-muted)] line-clamp-2">{product.subtitle || product.description}</p>
         </div>
 

@@ -20,6 +20,13 @@ export async function GET(
         ingredients: { include: { ingredient: true } },
         concerns: { include: { concern: true } },
         skinTypes: true,
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+          take: 30,
+          include: {
+            user: { select: { id: true, displayName: true, handle: true } },
+          },
+        },
         variants: {
           where: { isActive: true },
           orderBy: { priceMinor: 'asc' },
@@ -50,9 +57,15 @@ export async function GET(
       return { ...rest, availableStock: available, inStock: available > 0 };
     });
 
+    const reviewCount = product.reviews.length;
+    const averageRating =
+      reviewCount > 0
+        ? Number((product.reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1))
+        : null;
+
     return jsonResponse({
       success: true,
-      product: { ...product, variants },
+      product: { ...product, variants, averageRating, reviewCount },
     });
   } catch (error) {
     return jsonResponse(
