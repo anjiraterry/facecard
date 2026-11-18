@@ -13,12 +13,6 @@
   "placement": {
     "mode": "smart"
   },
-  "hyperdrive": [
-    {
-      "binding": "HYPERDRIVE",
-      "id": "placeholder-hyperdrive-id"
-    }
-  ],
   "r2_buckets": [
     {
       "binding": "CARDS_BUCKET",
