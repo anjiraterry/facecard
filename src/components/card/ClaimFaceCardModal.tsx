@@ -41,6 +41,7 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
     id: 'claim-preview',
     tier: 'CLASSIC',
     cardholderName: displayName.trim() || 'Your Name',
+    handle: cleanHandle || 'username',
     title: 'Classic Satin',
     score: 0,
     band: 'HARMLESS',

@@ -25,18 +25,21 @@ export default function PublicAtelierPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<AtelierProductDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<AtelierProductDTO | null>(null);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await atelierService.getProducts({
         q: searchQuery.trim() || undefined,
         category: activeCategory,
       });
       setProducts(res.products || []);
-    } catch {
+    } catch (err) {
       setProducts([]);
+      setLoadError(err instanceof Error ? err.message : 'Unable to load Atelier catalogue.');
     } finally {
       setLoading(false);
     }
@@ -150,6 +153,13 @@ export default function PublicAtelierPage() {
                 ))}
               </div>
             </div>
+
+            {loadError && (
+              <SurfaceCard variant="default" padding="md" className="flex items-center justify-between gap-3 border-red-200 bg-red-50/60 text-xs text-red-800">
+                <span>{loadError}</span>
+                <Button variant="secondary" size="sm" onClick={loadProducts}>Retry</Button>
+              </SurfaceCard>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {loading

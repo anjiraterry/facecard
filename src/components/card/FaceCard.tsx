@@ -126,11 +126,11 @@ export function FaceCard({
 
   const verdictConfig = card.band ? VERDICT_BANDS[card.band] : null;
   const displayName = card.cardholderName.trim().split(/\s+/).slice(0, 2).join(' ');
-  const formattedHandle = card.handle
-    ? card.handle.startsWith('@')
-      ? card.handle
-      : `@${card.handle}`
-    : `@${displayName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'member'}`;
+  const rawHandle = card.handle ? card.handle.replace(/^@/, '').trim() : '';
+  const showTopHandle =
+    Boolean(rawHandle) &&
+    rawHandle.toLowerCase() !== displayName.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const formattedHandle = showTopHandle ? `@${rawHandle}` : null;
 
   // Motion values updated without React re-renders
   const pointerX = useMotionValue(0);
@@ -355,7 +355,7 @@ export function FaceCard({
               <span className="font-sans text-[15px] sm:text-[17px] font-bold tracking-[-0.03em] lowercase leading-none">
                 facecard.
               </span>
-              {!isCompact && (
+              {!isCompact && formattedHandle && (
                 <span
                   style={{ color: material.mutedTypography }}
                   className="font-sans text-[10px] sm:text-[11px] font-medium tracking-[0.02em] truncate"

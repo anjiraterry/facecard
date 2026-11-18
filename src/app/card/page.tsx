@@ -215,16 +215,14 @@ export default function CardPage() {
 
                       <div className="relative">
                         {isCurrentActive && (
-                          <div className="p-1 rounded-[28px] ring-2 ring-[var(--accent-brand)]/50">
-                            <FaceCard card={item.card} interactive={true} />
-                          </div>
+                          <FaceCard card={item.card} interactive={true} />
                         )}
 
                         {isSurpassed && <FaceCard card={item.card} interactive={true} />}
 
                         {isLockedOrProgress && (
                           <div
-                            className={`relative rounded-[24px] overflow-hidden transition-all ${
+                            className={`relative rounded-[4.5%] overflow-hidden transition-all ${
                               item.status === 'IN_PROGRESS' ? 'opacity-85' : 'opacity-65'
                             }`}
                           >

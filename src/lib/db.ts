@@ -42,7 +42,10 @@ export function createPrismaClient(connectionString?: string): PrismaClient {
 
 function getValidPrismaClient(): PrismaClient {
   if (globalForPrisma.prisma) {
-    return globalForPrisma.prisma;
+    const cached = globalForPrisma.prisma as unknown as Record<string, unknown>;
+    if (cached.productReview && cached.approvalRequest) {
+      return globalForPrisma.prisma;
+    }
   }
   const client = createPrismaClient();
   if (process.env.NODE_ENV !== 'production') {
