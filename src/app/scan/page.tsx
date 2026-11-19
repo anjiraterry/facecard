@@ -27,6 +27,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/common/ToastProvider';
 import { LivenessOverlay } from '@/components/camera/LivenessOverlay';
 import { LivenessActionType } from '@/lib/vision/liveness';
+import { analyzeVideoFrame } from '@/lib/vision/localIntelligence';
 import { PageHeader } from '@/components/ui/PageHeader';
 
 type ScanPhase = 'CAMERA' | 'CAPTURED' | 'ANALYZING' | 'RESULT';
@@ -54,6 +55,7 @@ function ScanContent() {
   const [streamActive, setStreamActive] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [localFeatureVector, setLocalFeatureVector] = useState<unknown>(null);
   const [analyzingStep, setAnalyzingStep] = useState(0);
 
   // Result state from real backend API
@@ -309,11 +311,14 @@ function ScanContent() {
     }
   };
 
-  // Capture frame
-  const capturePhoto = (liveness?: { passed: boolean; actionsCompleted: string[] }) => {
+  // Capture frame + extract on-device MediaPipe landmarks (zero cloud AI cost)
+  const capturePhoto = async (liveness?: { passed: boolean; actionsCompleted: string[] }) => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
+
+    const localRes = await analyzeVideoFrame(video).catch(() => null);
+    setLocalFeatureVector(localRes?.featureVector ?? null);
 
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 640;
@@ -356,7 +361,8 @@ function ScanContent() {
         capturedImage, 
         'HYPE',
         livenessData ? { passed: livenessData.passed, actionsCompleted: livenessData.actionsCompleted } : undefined,
-        duelId || undefined
+        duelId || undefined,
+        localFeatureVector ?? undefined
       );
       clearInterval(interval);
       if (res.liveness) {
@@ -539,21 +545,7 @@ function ScanContent() {
                 className={`absolute inset-0 w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''} ${streamActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
               />
 
-              {streamActive ? (
-                <LivenessOverlay
-                  videoRef={videoRef}
-                  isActive={streamActive}
-                  onLivenessComplete={(details) => {
-                    setLivenessData({
-                      passed: details.livenessVerified,
-                      actionsCompleted: details.actions,
-                    });
-                  }}
-                  onSkip={() => {
-                    capturePhoto();
-                  }}
-                />
-              ) : (
+              {!streamActive && (
                 <div className="p-6 text-center text-white/80 space-y-3">
                   <AlertCircle className="w-9 h-9 mx-auto text-[var(--accent-brand)]" />
                   <p className="text-xs max-w-[240px] mx-auto text-zinc-300">
@@ -580,19 +572,29 @@ function ScanContent() {
 
               {/* Framing Silhouette Overlay */}
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="w-[76%] aspect-[1/1.3] rounded-[90px] border-2 border border-[var(--border)] shadow-[0_0_40px_rgba(0,0,0,0.5)]" />
-              </div>
-
-              {/* Quality Hint Pill (Checkmark removed) */}
-              <div className="absolute top-4 inset-x-0 flex justify-center pointer-events-none">
-                <span className="px-3.5 py-1 rounded-full bg-black/60 border border-white/10 text-[11px] font-medium text-white shadow-sm">
-                  Center face inside oval
-                </span>
+                <div className="w-[76%] aspect-[1/1.3] rounded-[90px] border-2 border-[var(--border)] shadow-[0_0_40px_rgba(0,0,0,0.35)]" />
               </div>
             </div>
 
+            {/* Single Liveness / Pose Status Bar Outside Camera */}
+            {streamActive && (
+              <LivenessOverlay
+                videoRef={videoRef}
+                isActive={streamActive}
+                onLivenessComplete={(details) => {
+                  setLivenessData({
+                    passed: details.livenessVerified,
+                    actionsCompleted: details.actions,
+                  });
+                }}
+                onSkip={() => {
+                  capturePhoto();
+                }}
+              />
+            )}
+
             {/* Capture Controls (High-contrast Shutter + Flip Toggle) */}
-            <div className="shrink-0 pt-3 flex items-center justify-center gap-6">
+            <div className="shrink-0 pt-5 flex items-center justify-center gap-6">
               <div className="w-11 h-11" />
 
               {/* Shutter Button */}

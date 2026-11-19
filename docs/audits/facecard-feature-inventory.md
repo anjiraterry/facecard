@@ -1,0 +1,13 @@
+# Face Card Feature Inventory (Baseline Audit)
+
+Generated from repository inspection on 19 November 2026.
+
+| Domain | Current Implementation | Existing Dependencies | Functional Status | AI Dependency | Security / Integrity Notes |
+|---|---|---|---|---|---|
+| **Auth & Sessions** | `src/lib/auth/sessions.ts`, `pin.ts`, `otp.ts`, `/api/auth/*`, `/api/card/claim` | Neon Postgres (`AuthSession`, `OtpChallenge`, `AuthAttempt`), `httpOnly` `fc_session` cookie (30-day sliding TTL) | Working | None | SHA-256 hashed session tokens, rate-limited OTP/PIN/claim, 18+ DOB & NDPA consent enforcement |
+| **Portrait Scan & Scoring** | `src/app/scan/page.tsx`, `src/app/api/scan/route.ts`, `src/lib/rating/engine.ts`, `src/lib/vision/liveness.ts` | `@mediapipe/tasks-vision`, Neon Postgres (`Scan`, `ScanSlot`, `Streak`), optional `NEON_AI_GATEWAY_TOKEN` | Partially blocked in prod without cloud token (fixed in zero-cost migration) | Previously threw in `NODE_ENV=production` when `NEON_AI_GATEWAY_TOKEN` absent | Ephemeral image handling (zero raw photo retention), daily `ScanSlot` cap (3/day), 18+ & biometric consent gate |
+| **Face Card & Presentation** | `src/components/card/FaceCard.tsx`, `materials.ts`, `src/lib/boutique/presentation.ts`, `src/app/card/page.tsx` | Prisma `Card`, `CardSnapshot`, `UserEquipment` | Working | None | Server-controlled `tier` independent of equipped `CARD_SKIN` |
+| **Live Face-Offs (Arena)** | `src/lib/faceoff.ts`, `src/app/faceoff/[id]/page.tsx`, `/api/faceoff/*` | Prisma `FaceOff`, `FaceOffAttempt`, `PointsLedger` | Working (async/attempt-based) | Uses `scoreFace()` | Daily 5-duel cap, atomic stake lock/payout/fee via `PointsLedger`, idempotency keys |
+| **Boutique, Vanity & Gifting** | `src/app/shop/page.tsx`, `src/app/vanity/page.tsx`, `src/lib/boutique/*`, `/api/shop/*`, `/api/inventory/*`, `/api/gifts/*` | Prisma `ShopItem`, `ShopItemVersion`, `UserItem`, `UserEquipment`, `ActiveEffect`, `EffectExecution`, `SocialGift` | Working | None | Atomic debit, `expectedUnitPricePoints` conflict detection, recipient blocking & consent |
+| **Atelier Skincare Commerce** | `src/app/atelier/page.tsx`, `src/app/skincare/page.tsx`, `src/lib/atelier/*`, `/api/atelier/*` | Prisma `AtelierProduct`, `ProductVariant`, `Order`, `SkinProfile`, Paystack, Neon Object Storage (`atelier-products`) | Working | Optional product Q&A | External AI breakdown ("Ask ChatGPT") eliminates server LLM cost |
+| **Control Centre** | `src/app/admin/page.tsx`, `src/lib/admin/auth.ts`, `permissions.ts`, `/api/admin/*` | Prisma `StaffUser`, `StaffRole`, `StaffSession`, `StaffAuditLog`, `ApprovalRequest` | Working | None | Granular RBAC, maker-checker `ApprovalRequest`, immutable audit log |

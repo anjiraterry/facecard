@@ -148,7 +148,7 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
 
     const cleanId = loginIdentifier.replace(/^@/, '').trim();
     if (!cleanId) {
-      const msg = 'Enter your @username or Face Card number.';
+      const msg = 'Enter your @username.';
       setError(msg);
       toast.warning(msg);
       return;
@@ -329,11 +329,11 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
             ) : (
               <form onSubmit={handleLoginSubmit} className="space-y-4 py-1">
                 <Input
-                  label="Username or Card Number"
+                  label="Username"
                   type="text"
                   value={loginIdentifier}
                   onChange={(e) => setLoginIdentifier(e.target.value)}
-                  placeholder="@username or FC-1234-2026"
+                  placeholder="@username"
                   required
                   leftIcon={<AtSign className="w-4 h-4" />}
                 />

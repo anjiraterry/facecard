@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const imageBase64: unknown = body.imageBase64;
+    const featureVector = body.featureVector && typeof body.featureVector === 'object' ? body.featureVector : undefined;
     const toneMode: ToneMode = TONES.includes(body.toneMode) ? body.toneMode : 'HYPE';
     const faceOffId: string | undefined =
       typeof body.faceOffId === 'string' && body.faceOffId.trim().length > 0
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
       'scan',
       idempotencyKey,
       hashRequest({ toneMode, faceOffId }),
-      () => performScan(sessionUser, imageBase64, toneMode, faceOffId, consentAccepted, liveness)
+      () => performScan(sessionUser, imageBase64, toneMode, faceOffId, consentAccepted, liveness, featureVector)
     );
 
     return NextResponse.json(result.body, { status: result.status });
@@ -78,7 +79,8 @@ async function performScan(
   toneMode: ToneMode,
   faceOffId?: string,
   consentAccepted: boolean = false,
-  liveness?: { verified: boolean; actions: string[] }
+  liveness?: { verified: boolean; actions: string[] },
+  featureVector?: Parameters<typeof scoreFace>[0]['featureVector']
 ): Promise<Outcome> {
   const user = await db.user.findUnique({
     where: { id: sessionUser.id },
@@ -299,7 +301,7 @@ async function performScan(
   // 2. Quality gate + vision scoring. Throws if the photo fails the gate (does not consume a slot).
   let scoredResult;
   try {
-    scoredResult = await scoreFace({ imageBuffer: imageBase64, toneMode });
+    scoredResult = await scoreFace({ imageBuffer: imageBase64, featureVector, toneMode });
   } catch (error) {
     return {
       status: 422,

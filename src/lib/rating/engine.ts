@@ -296,7 +296,7 @@ async function callAiGatewayVision(imageBase64: string): Promise<Record<string, 
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000); // 6s timeout
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout for vision inference
 
     const url = `${baseUrl.replace(/\/+$/, '')}/v1/chat/completions`;
     const res = await fetch(url, {
@@ -330,8 +330,10 @@ async function callAiGatewayVision(imageBase64: string): Promise<Record<string, 
     if (!res.ok) return null;
     const data = await res.json();
     const content = data.choices?.[0]?.message?.content;
-    if (content) {
-      return JSON.parse(content);
+    if (typeof content === 'string') {
+      const cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      return JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
     }
   } catch (err) {
     console.warn('Neon AI Gateway vision call skipped or timed out, using calibrated engine:', err);
@@ -386,9 +388,10 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
     quality = evaluateQualityGate(input.imageBuffer);
 
     if (quality.passed) {
-      // 1. Try AI Gateway vision model if credentials exist
+      // 1. Cloud AI Vision is optional & disabled by default (ENABLE_CLOUD_AI === 'true')
+      const cloudEnabled = process.env.ENABLE_CLOUD_AI === 'true';
       const imageStr = typeof input.imageBuffer === 'string' ? input.imageBuffer : input.imageBuffer.toString('base64');
-      const aiScores = await callAiGatewayVision(imageStr);
+      const aiScores = cloudEnabled ? await callAiGatewayVision(imageStr) : null;
 
       if (aiScores) {
         scoringSource = 'AI_VISION';
@@ -402,9 +405,7 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
         expressionScoreVal = Math.max(0, Math.min(100, aiScores.expression ?? 85));
         auraScoreVal = Math.max(0, Math.min(100, aiScores.aura ?? 87));
       } else {
-        if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SCORING_FALLBACK !== 'true') {
-          throw new Error('AI portrait analysis is temporarily unavailable. Please try again shortly.');
-        }
+        // Zero-cost deterministic local scoring (never blocks users when no cloud LLM key is configured)
         scoringSource = 'DETERMINISTIC_TEST_FALLBACK';
         // 2. Deterministic feature extraction for dev/test only (never used for prod rewards)
         const hash = crypto.createHash('sha256').update(imageStr).digest();

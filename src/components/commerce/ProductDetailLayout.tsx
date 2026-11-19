@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Droplets, ShoppingBag, Star, FlaskConical, Send, CheckCircle2 } from 'lucide-react';
+import { Droplets, ShoppingBag, Star, FlaskConical, Send, CheckCircle2, MessageSquare } from 'lucide-react';
 import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { Button } from '@/components/ui/Button';
+import { AskAiProductModal } from '@/components/atelier/AskAiProductModal';
 import {
   atelierService,
   AtelierProductDTO,
@@ -48,6 +49,7 @@ export function ProductDetailLayout({ product, onAddToBag, isAdding }: ProductDe
   const [researchQuestion, setResearchQuestion] = useState('');
   const [researchResult, setResearchResult] = useState<AtelierResearchDTO | null>(null);
   const [researchLoading, setResearchLoading] = useState(false);
+  const [askAiOpen, setAskAiOpen] = useState(false);
 
   useEffect(() => {
     setSelectedVariantId(product?.variants[0]?.id || '');
@@ -279,6 +281,15 @@ export function ProductDetailLayout({ product, onAddToBag, isAdding }: ProductDe
                   : 'Currently Out of Stock'}
               </span>
             </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              fullWidth
+              onClick={() => setAskAiOpen(true)}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Ask ChatGPT about this product</span>
+            </Button>
             <p className="text-[11px] text-center text-[var(--text-muted)]">
               {selectedVariant
                 ? `${selectedVariant.availableStock} unit(s) available in Lagos Flagship Hub`
@@ -287,6 +298,24 @@ export function ProductDetailLayout({ product, onAddToBag, isAdding }: ProductDe
           </div>
         </SurfaceCard>
       </div>
+
+      <AskAiProductModal
+        isOpen={askAiOpen}
+        onClose={() => setAskAiOpen(false)}
+        product={
+          product
+            ? {
+                brandName: product.brand?.name,
+                name: product.name,
+                variantLabel: selectedVariant?.sizeLabel,
+                sizeLabel: selectedVariant?.sizeLabel,
+                ingredients: product.ingredients?.map((i) => i.ingredient.name).join(', ') || null,
+                instructions: product.howToUse,
+                description: product.description,
+              }
+            : null
+        }
+      />
 
       {/* AI Skincare Researcher */}
       <SurfaceCard variant="warm" padding="lg" className="space-y-4">

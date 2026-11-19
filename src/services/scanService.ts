@@ -51,7 +51,8 @@ export const scanService = {
     imageBase64: string,
     toneMode: ToneMode = 'HYPE',
     liveness?: LivenessPayload,
-    faceOffId?: string
+    faceOffId?: string,
+    featureVector?: unknown
   ): Promise<ScanResultResponse> {
     return apiRequest<ScanResultResponse>('/api/scan', {
       method: 'POST',
@@ -60,6 +61,7 @@ export const scanService = {
         toneMode,
         liveness,
         faceOffId,
+        featureVector,
       }),
     });
   },
