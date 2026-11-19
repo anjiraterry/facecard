@@ -20,14 +20,21 @@ import {
   grantSignupBonus,
   reconcileLedger,
   reconcileAllLedgers,
+  reverseLedgerEntries,
   InsufficientBalanceError,
   DuplicateLedgerEntryError,
 } from '@/lib/ledger';
+import {
+  calculateScanReward,
+  DEFAULT_REWARD_POLICY,
+  validateRewardPolicy,
+} from '@/lib/rewards/rewardPolicy';
+import { validateLethalityWeights } from '@/lib/rating/lethalityEngine';
 
 const db = rawDb as any;
 
 function reset() {
-  for (const table of [db.user, db.pointsLedger]) table.rows.length = 0;
+  for (const table of [db.user, db.pointsLedger, db.tierUpgradeEvent]) table.rows.length = 0;
 }
 
 describe('Phase 5 & Phase 2: Points Economy & Ledger Integrity', () => {
@@ -264,6 +271,128 @@ describe('Phase 5 & Phase 2: Points Economy & Ledger Integrity', () => {
       expect(globalResult.drifted).toHaveLength(1);
       expect(globalResult.drifted[0].userId).toBe(u2.id);
       expect(globalResult.drifted[0].driftSpendable).toBe(50);
+    });
+  });
+
+  describe('Persistent Tier Progression, Reversals & Policy Validation', () => {
+    it('upgrades persistent tier forward only and records TierUpgradeEvent without downgrading on spend', async () => {
+      const user = await db.user.create({
+        data: { displayName: 'Tier Tester', spendableBalance: 0, lifetimePoints: 0, tier: 'CLASSIC' },
+      });
+
+      // Earn 1050 points across both balances -> upgrades CLASSIC -> GOLD
+      await postLedger(db, {
+        userId: user.id,
+        type: 'SCAN',
+        amount: 1050,
+        balanceKind: 'SPENDABLE',
+        refType: 'SCAN',
+        refId: 'scan-tier-1',
+        idempotencyKey: 'scan:scan-tier-1',
+      });
+      await postLedger(db, {
+        userId: user.id,
+        type: 'SCAN',
+        amount: 1050,
+        balanceKind: 'LIFETIME',
+        refType: 'SCAN',
+        refId: 'scan-tier-1',
+        idempotencyKey: 'scan:scan-tier-1',
+      });
+
+      // Spend 900 spendable points -> tier must stay GOLD and lifetimePoints stay 1050
+      await postLedger(db, {
+        userId: user.id,
+        type: 'SHOP_PURCHASE',
+        amount: -900,
+        balanceKind: 'SPENDABLE',
+        refType: 'SHOP_PURCHASE',
+        refId: 'buy-1',
+        idempotencyKey: 'shop:buy-1',
+      });
+
+      const updated = await db.user.findUnique({ where: { id: user.id } });
+      expect(updated.tier).toBe('GOLD');
+      expect(updated.lifetimePoints).toBe(1050);
+      expect(updated.spendableBalance).toBe(150);
+      expect(db.tierUpgradeEvent.rows).toHaveLength(1);
+      expect(db.tierUpgradeEvent.rows[0].toTier).toBe('GOLD');
+    });
+
+    it('reverses earned ledger entries idempotently without driving balances negative', async () => {
+      const user = await db.user.create({
+        data: { displayName: 'Reversal User', spendableBalance: 0, lifetimePoints: 0, tier: 'CLASSIC' },
+      });
+
+      await postLedger(db, {
+        userId: user.id,
+        type: 'SCAN',
+        amount: 80,
+        balanceKind: 'SPENDABLE',
+        refType: 'SCAN',
+        refId: 'scan-rev-1',
+        idempotencyKey: 'scan:scan-rev-1',
+      });
+      await postLedger(db, {
+        userId: user.id,
+        type: 'SCAN',
+        amount: 80,
+        balanceKind: 'LIFETIME',
+        refType: 'SCAN',
+        refId: 'scan-rev-1',
+        idempotencyKey: 'scan:scan-rev-1',
+      });
+
+      const first = await reverseLedgerEntries(db, {
+        userId: user.id,
+        refType: 'SCAN',
+        refId: 'scan-rev-1',
+        reverseLifetime: true,
+      });
+      expect(first.reversedSpendable).toBe(80);
+      expect(first.reversedLifetime).toBe(80);
+
+      // Repeating reversal is idempotent (no double deduction)
+      const second = await reverseLedgerEntries(db, {
+        userId: user.id,
+        refType: 'SCAN',
+        refId: 'scan-rev-1',
+        reverseLifetime: true,
+      });
+      expect(second.reversedSpendable).toBe(0);
+      expect(second.reversedLifetime).toBe(0);
+      expect(second.skipped).toBeGreaterThanOrEqual(2);
+    });
+
+    it('validates Lethality weights and Reward Policy anti-farming bounds', () => {
+      expect(validateLethalityWeights({
+        visual_presentation: 0.30,
+        pose_composition: 0.25,
+        expression_engagement: 0.20,
+        lighting_balance: 0.15,
+        image_detail: 0.10,
+      }).valid).toBe(true);
+
+      // Rejects unknown facial/skin-colour weights
+      expect(validateLethalityWeights({
+        visual_presentation: 0.5,
+        skin_brightness: 0.5,
+      }).valid).toBe(false);
+
+      // Rejects Extra Snap cost <= max reward
+      expect(validateRewardPolicy({
+        ...DEFAULT_REWARD_POLICY,
+        extraSnapCostPts: 50,
+        extraSnapMaxReward: 75,
+      }).valid).toBe(false);
+
+      const extraReward = calculateScanReward(DEFAULT_REWARD_POLICY, {
+        score: 95,
+        scanIndexOfDay: 4,
+        streakDays: 30,
+      });
+      expect(extraReward.isExtraSnap).toBe(true);
+      expect(extraReward.points).toBeLessThanOrEqual(DEFAULT_REWARD_POLICY.extraSnapMaxReward);
     });
   });
 });

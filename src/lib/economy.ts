@@ -54,6 +54,8 @@ export const EconomyConfig = {
   },
 };
 
+export const TIER_POLICY_VERSION = 'tier-policy-v1';
+
 export function getTierFromLifetime(points: number): Tier {
   if (points >= EconomyConfig.TIERS.BLACK.minPoints) return 'BLACK';
   if (points >= EconomyConfig.TIERS.PLATINUM.minPoints) return 'PLATINUM';

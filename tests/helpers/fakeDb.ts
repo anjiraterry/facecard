@@ -232,6 +232,18 @@ export function createFakeDb() {
   const shopItem = createTable(() => ({ active: true, maxOwned: 1 }));
   const userItem = createTable(() => ({ quantity: 1 }));
   const purchase = createTable();
+  const tierUpgradeEventTable = createTable();
+  const tierUpgradeEvent = {
+    ...tierUpgradeEventTable,
+    async upsert({ where, create }: { where: Row; update?: Row; create: Row }) {
+      const key = where.userId_toTier as { userId: string; toTier: string };
+      const existing = tierUpgradeEventTable.rows.find(
+        (r) => r.userId === key.userId && r.toTier === key.toTier
+      );
+      if (existing) return { ...existing };
+      return tierUpgradeEventTable.create({ data: create });
+    },
+  };
 
   const fakeClient: any = {
     user,
@@ -239,6 +251,7 @@ export function createFakeDb() {
     authAttempt,
     authSession,
     pointsLedger,
+    tierUpgradeEvent,
     faceOff,
     faceOffAttempt,
     scan,

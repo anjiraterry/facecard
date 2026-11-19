@@ -49,6 +49,7 @@ enum LedgerType {
   SHOP_PURCHASE
   BOUTIQUE_REFUND
   ACTIVITY_BONUS
+  REVERSAL
   ADJUSTMENT
 }
 
@@ -142,6 +143,53 @@ model User {
   shopWishlist          ShopWishlistItem[]
   collectionCompletions CollectionCompletion[]
   boutiqueRefunds       BoutiqueRefund[]
+  tierUpgradeEvents     TierUpgradeEvent[]
+}
+
+enum ScoringConfigKind {
+  SCORING_WEIGHTS
+  REWARD_POLICY
+  TIER_POLICY
+}
+
+enum ScoringConfigStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// Versioned, auditable configuration (scoring weights, reward policy, tier policy).
+/// Publishing never rewrites historical scans; scans store the version that produced them.
+model ScoringConfigVersion {
+  id            String              @id @default(uuid()) @db.Uuid
+  kind          ScoringConfigKind
+  version       Int
+  status        ScoringConfigStatus @default(DRAFT)
+  config        Json
+  notes         String?
+  createdById   String?             @db.Uuid
+  publishedById String?             @db.Uuid
+  createdAt     DateTime            @default(now())
+  publishedAt   DateTime?
+
+  @@unique([kind, version])
+  @@index([kind, status])
+}
+
+/// Auditable progression event. Face Card identity is persistent; upgrades only change tier.
+model TierUpgradeEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  fromTier       Tier
+  toTier         Tier
+  lifetimePoints Int
+  policyVersion  String
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, toTier])
+  @@index([userId, createdAt])
 }
 
 /// Server-side login session. Only a SHA-256 hash of the random cookie token is stored.

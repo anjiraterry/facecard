@@ -1,6 +1,6 @@
 import { Prisma, LedgerType, BalanceKind } from '@prisma/client';
 import { db } from '@/lib/db';
-import { EconomyConfig } from '@/lib/economy';
+import { EconomyConfig, TIER_POLICY_VERSION } from '@/lib/economy';
 import { getTierFromLifetimePoints } from '@/lib/scoring';
 
 /**
@@ -42,6 +42,8 @@ export interface LedgerPost {
   refId?: string;
   /** Deterministic key derived from the business event (e.g. `scan:<scanId>`), never from the clock. */
   idempotencyKey: string;
+  /** Only honoured for audited REVERSAL entries: lets a fraud correction remove earned lifetime points. */
+  allowLifetimeDecrease?: boolean;
 }
 
 export function isUniqueViolation(error: unknown): boolean {
@@ -54,7 +56,8 @@ export async function postLedger(tx: LedgerTx, entry: LedgerPost): Promise<void>
   if (!Number.isSafeInteger(amount) || amount === 0) {
     throw new Error(`Invalid ledger amount: ${amount}`);
   }
-  if (balanceKind === 'LIFETIME' && amount < 0) {
+  const lifetimeReversal = type === 'REVERSAL' && entry.allowLifetimeDecrease === true;
+  if (balanceKind === 'LIFETIME' && amount < 0 && !lifetimeReversal) {
     throw new Error('Lifetime points can never decrease.');
   }
   if (!idempotencyKey) {
@@ -85,15 +88,120 @@ export async function postLedger(tx: LedgerTx, entry: LedgerPost): Promise<void>
     return;
   }
 
+  if (amount < 0) {
+    // Audited fraud reversal only. The tier is never downgraded by a correction.
+    const reduced = await tx.user.updateMany({
+      where: { id: userId, lifetimePoints: { gte: -amount } },
+      data: { lifetimePoints: { decrement: -amount } },
+    });
+    if (reduced.count === 0) throw new InsufficientBalanceError(-amount);
+    return;
+  }
+
   const updated = await tx.user.update({
     where: { id: userId },
     data: { lifetimePoints: { increment: amount } },
     select: { lifetimePoints: true, tier: true },
   });
   const tier = getTierFromLifetimePoints(updated.lifetimePoints);
-  if (tier !== updated.tier) {
+  const currentRank = EconomyConfig.TIERS[updated.tier]?.rank ?? 1;
+  const newRank = EconomyConfig.TIERS[tier]?.rank ?? 1;
+  // Progression only moves forward: upgrade the persistent card identity, never replace or downgrade it.
+  if (newRank > currentRank) {
     await tx.user.update({ where: { id: userId }, data: { tier } });
+    await tx.tierUpgradeEvent.upsert({
+      where: { userId_toTier: { userId, toTier: tier } },
+      update: {},
+      create: {
+        userId,
+        fromTier: updated.tier,
+        toTier: tier,
+        lifetimePoints: updated.lifetimePoints,
+        policyVersion: TIER_POLICY_VERSION,
+      },
+    });
   }
+}
+
+export interface ReversalResult {
+  reversedSpendable: number;
+  reversedLifetime: number;
+  skipped: number;
+}
+
+/**
+ * Audited reversal of a previously earned reward (e.g. invalidated scan or face-off).
+ * Never mutates historical rows: appends REVERSAL entries keyed by the original ledger row id,
+ * so repeating the call is a no-op. Spendable reversal is clamped to the available balance so a
+ * correction can never drive a balance negative.
+ */
+export async function reverseLedgerEntries(
+  tx: LedgerTx,
+  input: { userId: string; refType: string; refId: string; reverseLifetime?: boolean }
+): Promise<ReversalResult> {
+  const originals = await tx.pointsLedger.findMany({
+    where: { userId: input.userId, refType: input.refType, refId: input.refId, amount: { gt: 0 } },
+  });
+
+  const user = await tx.user.findUnique({
+    where: { id: input.userId },
+    select: { spendableBalance: true, lifetimePoints: true },
+  });
+  let spendableLeft = user?.spendableBalance ?? 0;
+  let lifetimeLeft = user?.lifetimePoints ?? 0;
+
+  const result: ReversalResult = { reversedSpendable: 0, reversedLifetime: 0, skipped: 0 };
+
+  for (const original of originals) {
+    if (original.type === 'REVERSAL') continue;
+    const key = `reversal:${original.id}`;
+    const already = await tx.pointsLedger.findFirst({
+      where: { idempotencyKey: key, balanceKind: original.balanceKind },
+    });
+    if (already) {
+      result.skipped += 1;
+      continue;
+    }
+
+    if (original.balanceKind === 'SPENDABLE') {
+      const amount = Math.min(original.amount, spendableLeft);
+      if (amount <= 0) {
+        result.skipped += 1;
+        continue;
+      }
+      await postLedger(tx, {
+        userId: input.userId,
+        type: 'REVERSAL',
+        amount: -amount,
+        balanceKind: 'SPENDABLE',
+        refType: `REVERSAL:${input.refType}`,
+        refId: input.refId,
+        idempotencyKey: key,
+      });
+      spendableLeft -= amount;
+      result.reversedSpendable += amount;
+    } else if (input.reverseLifetime) {
+      const amount = Math.min(original.amount, lifetimeLeft);
+      if (amount <= 0) {
+        result.skipped += 1;
+        continue;
+      }
+      await postLedger(tx, {
+        userId: input.userId,
+        type: 'REVERSAL',
+        amount: -amount,
+        balanceKind: 'LIFETIME',
+        refType: `REVERSAL:${input.refType}`,
+        refId: input.refId,
+        idempotencyKey: key,
+        allowLifetimeDecrease: true,
+      });
+      lifetimeLeft -= amount;
+      result.reversedLifetime += amount;
+    }
+  }
+
+  return result;
 }
 
 /** Credits the welcome grant to both balances, fully ledgered. Idempotent per user. */

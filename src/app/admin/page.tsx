@@ -86,6 +86,7 @@ export default function ControlCentrePage() {
 
   // Economy & Approvals
   const [reconcileData, setReconcileData] = useState<any | null>(null);
+  const [scoringConfigData, setScoringConfigData] = useState<any | null>(null);
   const [approvals, setApprovals] = useState<any[]>([]);
   const [decisionNote, setDecisionNote] = useState('');
 
@@ -192,8 +193,12 @@ export default function ControlCentrePage() {
       const res = await fetch('/api/admin/atelier/products');
       if (res.ok) setProducts((await res.json()).products || []);
     } else if (section === 'economy') {
-      const res = await fetch('/api/admin/economy/reconcile');
-      if (res.ok) setReconcileData(await res.json());
+      const [recRes, cfgRes] = await Promise.all([
+        fetch('/api/admin/economy/reconcile'),
+        fetch('/api/admin/v1/scoring/config'),
+      ]);
+      if (recRes.ok) setReconcileData(await recRes.json());
+      if (cfgRes.ok) setScoringConfigData(await cfgRes.json());
     } else if (section === 'boutique') {
       const [itemsRes, analyticsRes, labRes] = await Promise.all([
         fetch('/api/admin/v1/boutique/items'),
@@ -1494,6 +1499,80 @@ export default function ControlCentrePage() {
 
           {/* 5. ECONOMY & LEDGER */}
           {activeNav === 'economy' && reconcileData && (
+            <div className="space-y-5">
+            {scoringConfigData && (
+              <div className="rounded-xl bg-white border border-[#E6DDD6] p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-base font-semibold">Scoring Configuration &amp; Reward Policy</h2>
+                    <p className="text-xs text-[#6E626B]">
+                      Active Weights: <strong>{scoringConfigData.activeWeights?.version}</strong> · Reward Policy:{' '}
+                      <strong>{scoringConfigData.activeRewardPolicy?.version}</strong> (Free/day:{' '}
+                      {scoringConfigData.activeRewardPolicy?.dailyFreeScans}, Extra Snap:{' '}
+                      {scoringConfigData.activeRewardPolicy?.extraSnapCostPts} PTS / max +
+                      {scoringConfigData.activeRewardPolicy?.extraSnapMaxReward} PTS)
+                    </p>
+                  </div>
+                  {perms.has('economy.adjust') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await fetch('/api/admin/v1/scoring/config', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            kind: 'REWARD_POLICY',
+                            config: scoringConfigData.activeRewardPolicy,
+                            notes: 'Snapshot draft from active policy',
+                          }),
+                        });
+                        if (res.ok) {
+                          notify('ok', 'Created Reward Policy draft');
+                          loadSection('economy');
+                        } else {
+                          const d = await res.json();
+                          notify('err', d.error || 'Failed to create draft');
+                        }
+                      }}
+                      className="px-3 h-8 rounded-lg bg-[#251E24] text-white text-xs cursor-pointer"
+                    >
+                      New Policy Draft
+                    </button>
+                  )}
+                </div>
+                {(scoringConfigData.versions || []).length > 0 && (
+                  <div className="divide-y divide-[#F0EAE4] text-xs">
+                    {scoringConfigData.versions.map((v: any) => (
+                      <div key={v.id} className="py-2 flex items-center justify-between gap-2">
+                        <span>
+                          <strong>{v.kind}</strong> v{v.version} · {v.status}
+                          {v.notes ? ` — ${v.notes}` : ''}
+                        </span>
+                        {perms.has('economy.adjust') && v.status === 'DRAFT' && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const res = await fetch('/api/admin/v1/scoring/config', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: v.id, action: 'PUBLISH' }),
+                              });
+                              if (res.ok) {
+                                notify('ok', `Published ${v.kind} v${v.version}`);
+                                loadSection('economy');
+                              }
+                            }}
+                            className="px-2.5 h-7 rounded bg-emerald-700 text-white text-[11px] cursor-pointer"
+                          >
+                            Publish
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="rounded-xl bg-white border border-[#E6DDD6] p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -1542,6 +1621,7 @@ export default function ControlCentrePage() {
                   </tbody>
                 </table>
               </div>
+            </div>
             </div>
           )}
 

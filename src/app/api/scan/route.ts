@@ -17,7 +17,13 @@ import { Band, ScanSource, ScanSlotState, Tier, User, FaceOffStatus } from '@pri
 import { resolveFaceOff } from '@/lib/faceoff';
 import { evaluateSkinAppearance } from '@/lib/vision/skinAppearanceEngine';
 import { generateImprovementPlan } from '@/lib/insights/improvementEngine';
-import { LETHALITY_SCORING_VERSION } from '@/lib/rating/lethalityEngine';
+import {
+  computeLethalityScore,
+  lethalityInputsFromPresentation,
+} from '@/lib/rating/lethalityEngine';
+import { calculateScanReward } from '@/lib/rewards/rewardPolicy';
+import { getActiveLethalityWeights, getActiveRewardPolicy } from '@/lib/rewards/activeConfig';
+import { getVerdictBand } from '@/lib/scoring';
 
 const TONES: ToneMode[] = ['HYPE', 'SMOOTH', 'ROAST', 'STRAIGHT'];
 const MAX_IMAGE_BASE64_CHARS = 11_000_000; // ~8 MB decoded
@@ -329,8 +335,26 @@ async function performScan(
   // Zero-data-retention: drop our only reference to the raw image as soon as scoring is done.
   imageBase64 = '';
 
+  const [activeWeights, rewardPolicy] = await Promise.all([
+    getActiveLethalityWeights(),
+    getActiveRewardPolicy(),
+  ]);
+
+  const lethalityEval = computeLethalityScore({
+    ...lethalityInputsFromPresentation({
+      lighting: scoredResult.breakdown.photoCraft.lighting,
+      sharpness: scoredResult.breakdown.photoCraft.sharpness,
+      framing: scoredResult.breakdown.photoCraft.framing,
+      expression: scoredResult.breakdown.expression,
+      aura: scoredResult.breakdown.aura,
+    }),
+    provenance: featureVector ? 'FEATURE_VECTOR' : 'LOCAL_PRESENTATION',
+    weights: activeWeights.weights,
+  });
+
+  const finalScore = lethalityEval.lethalityScore;
+  const finalBand = getVerdictBand(finalScore);
   const scanIndexOfDay = scansTodayCount + 1;
-  const rewardSlot = Math.min(3, scanIndexOfDay) as 1 | 2 | 3;
 
   // 3. Streak & freeze protection
   let streakDays = user.streak?.currentCount ?? 1;
@@ -349,11 +373,13 @@ async function performScan(
     streakDays = 1; // Streak reset
   }
 
-  const multiplier = getStreakMultiplier(streakDays);
-  const rawPoints = calculateScanPoints(scoredResult.score, rewardSlot, streakDays);
-  const basePointsEarned = isPaidExtraSnap
-    ? Math.min(rawPoints, EconomyConfig.EXTRA_SCAN_MAX_REWARD)
-    : rawPoints;
+  const rewardCalc = calculateScanReward(rewardPolicy, {
+    score: finalScore,
+    scanIndexOfDay,
+    streakDays,
+  });
+  const multiplier = rewardCalc.streakMultiplier;
+  const basePointsEarned = rewardCalc.points;
 
   const now = new Date();
   // 1. Check active REWARD_MULTIPLIER effect (new Effect Engine)
@@ -420,11 +446,11 @@ async function performScan(
         data: {
           id: scanId,
           userId: user.id,
-          score: scoredResult.score,
-          band: scoredResult.band as Band,
+          score: finalScore,
+          band: finalBand as Band,
           categoryScores: flatBreakdown,
-          modelVersion: 'v1.2-neon',
-          promptVersion: 'p2.0',
+          modelVersion: activeWeights.version,
+          promptVersion: rewardPolicy.version,
           scanIndexOfDay,
           dayKey: todayKey,
           source: ScanSource.SOLO,
@@ -547,9 +573,12 @@ async function performScan(
     body: {
       success: true,
       scanId,
-      score: scoredResult.score,
-      scoringVersion: LETHALITY_SCORING_VERSION,
-      band: scoredResult.band,
+      score: finalScore,
+      scoringVersion: lethalityEval.scoringVersion,
+      weightsVersion: activeWeights.version,
+      rewardPolicyVersion: rewardPolicy.version,
+      lethalityComponents: lethalityEval.components,
+      band: finalBand,
       verdictLine: scoredResult.verdictLine,
       categoryBreakdown: flatBreakdown,
       tips: scoredResult.tips,
