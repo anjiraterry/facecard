@@ -13,6 +13,13 @@ import {
   evaluateFaceOffIntegrity,
   getWebRtcMediaProfile,
 } from '@/lib/faceoff/webrtcCoordinator';
+import { evaluateScanQuality } from '@/lib/vision/scanQualityEngine';
+import { measureFacialGeometry } from '@/lib/vision/facialGeometryEngine';
+import { evaluateSymmetry } from '@/lib/vision/symmetryEngine';
+import { evaluateSkinAppearance } from '@/lib/vision/skinAppearanceEngine';
+import { computeLethalityScore } from '@/lib/rating/lethalityEngine';
+import { generateImprovementPlan } from '@/lib/insights/improvementEngine';
+import { EconomyConfig } from '@/lib/economy';
 
 describe('Local Intelligence & Zero-Cost Scoring', () => {
   const originalEnv = process.env.NODE_ENV;
@@ -143,5 +150,51 @@ describe('Live Face-Off WebRTC & Integrity Governance', () => {
       { timestampMs: 1500, score: 94 },
     ]);
     expect(res.classification).toBe('SUSPICIOUS');
+  });
+});
+
+describe('Lethality, Geometry, Symmetry, Skin Appearance & Extra Snap Economy', () => {
+  it('marks unavailable measurements honestly instead of fabricating values', () => {
+    const q = evaluateScanQuality({ faceDetected: false, faceCount: 0 });
+    expect(q.usable).toBe(false);
+    expect(q.availability).toBe('UNAVAILABLE');
+
+    const geom = measureFacialGeometry(null);
+    expect(geom.availability).toBe('UNAVAILABLE');
+
+    const sym = evaluateSymmetry(null, 0.4);
+    expect(sym.availability).toBe('UNAVAILABLE');
+
+    const skin = evaluateSkinAppearance({ exposure: 25, sharpness: 30 });
+    expect(skin.availability).toBe('UNAVAILABLE');
+  });
+
+  it('computes deterministic versioned Lethality Score & evidence-based improvement plan', () => {
+    const res1 = computeLethalityScore({
+      presentation: 78,
+      poseComposition: 84,
+      expressionEngagement: 72,
+      lightingBalance: 65,
+      imageDetail: 79,
+    });
+    const res2 = computeLethalityScore({
+      presentation: 78,
+      poseComposition: 84,
+      expressionEngagement: 72,
+      lightingBalance: 65,
+      imageDetail: 79,
+    });
+    expect(res1.lethalityScore).toBe(res2.lethalityScore);
+    expect(res1.lethalityScore).toBeGreaterThanOrEqual(1);
+    expect(res1.lethalityScore).toBeLessThanOrEqual(100);
+
+    const plan = generateImprovementPlan({ lightingScore: 65, sharpnessScore: 79 });
+    expect(plan.length).toBeGreaterThan(0);
+    expect(plan.every((p) => p.evidenceLevel && p.limitations.length > 0)).toBe(true);
+  });
+
+  it('locks 3 free scans/day and ensures Extra Snap cost exceeds max/avg points gained', () => {
+    expect(EconomyConfig.DAILY_SCAN_CAP).toBe(3);
+    expect(EconomyConfig.EXTRA_SCAN_COST_PTS).toBeGreaterThan(EconomyConfig.EXTRA_SCAN_MAX_REWARD);
   });
 });

@@ -8,10 +8,12 @@ export const EconomyConfig = {
   // Welcome grant credited (and ledgered) once per new account. Not in the PRD: open product decision.
   SIGNUP_GRANT_POINTS: 100,
 
-  // Scans
+  // Scans: 3 free rewarded scans per Africa/Lagos day; Extra Snap costs more than avg/max points gained
   DAILY_SCAN_CAP: 3,
   SCAN_RATE_FIRST: 1.0,    // 100% points on 1st scan of the day
   SCAN_RATE_SUBSEQUENT: 0.5, // 50% points on scans 2 & 3
+  EXTRA_SCAN_COST_PTS: 150, // Strictly > max points gained from an extra snap (prevents farming)
+  EXTRA_SCAN_MAX_REWARD: 75, // Capped points earned on a paid Extra Snap
 
   // Streak Multipliers
   STREAK_LADDER: [

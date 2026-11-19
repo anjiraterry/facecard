@@ -11,10 +11,11 @@ export function useScan() {
   const [error, setError] = useState<string | null>(null);
 
   const analyzeSteps = [
-    'Calibrating photo craft & lighting...',
-    'Measuring facial geometry & symmetry...',
-    'Evaluating expression, clarity & aura...',
-    'Issuing verified Face Card...',
+    'Checking image quality...',
+    'Mapping facial landmarks...',
+    'Measuring facial relationships...',
+    'Calculating Lethality Score...',
+    'Preparing your insights...',
   ];
 
   const submitScan = async (imageBase64: string, toneMode: ToneMode = 'HYPE') => {

@@ -11,10 +11,13 @@ import { EconomyConfig } from '@/lib/economy';
 import { ToneMode } from '@/types';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
-import { postLedger, isUniqueViolation } from '@/lib/ledger';
+import { postLedger, isUniqueViolation, InsufficientBalanceError } from '@/lib/ledger';
 import { hashRequest, parseIdempotencyKey, runIdempotent } from '@/lib/idempotency';
 import { Band, ScanSource, ScanSlotState, Tier, User, FaceOffStatus } from '@prisma/client';
 import { resolveFaceOff } from '@/lib/faceoff';
+import { evaluateSkinAppearance } from '@/lib/vision/skinAppearanceEngine';
+import { generateImprovementPlan } from '@/lib/insights/improvementEngine';
+import { LETHALITY_SCORING_VERSION } from '@/lib/rating/lethalityEngine';
 
 const TONES: ToneMode[] = ['HYPE', 'SMOOTH', 'ROAST', 'STRAIGHT'];
 const MAX_IMAGE_BASE64_CHARS = 11_000_000; // ~8 MB decoded
@@ -37,6 +40,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const imageBase64: unknown = body.imageBase64;
     const featureVector = body.featureVector && typeof body.featureVector === 'object' ? body.featureVector : undefined;
+    const extraSnap = body.extraSnap === true;
     const toneMode: ToneMode = TONES.includes(body.toneMode) ? body.toneMode : 'HYPE';
     const faceOffId: string | undefined =
       typeof body.faceOffId === 'string' && body.faceOffId.trim().length > 0
@@ -62,8 +66,8 @@ export async function POST(req: NextRequest) {
       sessionUser.id,
       'scan',
       idempotencyKey,
-      hashRequest({ toneMode, faceOffId }),
-      () => performScan(sessionUser, imageBase64, toneMode, faceOffId, consentAccepted, liveness, featureVector)
+      hashRequest({ toneMode, faceOffId, extraSnap }),
+      () => performScan(sessionUser, imageBase64, toneMode, faceOffId, consentAccepted, liveness, featureVector, extraSnap)
     );
 
     return NextResponse.json(result.body, { status: result.status });
@@ -80,7 +84,8 @@ async function performScan(
   faceOffId?: string,
   consentAccepted: boolean = false,
   liveness?: { verified: boolean; actions: string[] },
-  featureVector?: Parameters<typeof scoreFace>[0]['featureVector']
+  featureVector?: Parameters<typeof scoreFace>[0]['featureVector'],
+  extraSnap: boolean = false
 ): Promise<Outcome> {
   const user = await db.user.findUnique({
     where: { id: sessionUser.id },
@@ -285,18 +290,31 @@ async function performScan(
   const capReached = (count: number): Outcome => ({
     status: 429,
     body: {
-      error: `Daily scan limit reached (${EconomyConfig.DAILY_SCAN_CAP}/${EconomyConfig.DAILY_SCAN_CAP}). Resets at midnight 00:00 WAT (Africa/Lagos).`,
+      error: `3 free daily scans used (${EconomyConfig.DAILY_SCAN_CAP}/${EconomyConfig.DAILY_SCAN_CAP}). Resets at 00:00 WAT, or unlock 1 Extra Snap for ${EconomyConfig.EXTRA_SCAN_COST_PTS} PTS.`,
       dailyLimitReached: true,
       scansCompletedToday: count,
       resetTimeWat: '00:00 WAT',
+      extraSnapCostPts: EconomyConfig.EXTRA_SCAN_COST_PTS,
+      extraSnapMaxReward: EconomyConfig.EXTRA_SCAN_MAX_REWARD,
     },
   });
 
-  // Cheap pre-check so a user who is already capped never triggers scoring.
+  // Cheap pre-check so a user who is already capped never triggers scoring unless paying for an Extra Snap.
   const scansTodayCount = await db.scan.count({
     where: { userId: user.id, dayKey: todayKey, source: ScanSource.SOLO },
   });
-  if (scansTodayCount >= EconomyConfig.DAILY_SCAN_CAP) return capReached(scansTodayCount);
+  const isPaidExtraSnap = scansTodayCount >= EconomyConfig.DAILY_SCAN_CAP;
+  if (isPaidExtraSnap && !extraSnap) return capReached(scansTodayCount);
+  if (isPaidExtraSnap && user.spendableBalance < EconomyConfig.EXTRA_SCAN_COST_PTS) {
+    return {
+      status: 400,
+      body: {
+        error: `Insufficient spendable balance. Extra Snap costs ${EconomyConfig.EXTRA_SCAN_COST_PTS} PTS.`,
+        dailyLimitReached: true,
+        extraSnapCostPts: EconomyConfig.EXTRA_SCAN_COST_PTS,
+      },
+    };
+  }
 
   // 2. Quality gate + vision scoring. Throws if the photo fails the gate (does not consume a slot).
   let scoredResult;
@@ -311,7 +329,8 @@ async function performScan(
   // Zero-data-retention: drop our only reference to the raw image as soon as scoring is done.
   imageBase64 = '';
 
-  const scanIndexOfDay = (scansTodayCount + 1) as 1 | 2 | 3;
+  const scanIndexOfDay = scansTodayCount + 1;
+  const rewardSlot = Math.min(3, scanIndexOfDay) as 1 | 2 | 3;
 
   // 3. Streak & freeze protection
   let streakDays = user.streak?.currentCount ?? 1;
@@ -331,7 +350,10 @@ async function performScan(
   }
 
   const multiplier = getStreakMultiplier(streakDays);
-  const basePointsEarned = calculateScanPoints(scoredResult.score, scanIndexOfDay, streakDays);
+  const rawPoints = calculateScanPoints(scoredResult.score, rewardSlot, streakDays);
+  const basePointsEarned = isPaidExtraSnap
+    ? Math.min(rawPoints, EconomyConfig.EXTRA_SCAN_MAX_REWARD)
+    : rawPoints;
 
   const now = new Date();
   // 1. Check active REWARD_MULTIPLIER effect (new Effect Engine)
@@ -420,6 +442,18 @@ async function performScan(
         },
       });
 
+      if (isPaidExtraSnap) {
+        await postLedger(tx, {
+          userId: user.id,
+          type: 'SHOP_PURCHASE',
+          amount: -EconomyConfig.EXTRA_SCAN_COST_PTS,
+          balanceKind: 'SPENDABLE',
+          refType: 'EXTRA_SCAN_SNAP',
+          refId: scanId,
+          idempotencyKey: `extra-snap:${scanId}`,
+        });
+      }
+
       if (pointsEarned > 0) {
         for (const balanceKind of ['SPENDABLE', 'LIFETIME'] as const) {
           await postLedger(tx, {
@@ -483,13 +517,30 @@ async function performScan(
       });
     });
   } catch (error) {
+    if (error instanceof InsufficientBalanceError) {
+      return {
+        status: 400,
+        body: { error: `Insufficient spendable balance for Extra Snap (${EconomyConfig.EXTRA_SCAN_COST_PTS} PTS).` },
+      };
+    }
     if (isUniqueViolation(error)) return capReached(scansTodayCount + 1);
     throw error;
   }
 
-  const fresh = await db.user.findUnique({ where: { id: user.id }, select: { tier: true } });
+  const fresh = await db.user.findUnique({
+    where: { id: user.id },
+    select: { tier: true, lifetimePoints: true, spendableBalance: true },
+  });
   const newTier: Tier = fresh?.tier ?? user.tier;
 
+  const skinAppearance = evaluateSkinAppearance({
+    exposure: scoredResult.qualityGate.exposure,
+    sharpness: scoredResult.qualityGate.sharpness,
+  });
+  const improvementPlan = generateImprovementPlan({
+    lightingScore: scoredResult.breakdown.photoCraft.lighting,
+    sharpnessScore: scoredResult.breakdown.photoCraft.sharpness,
+  });
 
   return {
     status: 200,
@@ -497,18 +548,24 @@ async function performScan(
       success: true,
       scanId,
       score: scoredResult.score,
+      scoringVersion: LETHALITY_SCORING_VERSION,
       band: scoredResult.band,
       verdictLine: scoredResult.verdictLine,
       categoryBreakdown: flatBreakdown,
       tips: scoredResult.tips,
       pointsEarned,
+      extraSnapCostPts: isPaidExtraSnap ? EconomyConfig.EXTRA_SCAN_COST_PTS : 0,
       multiplier,
       newStreak: streakDays,
       freezeConsumed,
       freezesRemaining: freezesHeld,
       tier: newTier,
+      lifetimePoints: fresh?.lifetimePoints ?? user.lifetimePoints + pointsEarned,
+      spendableBalance: fresh?.spendableBalance ?? user.spendableBalance + pointsEarned,
       unlockedNewTier: newTier !== user.tier,
       qualityGate: scoredResult.qualityGate,
+      skinAppearance,
+      improvementPlan,
       liveness: liveness ?? { verified: false, actions: [] },
       evaluatedAt: scoredResult.evaluatedAt,
     },

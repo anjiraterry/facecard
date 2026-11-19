@@ -38,6 +38,18 @@ export interface ScanResultResponse {
     opponentScore?: number;
   };
   evaluatedAt: string;
+  scoringVersion?: string;
+  lifetimePoints?: number;
+  spendableBalance?: number;
+  improvementPlan?: Array<{
+    id: string;
+    category: string;
+    title: string;
+    explanation: string;
+    actionableSteps: string[];
+    evidenceLevel: string;
+    limitations: string[];
+  }>;
 }
 
 export interface LivenessPayload {
@@ -52,7 +64,8 @@ export const scanService = {
     toneMode: ToneMode = 'HYPE',
     liveness?: LivenessPayload,
     faceOffId?: string,
-    featureVector?: unknown
+    featureVector?: unknown,
+    extraSnap?: boolean
   ): Promise<ScanResultResponse> {
     return apiRequest<ScanResultResponse>('/api/scan', {
       method: 'POST',
@@ -62,6 +75,7 @@ export const scanService = {
         liveness,
         faceOffId,
         featureVector,
+        extraSnap,
       }),
     });
   },

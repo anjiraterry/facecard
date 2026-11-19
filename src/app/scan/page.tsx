@@ -65,6 +65,16 @@ function ScanContent() {
   const [verdictLine, setVerdictLine] = useState('');
   const [tips, setTips] = useState<string[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [extraSnapAvailable, setExtraSnapAvailable] = useState(false);
+  const [unlockedNewTier, setUnlockedNewTier] = useState(false);
+  const [improvementPlan, setImprovementPlan] = useState<Array<{
+    id: string;
+    category: string;
+    title: string;
+    explanation: string;
+    evidenceLevel: string;
+    limitations: string[];
+  }>>([]);
   const [livenessData, setLivenessData] = useState<{ passed: boolean; actionsCompleted: string[] } | null>(null);
   const [livenessResult, setLivenessResult] = useState<{ verified: boolean; actions: string[] } | null>(null);
   const [duelResult, setDuelResult] = useState<{
@@ -334,18 +344,19 @@ function ScanContent() {
     setPhase('CAPTURED');
   };
 
-  // Run AI analysis via backend API
-  const startAnalysis = async () => {
+  // Run AI analysis via backend API (zero-cost local/deterministic default)
+  const startAnalysis = async (useExtraSnap = false) => {
     if (!capturedImage) return;
     setPhase('ANALYZING');
     setAnalyzingStep(0);
     setApiError(null);
+    setExtraSnapAvailable(false);
 
     const steps = [
-      'Calibrating photo craft & lighting...',
-      'Measuring facial geometry & symmetry...',
-      'Evaluating expression, clarity & aura...',
-      'Issuing verified Face Card...',
+      'Checking image quality...',
+      'Mapping facial landmarks...',
+      'Measuring facial relationships...',
+      'Calculating Lethality Score...',
     ];
 
     let current = 0;
@@ -362,7 +373,8 @@ function ScanContent() {
         'HYPE',
         livenessData ? { passed: livenessData.passed, actionsCompleted: livenessData.actionsCompleted } : undefined,
         duelId || undefined,
-        localFeatureVector ?? undefined
+        localFeatureVector ?? undefined,
+        useExtraSnap
       );
       clearInterval(interval);
       if (res.liveness) {
@@ -405,11 +417,16 @@ function ScanContent() {
       setPointsEarned(res.pointsEarned);
       setVerdictLine(res.verdictLine);
       setTips(res.tips);
+      setUnlockedNewTier(Boolean(res.unlockedNewTier));
+      setImprovementPlan(res.improvementPlan || []);
       setPhase('RESULT');
     } catch (err: unknown) {
       clearInterval(interval);
       const msg = err instanceof Error ? err.message : 'Failed to evaluate selfie';
       setApiError(msg);
+      if (msg.includes('3 free daily scans used') || msg.includes('Extra Snap')) {
+        setExtraSnapAvailable(true);
+      }
       setPhase('CAPTURED');
     }
   };
@@ -641,9 +658,20 @@ function ScanContent() {
             </div>
 
             {apiError && (
-              <div className="p-3 rounded-2xl bg-[var(--error-surface)] text-[var(--error)] text-xs flex items-center gap-2 border border-[var(--error)]/25 max-w-[340px] mx-auto w-full">
-                <AlertCircle className="w-4 h-4 shrink-0 text-[var(--error)]" />
-                <span>{apiError}</span>
+              <div className="p-3 rounded-2xl bg-[var(--error-surface)] text-[var(--error)] text-xs flex flex-col gap-2 border border-[var(--error)]/25 max-w-[340px] mx-auto w-full">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-[var(--error)]" />
+                  <span>{apiError}</span>
+                </div>
+                {extraSnapAvailable && (
+                  <button
+                    type="button"
+                    onClick={() => startAnalysis(true)}
+                    className="w-full py-2 px-3 rounded-full bg-[#251E24] text-[#FAF7F4] text-xs font-semibold cursor-pointer"
+                  >
+                    Unlock 1 Extra Snap · 150 PTS
+                  </button>
+                )}
               </div>
             )}
 
@@ -665,7 +693,7 @@ function ScanContent() {
               </button>
 
               <button
-                onClick={startAnalysis}
+                onClick={() => startAnalysis(false)}
                 className="flex-2 py-3 px-6 rounded-full text-xs font-bold bg-[#251E24] hover:bg-[#3A2F38] text-white shadow-[0_8px_24px_rgba(20,8,38,0.3)] border border-[var(--border-card)] flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] transition-transform"
               >
                 <span>{apiError ? 'Retry Scoring / Upload' : 'Score Lethality'}</span>
@@ -698,13 +726,13 @@ function ScanContent() {
 
             <div className="space-y-2">
               <h2 className="text-xl font-black text-[var(--text-main)]">
-                Evaluating Face Card
+                Calculating Lethality Score
               </h2>
               <p className="text-xs text-[var(--text-muted)] max-w-xs animate-pulse">
-                {analyzingStep === 0 && 'Calibrating photo craft & lighting...'}
-                {analyzingStep === 1 && 'Measuring facial geometry & symmetry...'}
-                {analyzingStep === 2 && 'Evaluating expression, clarity & aura...'}
-                {analyzingStep === 3 && 'Issuing verified Face Card...'}
+                {analyzingStep === 0 && 'Checking image quality...'}
+                {analyzingStep === 1 && 'Mapping facial landmarks...'}
+                {analyzingStep === 2 && 'Measuring facial relationships...'}
+                {analyzingStep === 3 && 'Calculating Lethality Score...'}
               </p>
             </div>
           </div>
@@ -724,11 +752,11 @@ function ScanContent() {
                 <CheckCircle2 className="w-5 h-5 text-[var(--accent-brand)]" />
                 <div>
                   <span className="text-xs font-bold text-[var(--text-main)] block">
-                    Face Card Issued Successfully
+                    Lethality Score: {resultCard.score} / 100{unlockedNewTier ? ` · Upgraded to ${resultCard.tier}!` : ''}
                   </span>
                   {livenessResult?.verified && (
                     <span className="text-[10px] text-[var(--success)] font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Live Anti-Spoof Authenticated
+                      <CheckCircle2 className="w-3 h-3" /> Live Liveness Checked · Added to Persistent Face Card
                     </span>
                   )}
                 </div>
