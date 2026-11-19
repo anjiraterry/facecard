@@ -16,6 +16,7 @@ import {
   Trophy,
   Layers,
   LogOut,
+  Images,
 } from 'lucide-react';
 
 const SHOW_NAV_PREFIXES = [
@@ -26,7 +27,10 @@ const SHOW_NAV_PREFIXES = [
   '/leaderboard',
   '/profile',
   '/scan',
+  '/gallery',
+  '/notifications',
   '/shop',
+  '/vanity',
   '/skincare',
 ];
 
@@ -56,6 +60,7 @@ export function BottomNav() {
     { label: 'Home', href: '/home', icon: Home },
     { label: 'My Card', href: '/card', icon: CreditCard },
     { label: 'Scan', href: '/scan', icon: Camera },
+    { label: 'Gallery', href: '/gallery', icon: Images },
     { label: 'Arena', href: '/faceoff', icon: Swords },
     { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
     { label: 'Social', href: '/friends', icon: Users },

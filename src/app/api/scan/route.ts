@@ -24,6 +24,7 @@ import {
 import { calculateScanReward } from '@/lib/rewards/rewardPolicy';
 import { getActiveLethalityWeights, getActiveRewardPolicy } from '@/lib/rewards/activeConfig';
 import { getVerdictBand } from '@/lib/scoring';
+import { createNotification } from '@/lib/notifications';
 
 const TONES: ToneMode[] = ['HYPE', 'SMOOTH', 'ROAST', 'STRAIGHT'];
 const MAX_IMAGE_BASE64_CHARS = 11_000_000; // ~8 MB decoded
@@ -164,7 +165,7 @@ async function performScan(
     // Quality gate + vision scoring
     let scoredResult;
     try {
-      scoredResult = await scoreFace({ imageBuffer: imageBase64, toneMode });
+      scoredResult = await scoreFace({ imageBuffer: imageBase64, featureVector, toneMode });
     } catch (error) {
       return {
         status: 422,
@@ -558,6 +559,45 @@ async function performScan(
     select: { tier: true, lifetimePoints: true, spendableBalance: true },
   });
   const newTier: Tier = fresh?.tier ?? user.tier;
+
+  if (newTier !== user.tier) {
+    void createNotification({
+      userId: user.id,
+      type: 'TIER_UPGRADE',
+      title: `Congratulations! ${newTier} Tier Unlocked`,
+      body: `Your persistent Face Card has been upgraded from ${user.tier} to ${newTier} Edition.`,
+      href: '/card',
+      metadata: { fromTier: user.tier, toTier: newTier },
+    });
+  }
+
+  if (freezeConsumed) {
+    void createNotification({
+      userId: user.id,
+      type: 'STREAK_MILESTONE',
+      title: 'Streak Freeze Activated',
+      body: `A Streak Freeze protected your ${streakDays}-day streak. ${freezesHeld} freeze${freezesHeld === 1 ? '' : 's'} remaining.`,
+      href: '/card',
+    });
+  } else if ([3, 7, 14, 30, 60, 100].includes(streakDays)) {
+    void createNotification({
+      userId: user.id,
+      type: 'STREAK_MILESTONE',
+      title: `Congratulations on a ${streakDays}-Day Streak!`,
+      body: `You've unlocked a ×${multiplier.toFixed(1)} daily scan multiplier. Keep the ritual alive.`,
+      href: '/card',
+    });
+  }
+
+  if (finalScore >= 90) {
+    void createNotification({
+      userId: user.id,
+      type: 'SYSTEM',
+      title: `Certified Lethal (${finalScore}/100)`,
+      body: 'Outstanding portrait evaluation! Consider saving your selfie to your Gallery or challenging a friend in the Arena.',
+      href: '/gallery',
+    });
+  }
 
   const skinAppearance = evaluateSkinAppearance({
     exposure: scoredResult.qualityGate.exposure,

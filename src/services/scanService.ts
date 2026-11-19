@@ -3,6 +3,7 @@ import { CategoryBreakdown, Tier, ToneMode } from '@/types';
 
 export interface ScanResultResponse {
   success: boolean;
+  scanId?: string;
   score: number;
   band: 'HARMLESS' | 'SUSPICIOUS' | 'DANGEROUS' | 'LETHAL';
   verdictLine: string;
@@ -58,6 +59,20 @@ export interface LivenessPayload {
   clientEngine?: string;
 }
 
+export interface SavedScanItem {
+  id: string;
+  scanId?: string | null;
+  score: number;
+  band: 'HARMLESS' | 'SUSPICIOUS' | 'DANGEROUS' | 'LETHAL';
+  tier: Tier;
+  verdictLine?: string | null;
+  categoryScores?: Record<string, number> | null;
+  imageDataUrl?: string | null;
+  caption?: string | null;
+  isFavorite: boolean;
+  createdAt: string;
+}
+
 export const scanService = {
   async submitScan(
     imageBase64: string,
@@ -86,5 +101,41 @@ export const scanService = {
 
   async getScanById(id: string): Promise<{ success: boolean; scan: ScanResultResponse | null }> {
     return apiRequest(`/api/scans/${id}`);
+  },
+
+  async getSavedScans(): Promise<{ success: boolean; items: SavedScanItem[] }> {
+    return apiRequest('/api/scans/saved');
+  },
+
+  async saveScanToGallery(payload: {
+    scanId?: string | null;
+    score: number;
+    band: 'HARMLESS' | 'SUSPICIOUS' | 'DANGEROUS' | 'LETHAL';
+    tier: Tier;
+    verdictLine?: string | null;
+    categoryScores?: Record<string, number> | null;
+    imageDataUrl: string;
+    caption?: string | null;
+  }): Promise<{ success: boolean; alreadySaved?: boolean; item: SavedScanItem }> {
+    return apiRequest('/api/scans/saved', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateSavedScan(
+    id: string,
+    payload: { isFavorite?: boolean; caption?: string | null }
+  ): Promise<{ success: boolean; item: SavedScanItem }> {
+    return apiRequest(`/api/scans/saved/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteSavedScan(id: string): Promise<{ success: boolean }> {
+    return apiRequest(`/api/scans/saved/${id}`, {
+      method: 'DELETE',
+    });
   },
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, Suspense } from 'react';
+import React, { useCallback, useState, useRef, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -14,7 +14,9 @@ import {
   ArrowRight,
   ArrowLeft,
   Share2,
-  Layers
+  Layers,
+  Bookmark,
+  BookmarkCheck
 } from 'lucide-react';
 import { FaceCard } from '@/components/card/FaceCard';
 import { ShareCardModal } from '@/components/card/ShareCardModal';
@@ -66,6 +68,8 @@ function ScanContent() {
   const [tips, setTips] = useState<string[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
   const [extraSnapAvailable, setExtraSnapAvailable] = useState(false);
+  const [freeScansRemaining, setFreeScansRemaining] = useState<number>(3);
+  const [extraSnapUnlocked, setExtraSnapUnlocked] = useState(false);
   const [unlockedNewTier, setUnlockedNewTier] = useState(false);
   const [improvementPlan, setImprovementPlan] = useState<Array<{
     id: string;
@@ -92,6 +96,9 @@ function ScanContent() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSettingAvatar, setIsSettingAvatar] = useState(false);
   const [avatarSaved, setAvatarSaved] = useState(false);
+  const [lastScanId, setLastScanId] = useState<string | null>(null);
+  const [isSavingToGallery, setIsSavingToGallery] = useState(false);
+  const [savedToGallery, setSavedToGallery] = useState(false);
   const { showToast } = useToast();
   const { user, isLoading: authLoading, refreshUser } = useAuth();
   const [consentGrantedLocally, setConsentGrantedLocally] = useState(false);
@@ -100,7 +107,26 @@ function ScanContent() {
   const [consentSaving, setConsentSaving] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
 
+  const loadDailyAllowance = useCallback(async () => {
+    try {
+      const res = await fetch('/api/scans', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.freeScansRemaining === 'number') {
+          setFreeScansRemaining(data.freeScansRemaining);
+        }
+      }
+    } catch {
+      // Keep default if offline
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDailyAllowance();
+  }, [loadDailyAllowance]);
+
   const consentReady = consentGrantedLocally || Boolean(user?.biometricVerified && user?.dob);
+  const snapAllowed = Boolean(duelId) || freeScansRemaining > 0 || extraSnapUnlocked;
 
   const handleGrantConsent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,6 +173,36 @@ function ScanContent() {
       showToast(err instanceof Error ? err.message : 'Failed to update portrait', 'error');
     } finally {
       setIsSettingAvatar(false);
+    }
+  };
+
+  const handleSaveToGallery = async () => {
+    if (!capturedImage || !resultCard) return;
+    try {
+      setIsSavingToGallery(true);
+      await scanService.saveScanToGallery({
+        scanId: lastScanId,
+        score: resultCard.score ?? 0,
+        band: resultCard.band ?? 'HARMLESS',
+        tier: resultCard.tier,
+        verdictLine,
+        categoryScores: breakdown
+          ? {
+              photoCraft: breakdown.photoCraft,
+              harmony: breakdown.harmony,
+              skinClarity: breakdown.skinClarity,
+              expression: breakdown.expression,
+              aura: breakdown.aura,
+            }
+          : null,
+        imageDataUrl: capturedImage,
+      });
+      setSavedToGallery(true);
+      showToast('Scan saved to your Gallery!', 'success');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to save scan', 'error');
+    } finally {
+      setIsSavingToGallery(false);
     }
   };
 
@@ -270,9 +326,9 @@ function ScanContent() {
     await startCamera(nextMode);
   };
 
-  // Initialize camera ONLY after 18+ age & biometric consent are verified
+  // Initialize camera ONLY after 18+ age & biometric consent are verified AND snap is allowed
   useEffect(() => {
-    if (phase === 'CAMERA' && !authLoading && consentReady) {
+    if (phase === 'CAMERA' && !authLoading && consentReady && snapAllowed) {
       void startCamera();
     } else {
       cameraReqIdRef.current += 1;
@@ -283,7 +339,7 @@ function ScanContent() {
       cameraReqIdRef.current += 1;
       stopCameraStream();
     };
-  }, [phase, authLoading, consentReady]);
+  }, [phase, authLoading, consentReady, snapAllowed]);
 
   const startSyntheticCamera = () => {
     const canvas = document.createElement('canvas');
@@ -374,7 +430,7 @@ function ScanContent() {
         livenessData ? { passed: livenessData.passed, actionsCompleted: livenessData.actionsCompleted } : undefined,
         duelId || undefined,
         localFeatureVector ?? undefined,
-        useExtraSnap
+        useExtraSnap || extraSnapUnlocked
       );
       clearInterval(interval);
       if (res.liveness) {
@@ -387,7 +443,7 @@ function ScanContent() {
         showToast('Streak Freeze consumed! Your streak was saved from resetting.', 'success');
       }
 
-      let userName = 'CHIDINMA OKON';
+      let userName = (user?.handle || user?.displayName || 'FACECARD MEMBER').toUpperCase();
       if (typeof window !== 'undefined') {
         try {
           const stored = localStorage.getItem('facecard_user');
@@ -413,12 +469,17 @@ function ScanContent() {
       };
 
       setResultCard(newCard);
+      setLastScanId(res.scanId ?? null);
+      setSavedToGallery(false);
+      setAvatarSaved(false);
       setBreakdown(res.categoryBreakdown);
       setPointsEarned(res.pointsEarned);
       setVerdictLine(res.verdictLine);
       setTips(res.tips);
       setUnlockedNewTier(Boolean(res.unlockedNewTier));
       setImprovementPlan(res.improvementPlan || []);
+      setExtraSnapUnlocked(false);
+      void loadDailyAllowance();
       setPhase('RESULT');
     } catch (err: unknown) {
       clearInterval(interval);
@@ -434,6 +495,9 @@ function ScanContent() {
   const retakeScan = () => {
     setCapturedImage(null);
     setResultCard(null);
+    setLastScanId(null);
+    setSavedToGallery(false);
+    setAvatarSaved(false);
     setBreakdown(null);
     setLivenessData(null);
     setLivenessResult(null);
@@ -454,8 +518,18 @@ function ScanContent() {
           backLabel="Back to home"
           showQuickActions={false}
           rightSlot={
-            <span className="text-[11px] font-semibold text-[var(--foreground)] px-2.5 py-1 rounded-full bg-[var(--surface-secondary)] border border-[var(--border)]">
-              {duelId ? 'Arena' : '3 Free'}
+            <span
+              className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
+                !duelId && freeScansRemaining === 0
+                  ? 'bg-[#251E24] text-[#FAF7F4] border-[#251E24]'
+                  : 'text-[var(--foreground)] bg-[var(--surface-secondary)] border-[var(--border)]'
+              }`}
+            >
+              {duelId
+                ? 'Arena'
+                : freeScansRemaining > 0
+                  ? `${freeScansRemaining} Free Left`
+                  : '0 Free Left'}
             </span>
           }
         />
@@ -550,7 +624,35 @@ function ScanContent() {
           </div>
         )}
 
-        {phase === 'CAMERA' && (authLoading || consentReady) && (
+        {phase === 'CAMERA' && (authLoading || consentReady) && !snapAllowed && (
+          <div className="flex-1 flex items-center justify-center py-8">
+            <div className="w-full max-w-md rounded-3xl bg-[var(--surface)] border border-[var(--border)] p-6 text-center space-y-4 shadow-[var(--shadow-md)]">
+              <div className="space-y-1.5">
+                <span className="inline-block px-3 py-1 rounded-full bg-[#F1E6ED] text-[#251E24] text-[11px] font-semibold">
+                  0 / 3 Free Scans Left Today
+                </span>
+                <h2 className="font-display text-xl font-semibold text-[var(--foreground)]">
+                  Daily Free Scans Complete
+                </h2>
+                <p className="text-xs text-[var(--foreground-secondary)] leading-relaxed">
+                  Your 3 free daily scans refresh every day at 00:00 WAT (Africa/Lagos).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExtraSnapUnlocked(true)}
+                disabled={(user?.spendableBalance ?? 0) < 150}
+                className="w-full h-11 rounded-full bg-[#251E24] text-[#FAF7F4] text-xs font-semibold disabled:opacity-45 cursor-pointer"
+              >
+                {(user?.spendableBalance ?? 0) >= 150
+                  ? 'Unlock 1 Extra Snap · 150 PTS'
+                  : `Need 150 PTS for Extra Snap (You have ${user?.spendableBalance ?? 0} PTS)`}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {phase === 'CAMERA' && (authLoading || consentReady) && snapAllowed && (
           <div className="flex-1 flex flex-col justify-between min-h-0 pt-2 pb-24 sm:pb-28">
             {/* Camera Viewport (Enlarged Selfie Taking Area, Constrained to Viewport) */}
             <div className="relative my-auto flex items-center justify-center min-h-0 max-h-[58vh] sm:max-h-[62vh] aspect-[3/4] w-full max-w-[360px] mx-auto rounded-[32px] overflow-hidden bg-black shadow-2xl border border-white/10">
@@ -641,7 +743,7 @@ function ScanContent() {
 
         {/* Phase: Captured Preview */}
         {phase === 'CAPTURED' && capturedImage && (
-          <div className="flex-1 flex flex-col justify-between min-h-0 pt-1 pb-24 sm:pb-28">
+          <div className="flex-1 flex flex-col justify-between min-h-0 pt-2 pb-24 sm:pb-28 space-y-5">
             <div className="text-center shrink-0 py-1">
               <h2 className="text-xl sm:text-2xl font-black tracking-tight text-[var(--text-main)]">
                 Confirm Selfie
@@ -658,7 +760,7 @@ function ScanContent() {
             </div>
 
             {apiError && (
-              <div className="p-3 rounded-2xl bg-[var(--error-surface)] text-[var(--error)] text-xs flex flex-col gap-2 border border-[var(--error)]/25 max-w-[340px] mx-auto w-full">
+              <div className="my-2 p-3.5 rounded-2xl bg-[var(--error-surface)] text-[var(--error)] text-xs flex flex-col gap-2.5 border border-[var(--error)]/25 max-w-[340px] mx-auto w-full">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-[var(--error)]" />
                   <span>{apiError}</span>
@@ -747,11 +849,11 @@ function ScanContent() {
             className="space-y-6"
           >
             {/* Success Banner */}
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--accent-primary)] border border-[var(--accent-brand)]/20">
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--surface-accent)] border border-[var(--border-strong)]">
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-5 h-5 text-[var(--accent-brand)]" />
                 <div>
-                  <span className="text-xs font-bold text-[var(--text-main)] block">
+                  <span className="text-xs font-bold text-[var(--foreground)] block">
                     Lethality Score: {resultCard.score} / 100{unlockedNewTier ? ` · Upgraded to ${resultCard.tier}!` : ''}
                   </span>
                   {livenessResult?.verified && (
@@ -817,7 +919,7 @@ function ScanContent() {
                   )}
                   <Link
                     href="/faceoff"
-                    className="flex-1 py-2.5 px-3 rounded-xl bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-xs font-bold text-white text-center flex items-center justify-center gap-1.5 transition-colors"
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-xs font-bold text-[var(--primary-foreground)] text-center flex items-center justify-center gap-1.5 transition-colors"
                   >
                     <span>Back to Arena</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -920,33 +1022,66 @@ function ScanContent() {
               </button>
 
               {capturedImage && (
-                <button
-                  type="button"
-                  disabled={isSettingAvatar || avatarSaved}
-                  onClick={handleSetAsAvatar}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-full text-xs font-bold border border-emerald-500/30 bg-[var(--success-surface)] text-[var(--success)] hover:bg-emerald-500/20 transition-all cursor-pointer disabled:opacity-60"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    disabled={isSavingToGallery || savedToGallery}
+                    onClick={handleSaveToGallery}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-full text-xs font-bold border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-secondary)] transition-all cursor-pointer disabled:opacity-70"
+                  >
+                    {savedToGallery ? (
+                      <>
+                        <BookmarkCheck className="w-4 h-4 text-[var(--success)]" />
+                        <span>Saved to Gallery</span>
+                      </>
+                    ) : isSavingToGallery ? (
+                      <span>Saving Scan...</span>
+                    ) : (
+                      <>
+                        <Bookmark className="w-4 h-4 text-[var(--accent-brand)]" />
+                        <span>Save Scan to Gallery</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSettingAvatar || avatarSaved}
+                    onClick={handleSetAsAvatar}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-full text-xs font-bold border border-emerald-500/30 bg-[var(--success-surface)] text-[var(--success)] hover:bg-emerald-500/20 transition-all cursor-pointer disabled:opacity-60"
+                  >
+                    {avatarSaved ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-[var(--success)]" />
+                        <span>Facecard Portrait Saved!</span>
+                      </>
+                    ) : isSettingAvatar ? (
+                      <span>Saving Portrait...</span>
+                    ) : (
+                      <>
+                        <Layers className="w-4 h-4 text-[var(--success)]" />
+                        <span>Set as Facecard Portrait</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {savedToGallery && (
+                <Link
+                  href="/gallery"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-5 rounded-full text-xs font-semibold text-[var(--link)] bg-[var(--surface-accent)] border border-[var(--border)] hover:opacity-90 transition-opacity"
                 >
-                  {avatarSaved ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-[var(--success)]" />
-                      <span>Facecard Portrait Saved!</span>
-                    </>
-                  ) : isSettingAvatar ? (
-                    <span>Saving Portrait...</span>
-                  ) : (
-                    <>
-                      <Layers className="w-4 h-4 text-[var(--success)]" />
-                      <span>Set Selfie as Facecard Portrait</span>
-                    </>
-                  )}
-                </button>
+                  <span>Open Saved Gallery</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
               )}
 
               <Link
                 href="/faceoff"
-                className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-full text-xs font-bold shadow-xs border border-[#D2B8C9] dark:border-[var(--border-card)] transition-all bg-[var(--bg-surface-warm)] dark:bg-[var(--accent-primary)] hover:bg-[#EBDCD5] text-[#251E24] dark:text-purple-200 hover:scale-[1.01] active:scale-[0.99]"
+                className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-full text-xs font-bold shadow-xs border border-[var(--border-strong)] transition-all bg-[var(--surface-secondary)] hover:bg-[var(--accent)] text-[var(--foreground)] hover:scale-[1.01] active:scale-[0.99]"
               >
-                <Swords className="w-4 h-4 text-[#251E24] dark:text-purple-200" />
+                <Swords className="w-4 h-4 text-[var(--foreground)]" />
                 <span>Challenge a Friend with This Card</span>
               </Link>
 

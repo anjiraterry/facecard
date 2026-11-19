@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
 import { getInitialsAvatarSvg } from '@/lib/avatar';
+import { createNotification } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,7 @@ export interface FriendItem {
     wins: number;
     losses: number;
   };
+  friendshipStatus?: 'NONE' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'ACCEPTED';
 }
 
 export async function GET(req: NextRequest) {
@@ -31,15 +33,50 @@ export async function GET(req: NextRequest) {
     const query = searchParams.get('q')?.toLowerCase();
     const isSuggested = searchParams.get('suggested') === 'true' || searchParams.get('all') === 'true';
 
-    // Find users added as friends by this sessionUser via Friendship table
-    const friendships = await db.friendship.findMany({
-      where: {
-        requesterId: sessionUser.id,
-        status: 'ACCEPTED',
-      },
-      select: { addresseeId: true },
-    });
-    const friendIds = new Set(friendships.map((f) => f.addresseeId));
+    // Mutual accepted friendships (either direction)
+    const [acceptedFriendships, incomingPending, outgoingPending] = await Promise.all([
+      db.friendship.findMany({
+        where: {
+          status: 'ACCEPTED',
+          OR: [{ requesterId: sessionUser.id }, { addresseeId: sessionUser.id }],
+        },
+        select: { requesterId: true, addresseeId: true },
+      }),
+      db.friendship.findMany({
+        where: {
+          addresseeId: sessionUser.id,
+          status: 'PENDING',
+        },
+        include: {
+          requester: {
+            select: {
+              id: true,
+              displayName: true,
+              handle: true,
+              tier: true,
+              avatarUrl: true,
+              scans: { orderBy: { createdAt: 'desc' }, take: 1, select: { score: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      db.friendship.findMany({
+        where: {
+          requesterId: sessionUser.id,
+          status: 'PENDING',
+        },
+        select: { addresseeId: true },
+      }),
+    ]);
+
+    const friendIds = new Set(
+      acceptedFriendships.map((f) =>
+        f.requesterId === sessionUser.id ? f.addresseeId : f.requesterId
+      )
+    );
+    const pendingSentIds = new Set(outgoingPending.map((f) => f.addresseeId));
+    const pendingReceivedIds = new Set(incomingPending.map((f) => f.requesterId));
 
     const users = await db.user.findMany({
       where: {
@@ -123,6 +160,13 @@ export async function GET(req: NextRequest) {
           wins,
           losses,
         },
+        friendshipStatus: friendIds.has(u.id)
+          ? 'ACCEPTED'
+          : pendingSentIds.has(u.id)
+          ? 'PENDING_SENT'
+          : pendingReceivedIds.has(u.id)
+          ? 'PENDING_RECEIVED'
+          : 'NONE',
       };
     });
 
@@ -134,9 +178,25 @@ export async function GET(req: NextRequest) {
         )
       : friendsList;
 
+    const incomingRequests = incomingPending.map((req) => {
+      const u = req.requester;
+      const handleClean = u.handle ? u.handle.replace(/^@/, '') : `user_${u.id.slice(0, 6)}`;
+      return {
+        id: req.id,
+        userId: u.id,
+        name: u.displayName,
+        handle: `@${handleClean}`,
+        avatar: u.avatarUrl || getInitialsAvatarSvg(u.displayName, handleClean),
+        tier: u.tier,
+        score: u.scans[0]?.score ?? 0,
+        createdAt: req.createdAt.toISOString(),
+      };
+    });
+
     return NextResponse.json({
       success: true,
       friends: filtered,
+      incomingRequests,
       total: filtered.length,
     });
   } catch (error) {
@@ -169,7 +229,49 @@ export async function POST(req: NextRequest) {
       if (found.id === sessionUser.id) {
         return NextResponse.json({ error: 'Cannot add yourself as a friend' }, { status: 400 });
       }
-      // Record friendship link in dedicated Friendship table
+
+      const existing = await db.friendship.findFirst({
+        where: {
+          OR: [
+            { requesterId: sessionUser.id, addresseeId: found.id },
+            { requesterId: found.id, addresseeId: sessionUser.id },
+          ],
+        },
+      });
+
+      if (existing?.status === 'BLOCKED') {
+        return NextResponse.json({ error: 'Unable to send friend request to this user' }, { status: 403 });
+      }
+
+      if (existing?.status === 'ACCEPTED') {
+        return NextResponse.json({
+          success: true,
+          status: 'ACCEPTED',
+          message: `You and ${found.displayName} (@${found.handle}) are already in each other's Circle`,
+        });
+      }
+
+      // If the other user already sent us a pending request, mutual match -> ACCEPT!
+      if (existing && existing.requesterId === found.id && existing.status === 'PENDING') {
+        await db.friendship.update({
+          where: { id: existing.id },
+          data: { status: 'ACCEPTED' },
+        });
+        void createNotification({
+          userId: found.id,
+          type: 'FRIEND_ACCEPTED',
+          title: 'Circle Request Accepted',
+          body: `@${sessionUser.handle || sessionUser.displayName} accepted your Circle request.`,
+          href: '/friends',
+        });
+        return NextResponse.json({
+          success: true,
+          status: 'ACCEPTED',
+          message: `Friend request accepted: ${found.displayName} (@${found.handle})`,
+        });
+      }
+
+      // Otherwise create or keep a PENDING request awaiting recipient acceptance
       await db.friendship.upsert({
         where: {
           requesterId_addresseeId: {
@@ -177,20 +279,33 @@ export async function POST(req: NextRequest) {
             addresseeId: found.id,
           },
         },
-        update: { status: 'ACCEPTED' },
+        update: { status: 'PENDING' },
         create: {
           requesterId: sessionUser.id,
           addresseeId: found.id,
-          status: 'ACCEPTED',
+          status: 'PENDING',
         },
+      });
+
+      void createNotification({
+        userId: found.id,
+        type: 'FRIEND_REQUEST',
+        title: 'New Circle Request',
+        body: `@${sessionUser.handle || sessionUser.displayName} wants to join your Circle.`,
+        href: '/friends',
+      });
+
+      return NextResponse.json({
+        success: true,
+        status: 'PENDING',
+        message: `Friend request sent to ${found.displayName} (@${found.handle})`,
       });
     }
 
     return NextResponse.json({
       success: true,
-      message: found
-        ? `Friend request accepted: ${found.displayName} (@${found.handle})`
-        : `Friend invite created for @${cleanHandle}`,
+      status: 'INVITE',
+      message: `Friend invite created for @${cleanHandle}`,
     });
   } catch (error) {
     return NextResponse.json(

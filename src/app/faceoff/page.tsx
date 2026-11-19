@@ -21,6 +21,7 @@ import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { FaceOffMode } from '@/types';
 import { useFaceoff } from '@/hooks/useFaceoff';
 import { useCard } from '@/hooks/useCard';
+import { useFriends } from '@/hooks/useFriends';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { useToast } from '@/components/common/ToastProvider';
 import { DuelDetailModal } from '@/components/faceoff/DuelDetailModal';
@@ -38,6 +39,7 @@ function FaceOffContent() {
 
   const { faceoffs, createChallenge, joinDuel, cancelDuel, refreshFaceoffs, isLoading } = useFaceoff();
   const { activeCard, spendableBalance, isLoading: cardLoading } = useCard();
+  const { friends } = useFriends();
 
   const [mode, setMode] = useState<FaceOffMode>('STAKED');
   const [stakeAmount, setStakeAmount] = useState<number>(100);
@@ -59,16 +61,18 @@ function FaceOffContent() {
   const STAKE_OPTIONS = [50, 100, 250, 500];
   const liveDuels = faceoffs;
   const avatarList = liveDuels.map((d) => d.iconAvatar || d.image);
-  const featuredOpponent = liveDuels.find((d) => !d.isMine) || liveDuels[0];
+  const featuredOpponent = liveDuels.find((d) => !d.isMine) || null;
+  const availableBalance = spendableBalance ?? 0;
+  const insufficientStake = mode === 'STAKED' && stakeAmount > availableBalance;
 
   // 1. Direct incoming requests directed at this user
   const incomingDirectRequests = liveDuels.filter(
     (d) => !d.isMine && d.canJoin && d.status === 'WAITING' && Boolean(d.targetUserId || d.opponentId)
   );
 
-  // 2. Ongoing matches where the user is a contender
+  // 2. Ongoing matches where the user is a contender (exclude CANCELLED / EXPIRED / COMPLETED)
   const myActiveClashes = liveDuels.filter(
-    (d) => d.isMine && d.status !== 'COMPLETED'
+    (d) => d.isMine && (d.status === 'WAITING' || d.status === 'ACTIVE')
   );
 
   // 3. Open arena matchmaking by division
@@ -212,7 +216,7 @@ function FaceOffContent() {
                   router.push(`/arena/invite/${duelParam}`);
                 }
               }}
-              className="py-1.5 px-3 rounded-xl bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
+              className="py-1.5 px-3 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] text-xs font-bold shadow-xs active:scale-95 transition-all"
             >
               View Match
             </button>
@@ -257,7 +261,7 @@ function FaceOffContent() {
                     e.stopPropagation();
                     handleAcceptDuel(req.id, req.handle);
                   }}
-                  className="py-1.5 px-3 rounded-xl bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                  className="py-1.5 px-3 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <Swords className="w-3.5 h-3.5" />
                   <span>{joiningId === req.id ? 'Joining...' : 'Accept Match'}</span>
@@ -292,7 +296,7 @@ function FaceOffContent() {
                     />
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-[var(--text-main)] block truncate">
-                        vs {duel.handle}
+                        {duel.handle === 'Waiting for Rival' ? 'Open Arena Challenge' : `vs ${duel.handle}`}
                       </span>
                       <span className="text-[10px] text-[var(--text-muted)] block">
                         {duel.stake} • {duel.requiredTier || duel.tier}
@@ -311,7 +315,7 @@ function FaceOffContent() {
                           e.stopPropagation();
                           router.push(`/scan?duelId=${duel.id}`);
                         }}
-                        className="py-1 px-3 rounded-xl bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                        className="py-1 px-3 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] text-[11px] font-bold flex items-center gap-1 shadow-xs transition-transform active:scale-95 cursor-pointer"
                       >
                         <Camera className="w-3 h-3" />
                         <span>Take Match Scan</span>
@@ -326,21 +330,21 @@ function FaceOffContent() {
 
         {/* Direct Challenge Opponent Banner if coming from /friends */}
         {opponentParam && (
-          <div className="p-4 rounded-2xl bg-[var(--accent-primary)] border border-[var(--accent-brand)]/30 flex items-center justify-between shadow-sm animate-fade-in">
+          <div className="p-4 rounded-2xl bg-[var(--surface-accent)] border border-[var(--border-strong)] flex items-center justify-between shadow-sm animate-fade-in">
             <div className="flex items-center gap-2.5">
               <Swords className="w-5 h-5 text-[var(--accent-brand)] animate-pulse" />
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-[var(--accent-brand)] dark:text-[#D2B8C9] block">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[var(--accent-brand)] block">
                   Direct Clash Ready
                 </span>
-                <span className="text-xs font-bold text-[var(--text-main)] block">
+                <span className="text-xs font-bold text-[var(--foreground)] block">
                   Challenging {targetHandle || opponentParam}
                 </span>
               </div>
             </div>
             <a
               href="#create-challenge"
-              className="py-1.5 px-3 rounded-xl bg-[var(--accent-primary)] text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
+              className="py-1.5 px-3 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] text-xs font-bold shadow-xs active:scale-95 transition-all"
             >
               Set Wager
             </a>
@@ -476,10 +480,10 @@ function FaceOffContent() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-[var(--text-main)]">
-                Arena Matchmaking
+                Public Arena Board
               </h2>
               <span className="text-[11px] text-[var(--text-muted)]">
-                Weight class duels • Fair rating parity
+                Open challenges from other contenders • Fair rating parity
               </span>
             </div>
             <span className="text-xs text-[var(--text-muted)]">Tap to accept</span>
@@ -564,13 +568,17 @@ function FaceOffContent() {
                     </div>
 
                     <button
-                      disabled={joiningId === duel.id || duel.canJoin === false}
+                      disabled={
+                        joiningId === duel.id ||
+                        duel.canJoin === false ||
+                        (duel.mode === 'STAKED' && duel.stakeAmount > availableBalance)
+                      }
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAcceptDuel(duel.id, duel.handle);
                       }}
                       className={`w-full py-1.5 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-transform active:scale-95 shadow-xs ${
-                        duel.canJoin === false
+                        duel.canJoin === false || (duel.mode === 'STAKED' && duel.stakeAmount > availableBalance)
                           ? 'bg-white/20 text-white/40 cursor-not-allowed'
                           : 'bg-white text-[#18181B] hover:bg-neutral-100 disabled:opacity-50'
                       }`}
@@ -583,6 +591,8 @@ function FaceOffContent() {
                           ? 'Your Duel'
                           : duel.sameTier === false
                           ? `Requires ${duel.requiredTier || duel.tier}`
+                          : duel.mode === 'STAKED' && duel.stakeAmount > availableBalance
+                          ? `Need ${duel.stakeAmount} PTS`
                           : 'Accept Duel'}
                       </span>
                     </button>
@@ -614,7 +624,7 @@ function FaceOffContent() {
           </div>
 
           {/* Direct Opponent Input */}
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label className="text-xs font-medium text-[#71717A] dark:text-zinc-400 block">
               Opponent Username (Optional):
             </label>
@@ -625,6 +635,25 @@ function FaceOffContent() {
               placeholder="@username (Leave blank for open arena)"
               className="w-full py-2 px-3 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-card)] text-xs font-medium text-[var(--text-main)] placeholder:text-[var(--text-muted)] focus:outline-hidden focus:border-[var(--accent-brand)]"
             />
+            {friends.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[10px] font-semibold text-[var(--text-muted)]">Circle:</span>
+                {friends.slice(0, 6).map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setTargetHandle(f.handle)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors cursor-pointer ${
+                      targetHandle.toLowerCase() === f.handle.toLowerCase()
+                        ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
+                        : 'bg-[var(--surface-secondary)] text-[var(--text-main)] hover:bg-[var(--accent-soft)]'
+                    }`}
+                  >
+                    {f.handle}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Mode Selector */}
@@ -657,25 +686,42 @@ function FaceOffContent() {
           {/* Stake Amount Selector */}
           {mode === 'STAKED' && (
             <div className="space-y-2">
-              <label className="text-xs font-medium text-[var(--foreground-secondary)] block">
-                Stake Amount:
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {STAKE_OPTIONS.map((amt) => (
-                  <button
-                    type="button"
-                    key={amt}
-                    onClick={() => setStakeAmount(amt)}
-                    className={`py-2 px-2 rounded-full text-xs font-semibold border transition-colors cursor-pointer tabular-nums ${
-                      stakeAmount === amt
-                        ? 'border-transparent bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[var(--shadow-xs)]'
-                        : 'border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)]'
-                    }`}
-                  >
-                    {amt} PTS
-                  </button>
-                ))}
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-[var(--foreground-secondary)] block">
+                  Stake Amount:
+                </label>
+                <span className="text-[11px] font-semibold text-[var(--text-muted)] tabular-nums">
+                  Balance: {availableBalance.toLocaleString()} PTS
+                </span>
               </div>
+              <div className="grid grid-cols-4 gap-2">
+                {STAKE_OPTIONS.map((amt) => {
+                  const cannotAfford = amt > availableBalance;
+                  return (
+                    <button
+                      type="button"
+                      key={amt}
+                      onClick={() => setStakeAmount(amt)}
+                      className={`py-2 px-2 rounded-full text-xs font-semibold border transition-colors cursor-pointer tabular-nums ${
+                        stakeAmount === amt
+                          ? cannotAfford
+                            ? 'border-[var(--error)] bg-[var(--error-surface)] text-[var(--error)]'
+                            : 'border-transparent bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[var(--shadow-xs)]'
+                          : cannotAfford
+                          ? 'border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--text-muted)] opacity-50'
+                          : 'border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)]'
+                      }`}
+                    >
+                      {amt} PTS
+                    </button>
+                  );
+                })}
+              </div>
+              {insufficientStake && (
+                <p className="text-[11px] font-medium text-[var(--error)]">
+                  Insufficient balance ({availableBalance.toLocaleString()} PTS) for a {stakeAmount} PTS stake. Choose a lower stake or switch to Friendly (Zero Risk).
+                </p>
+              )}
             </div>
           )}
 
@@ -683,10 +729,11 @@ function FaceOffContent() {
           {!inviteCode ? (
             <button
               type="button"
+              disabled={insufficientStake}
               onClick={handleCreateChallenge}
-              className="w-full h-12 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] text-xs font-semibold flex items-center justify-center transition-colors active:scale-[0.98] shadow-[var(--shadow-xs)] cursor-pointer"
+              className="w-full h-12 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] text-xs font-semibold flex items-center justify-center transition-colors active:scale-[0.98] shadow-[var(--shadow-xs)] cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
             >
-              <span>Create Match Challenge</span>
+              <span>{insufficientStake ? `Need ${stakeAmount} PTS to Stake` : 'Create Match Challenge'}</span>
             </button>
           ) : (
             <div className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border-card)] space-y-3">
@@ -704,7 +751,7 @@ function FaceOffContent() {
               </div>
               <button
                 onClick={copyInviteLink}
-                className="w-full py-2.5 rounded-xl bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer"
               >
                 {copied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
                 <span>{copied ? 'Copied to Clipboard!' : 'Copy Match Invite Link'}</span>

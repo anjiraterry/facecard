@@ -21,7 +21,17 @@ import { FramerStagger } from '@/components/ui/MotionPrimitives';
 
 export default function FriendsPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { friends, isLoading } = useFriends(searchQuery);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
+  const { friends, incomingRequests, isLoading, respondToRequest } = useFriends(searchQuery);
+
+  const handleRespond = async (id: string, action: 'accept' | 'decline') => {
+    setRespondingId(id);
+    try {
+      await respondToRequest(id, action);
+    } finally {
+      setRespondingId(null);
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32 md:pl-16 lg:pl-52">
@@ -52,6 +62,61 @@ export default function FriendsPage() {
             className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-card)] text-sm text-[var(--text-main)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-brand)] transition-colors"
           />
         </div>
+
+        {incomingRequests.length > 0 && (
+          <section className="space-y-2.5">
+            <div className="px-1">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--accent-brand)]">
+                Pending Circle Requests ({incomingRequests.length})
+              </h2>
+            </div>
+            {incomingRequests.map((req) => (
+              <SurfaceCard
+                key={req.id}
+                variant="warm"
+                padding="sm"
+                className="flex items-center justify-between gap-3"
+              >
+                <Link href={`/friends/${req.userId}`} className="flex items-center gap-3 min-w-0 flex-1">
+                  <UserAvatar
+                    name={req.name}
+                    handle={req.handle}
+                    src={req.avatar}
+                    size="md"
+                    className="w-10 h-10 border border-[var(--border-card)] shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <span className="text-xs font-semibold text-[var(--text-main)] block truncate">
+                      {req.name}
+                    </span>
+                    <span className="text-[11px] text-[var(--text-muted)] block truncate">
+                      {req.handle} · {req.tier} · Index {req.score}
+                    </span>
+                  </div>
+                </Link>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={respondingId === req.id}
+                    onClick={() => handleRespond(req.id, 'accept')}
+                    className="px-3 py-1.5 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    type="button"
+                    disabled={respondingId === req.id}
+                    onClick={() => handleRespond(req.id, 'decline')}
+                    className="px-3 py-1.5 rounded-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </SurfaceCard>
+            ))}
+          </section>
+        )}
 
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1">

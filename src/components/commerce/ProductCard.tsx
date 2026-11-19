@@ -11,13 +11,14 @@ interface ProductCardProps {
   product?: AtelierProductDTO | null;
   onInspect?: (product: AtelierProductDTO) => void;
   onAddToBag?: (variantId: string, productName: string) => void;
+  onBuyNow?: (variantId: string, product: AtelierProductDTO) => void;
   addingVariantId?: string | null;
 }
 
 /**
  * Reusable Soft Luxury Skincare Product Card connected to live Atelier catalogue.
  */
-export function ProductCard({ product, onInspect, onAddToBag, addingVariantId }: ProductCardProps) {
+export function ProductCard({ product, onInspect, onAddToBag, onBuyNow, addingVariantId }: ProductCardProps) {
   if (!product) {
     return (
       <SurfaceCard variant="default" padding="none" className="overflow-hidden flex flex-col justify-between animate-pulse">
@@ -100,6 +101,15 @@ export function ProductCard({ product, onInspect, onAddToBag, addingVariantId }:
             {onInspect && (
               <Button variant="ghost" size="sm" onClick={() => onInspect(product)} aria-label={`Inspect ${product.name}`}>
                 <Eye className="w-3.5 h-3.5" />
+              </Button>
+            )}
+            {onBuyNow && inStock && primaryVariant && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onBuyNow(primaryVariant.id, product)}
+              >
+                <span>Buy</span>
               </Button>
             )}
             <Button

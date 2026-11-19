@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
-import { getStreakMultiplier } from '@/lib/scoring';
+import { getStreakMultiplier, getVerdictBand } from '@/lib/scoring';
 import { getInitialsAvatarSvg, getCardCoverArtSvg } from '@/lib/avatar';
 import { Tier, Band } from '@/types';
 
@@ -36,11 +36,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
     }
 
+    const scanStats = await db.scan.aggregate({
+      where: { userId: user.id },
+      _avg: { score: true },
+      _count: { id: true },
+    });
+
     const latestScan = user.scans[0];
     const streakDays = user.streak?.currentCount ?? 0;
     const streakMultiplier = getStreakMultiplier(streakDays);
-    const score = latestScan?.score ?? 0;
-    const band = (latestScan?.band as Band) ?? 'HARMLESS';
+    const totalScans = scanStats._count.id;
+    const score =
+      totalScans > 0 && scanStats._avg.score != null
+        ? Math.round(scanStats._avg.score)
+        : 0;
+    const band: Band = totalScans > 0 ? getVerdictBand(score) : 'HARMLESS';
     const cardRecord = user.cards[0];
 
     const categoryScores = (latestScan?.categoryScores as Record<string, unknown> | null) || null;
@@ -94,18 +104,21 @@ export async function GET(req: NextRequest) {
         badgeStyle: isClassicSurpassed
           ? 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-200 border-purple-300/40'
           : 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 border-amber-300/40 ring-2 ring-amber-400/30',
-        card: {
-          id: 'card-classic',
-          tier: 'CLASSIC' as Tier,
-          cardholderName: `@${handleClean}`,
-          handle: `@${handleClean}`,
-          avatarUrl: userAvatar,
-          title: 'Certified Classic',
-          score: Math.min(score, 72),
-          band: 'DANGEROUS' as Band,
-          streakDays: Math.min(streakDays, 3),
-          multiplier: 1.0,
-        },
+        card:
+          user.tier === 'CLASSIC'
+            ? activeCard
+            : {
+                id: 'card-classic',
+                tier: 'CLASSIC' as Tier,
+                cardholderName: `@${handleClean}`,
+                handle: `@${handleClean}`,
+                avatarUrl: userAvatar,
+                title: 'Certified Classic',
+                score,
+                band,
+                streakDays,
+                multiplier: 1.0,
+              },
         prerequisites: {
           pointsTarget: 0,
           pointsCurrent: user.lifetimePoints,
@@ -123,7 +136,21 @@ export async function GET(req: NextRequest) {
         badgeStyle: isGoldActive
           ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 border-amber-300/40 shadow-xs ring-2 ring-amber-400/30'
           : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-300/40',
-        card: activeCard,
+        card:
+          user.tier === 'GOLD'
+            ? activeCard
+            : {
+                id: 'card-gold',
+                tier: 'GOLD' as Tier,
+                cardholderName: `@${handleClean}`,
+                handle: `@${handleClean}`,
+                avatarUrl: userAvatar,
+                title: 'Gold Standard',
+                score,
+                band,
+                streakDays,
+                multiplier: streakMultiplier,
+              },
         prerequisites: {
           pointsTarget: 1000,
           pointsCurrent: user.lifetimePoints,
@@ -141,18 +168,21 @@ export async function GET(req: NextRequest) {
         badgeStyle: isPlatinumActive
           ? 'bg-cyan-100 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-200 border-cyan-300/40 ring-2 ring-cyan-400/30'
           : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-300/40',
-        card: {
-          id: 'card-platinum',
-          tier: 'PLATINUM' as Tier,
-          cardholderName: `@${handleClean}`,
-          handle: `@${handleClean}`,
-          avatarUrl: userAvatar,
-          title: 'Platinum Prestige',
-          score: 88,
-          band: 'LETHAL' as Band,
-          streakDays: 14,
-          multiplier: 1.5,
-        },
+        card:
+          user.tier === 'PLATINUM'
+            ? activeCard
+            : {
+                id: 'card-platinum',
+                tier: 'PLATINUM' as Tier,
+                cardholderName: `@${handleClean}`,
+                handle: `@${handleClean}`,
+                avatarUrl: userAvatar,
+                title: 'Platinum Prestige',
+                score,
+                band,
+                streakDays,
+                multiplier: 1.5,
+              },
         prerequisites: {
           pointsTarget: 5000,
           pointsCurrent: user.lifetimePoints,
@@ -168,18 +198,21 @@ export async function GET(req: NextRequest) {
         status: user.tier === 'BLACK' ? 'ACTIVE' : 'LOCKED',
         statusBadge: user.tier === 'BLACK' ? '★ Your Current Card' : 'Locked (Target: 20,000 PTS)',
         badgeStyle: 'bg-zinc-900 dark:bg-zinc-950 text-zinc-300 dark:text-zinc-400 border-zinc-700/60',
-        card: {
-          id: 'card-black',
-          tier: 'BLACK' as Tier,
-          cardholderName: `@${handleClean}`,
-          handle: `@${handleClean}`,
-          avatarUrl: userAvatar,
-          title: 'Apex Obsidian',
-          score: 95,
-          band: 'LETHAL' as Band,
-          streakDays: 30,
-          multiplier: 2.0,
-        },
+        card:
+          user.tier === 'BLACK'
+            ? activeCard
+            : {
+                id: 'card-black',
+                tier: 'BLACK' as Tier,
+                cardholderName: `@${handleClean}`,
+                handle: `@${handleClean}`,
+                avatarUrl: userAvatar,
+                title: 'Apex Obsidian',
+                score,
+                band,
+                streakDays,
+                multiplier: 2.0,
+              },
         prerequisites: {
           pointsTarget: 20000,
           pointsCurrent: user.lifetimePoints,

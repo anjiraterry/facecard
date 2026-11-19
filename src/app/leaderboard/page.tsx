@@ -48,6 +48,7 @@ export default function LeaderboardPage() {
 
   const topThree = leaderboard.slice(0, 3);
   const remaining = leaderboard.slice(3);
+  const listEntries = topThree.length >= 3 ? remaining : leaderboard;
   const currentUserEntry = leaderboard.find((u) => u.isCurrentUser);
 
   return (
@@ -156,9 +157,9 @@ export default function LeaderboardPage() {
             )}
 
             {/* Unified Clean Standings List */}
-            {remaining.length > 0 && (
+            {listEntries.length > 0 && (
               <SurfaceCard variant="default" padding="none" className="divide-y divide-[var(--border)]">
-                {remaining.map((item) => (
+                {listEntries.map((item) => (
                   <div
                     key={item.id}
                     className={`px-4 py-3 flex items-center justify-between gap-3 ${

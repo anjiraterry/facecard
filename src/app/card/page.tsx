@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -33,7 +33,8 @@ import { useCard } from '@/hooks/useCard';
 
 export default function CardPage() {
   const [activeLedgerTab, setActiveLedgerTab] = useState<'FUNDING' | 'SPENDS'>('FUNDING');
-  const [selectedSlideIndex, setSelectedSlideIndex] = useState(1);
+  const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
+  const [hasInitializedSlide, setHasInitializedSlide] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -59,6 +60,23 @@ export default function CardPage() {
   const lifetimePoints = backendLifetime ?? 0;
   const nextTierPoints = backendNextTier ?? 5000;
   const progressPercent = backendProgress ?? 0;
+
+  useEffect(() => {
+    if (!hasInitializedSlide && sliderCards.length > 0) {
+      const activeIdx = sliderCards.findIndex((t) => t.status === 'ACTIVE');
+      if (activeIdx >= 0) {
+        setSelectedSlideIndex(activeIdx);
+        requestAnimationFrame(() => {
+          cardSlideRefs.current[activeIdx]?.scrollIntoView({
+            behavior: 'auto',
+            block: 'nearest',
+            inline: 'center',
+          });
+        });
+      }
+      setHasInitializedSlide(true);
+    }
+  }, [hasInitializedSlide, sliderCards]);
 
   const scrollToSlide = (idx: number) => {
     setSelectedSlideIndex(idx);
@@ -309,10 +327,10 @@ export default function CardPage() {
                 </Button>
 
                 <Link
-                  href="/faceoff"
+                  href="/gallery"
                   className="flex-1 h-12 px-4 rounded-full bg-[var(--bg-secondary)] hover:bg-[var(--accent-soft)] text-[var(--text-main)] border border-[var(--border-card)] flex items-center justify-center text-xs sm:text-sm font-semibold transition-colors"
                 >
-                  Arena
+                  Saved Gallery
                 </Link>
               </div>
 
@@ -408,15 +426,8 @@ export default function CardPage() {
                       className="flex items-center justify-between gap-3"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative w-12 h-14 rounded-xl overflow-hidden shrink-0 border border-[var(--border-card)]">
-                          <img
-                            src={item.thumbnail}
-                            alt={`Scan #${item.scanNumber}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute top-1 left-1 px-1 rounded bg-[#251E24]/75 text-[#FAF7F4] text-[8px] font-bold">
-                            #{item.scanNumber}
-                          </div>
+                        <div className="w-10 h-10 rounded-2xl bg-[var(--bg-surface-warm)] border border-[var(--border-subtle)] text-[var(--accent-brand)] flex items-center justify-center shrink-0">
+                          <Camera className="w-4 h-4" />
                         </div>
 
                         <div className="min-w-0">

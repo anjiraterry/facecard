@@ -7,6 +7,7 @@ import {
   StaffAuthError,
 } from '@/lib/admin/auth';
 import { getClientIp } from '@/lib/auth/rateLimit';
+import { createNotification } from '@/lib/notifications';
 
 const ALLOWED_STATUSES = new Set<OrderStatus>([
   'PENDING_PAYMENT',
@@ -86,6 +87,17 @@ export async function PATCH(req: NextRequest) {
       detail: { status, orderNumber: updated.orderNumber },
       ip: getClientIp(req),
     });
+
+    if (updated.userId) {
+      void createNotification({
+        userId: updated.userId,
+        type: 'ORDER_UPDATE',
+        title: `Atelier Order ${updated.orderNumber}`,
+        body: `Your order status was updated to ${status}.${note ? ` ${note}` : ''}`,
+        href: '/skincare',
+        metadata: { orderId: updated.id, orderNumber: updated.orderNumber, status },
+      });
+    }
 
     return NextResponse.json({
       success: true,

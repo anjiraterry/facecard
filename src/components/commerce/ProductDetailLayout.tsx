@@ -16,6 +16,7 @@ import { formatNgnMinor } from '@/lib/atelier/serialize';
 interface ProductDetailLayoutProps {
   product: AtelierProductDTO | null;
   onAddToBag?: (variantId: string, productName: string) => void;
+  onBuyNow?: (variantId: string, product: AtelierProductDTO) => void;
   isAdding?: boolean;
 }
 
@@ -29,7 +30,7 @@ const RESEARCH_PROMPTS = [
  * Product Detail Page (PDP) layout with multi-image gallery, ratings & reviews,
  * and AI Skincare Researcher connected to live backend endpoints.
  */
-export function ProductDetailLayout({ product, onAddToBag, isAdding }: ProductDetailLayoutProps) {
+export function ProductDetailLayout({ product, onAddToBag, onBuyNow, isAdding }: ProductDetailLayoutProps) {
   const [selectedVariantId, setSelectedVariantId] = useState<string>(
     product?.variants[0]?.id || ''
   );
@@ -266,8 +267,18 @@ export function ProductDetailLayout({ product, onAddToBag, isAdding }: ProductDe
           )}
 
           <div className="space-y-2 pt-1">
+            {onBuyNow && selectedVariant?.inStock && (
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                onClick={() => onBuyNow(selectedVariant.id, product)}
+              >
+                <span>Buy Now · {priceLabel}</span>
+              </Button>
+            )}
             <Button
-              variant="primary"
+              variant={onBuyNow && selectedVariant?.inStock ? 'secondary' : 'primary'}
               size="lg"
               fullWidth
               disabled={!selectedVariant?.inStock || isAdding}

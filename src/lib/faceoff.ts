@@ -4,6 +4,7 @@ import { EconomyConfig } from '@/lib/economy';
 import { postLedger, InsufficientBalanceError } from '@/lib/ledger';
 import { getLagosDayKey } from '@/lib/scoring';
 import { FaceOffMode, FaceOffStatus } from '@prisma/client';
+import { createNotification } from '@/lib/notifications';
 
 export class FaceOffError extends Error {
   constructor(message: string, public readonly status: number = 400) {
@@ -97,8 +98,8 @@ export async function createFaceOff(input: CreateDuelInput) {
   const expiresAt = new Date(Date.now() + EconomyConfig.ARENA.EXPIRY_MINUTES * 60 * 1000);
 
   // 4. Create duel and escrow stake atomically
-  return db.$transaction(async (tx) => {
-    const duel = await tx.faceOff.create({
+  const duel = await db.$transaction(async (tx) => {
+    const created = await tx.faceOff.create({
       data: {
         challengerId,
         opponentId: targetOpponentId,
@@ -118,8 +119,8 @@ export async function createFaceOff(input: CreateDuelInput) {
           amount: -stake,
           balanceKind: 'SPENDABLE',
           refType: 'FACEOFF',
-          refId: duel.id,
-          idempotencyKey: `faceoff-create-stake:${duel.id}:${challengerId}`,
+          refId: created.id,
+          idempotencyKey: `faceoff-create-stake:${created.id}:${challengerId}`,
         });
       } catch (err) {
         if (err instanceof InsufficientBalanceError) {
@@ -132,8 +133,23 @@ export async function createFaceOff(input: CreateDuelInput) {
       }
     }
 
-    return duel;
+    return created;
   });
+
+  if (targetOpponentId) {
+    void createNotification({
+      userId: targetOpponentId,
+      type: 'FACEOFF_INVITE',
+      title: 'New Arena Duel Challenge!',
+      body: isStaked && stake > 0
+        ? `You've been challenged to a ${stake} PTS staked Arena duel. Accept and take your match scan.`
+        : `You've been challenged to a friendly Arena duel. Accept and take your match scan.`,
+      href: `/faceoff?duel=${duel.inviteCode}`,
+      metadata: { duelId: duel.id, inviteCode: duel.inviteCode, stake },
+    });
+  }
+
+  return duel;
 }
 
 export async function joinFaceOff(duelId: string, opponentId: string) {
@@ -166,8 +182,8 @@ export async function joinFaceOff(duelId: string, opponentId: string) {
     throw new FaceOffError('This private duel was issued to another user.', 403);
   }
 
-  // Same-tier matchmaking rule
-  if (opponent.tier !== duel.challenger.tier) {
+  // Same-tier matchmaking rule (applies to staked competitive duels; friendly duels allow cross-tier)
+  if (duel.mode === FaceOffMode.STAKED && opponent.tier !== duel.challenger.tier) {
     throw new FaceOffError(
       `Same-tier matchmaking: duel requires ${duel.challenger.tier} tier (you are ${opponent.tier}).`,
       400
@@ -260,7 +276,7 @@ export async function resolveFaceOff(duelId: string) {
   const winnerId = challengerWon ? duel.challengerId : duel.opponentId;
   const isStaked = duel.mode === FaceOffMode.STAKED && duel.stake > 0;
 
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     // 1. Atomic state guard to prevent double resolution
     const isSecondTie = isTie && (duel.rematchCount ?? 0) >= 1;
     const nextStatus = isTie
@@ -387,6 +403,33 @@ export async function resolveFaceOff(duelId: string) {
       winBonus,
     };
   });
+
+  if (result.status === 'COMPLETED' && 'winnerId' in result && result.winnerId) {
+    const loserId = result.winnerId === duel.challengerId ? duel.opponentId : duel.challengerId;
+    const totalWon = (result.payout ?? 0) + (result.winBonus ?? 0);
+    void createNotification({
+      userId: result.winnerId,
+      type: 'FACEOFF_RESULT',
+      title: 'Congratulations! Arena Victory',
+      body: totalWon > 0
+        ? `You won the Arena duel (${challengerScore} vs ${opponentScore}) and earned +${totalWon} PTS!`
+        : `You won the Arena duel (${challengerScore} vs ${opponentScore})!`,
+      href: '/faceoff',
+      metadata: { duelId: duel.id, outcome: 'WIN', totalWon },
+    });
+    if (loserId) {
+      void createNotification({
+        userId: loserId,
+        type: 'FACEOFF_RESULT',
+        title: 'Arena Duel Completed',
+        body: `Your Arena duel finished (${challengerScore} vs ${opponentScore}). Enter another match to climb the rankings.`,
+        href: '/faceoff',
+        metadata: { duelId: duel.id, outcome: 'LOSS' },
+      });
+    }
+  }
+
+  return result;
 }
 
 export async function cancelFaceOff(duelId: string, userId: string) {

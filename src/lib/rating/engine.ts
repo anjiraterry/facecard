@@ -359,7 +359,7 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
   let expressionScoreVal = 85;
   let auraScoreVal = 88;
 
-  if (input.featureVector) {
+  if (input.featureVector && input.featureVector.qualityGate && typeof input.featureVector.qualityGate === 'object') {
     scoringSource = 'FEATURE_VECTOR';
     const fv = input.featureVector;
     const framingScore =

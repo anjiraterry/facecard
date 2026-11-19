@@ -26,7 +26,9 @@ import {
   CreditCard,
   Camera,
   Upload,
-  CheckCircle2
+  CheckCircle2,
+  LifeBuoy,
+  FileText
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
@@ -64,6 +66,12 @@ export default function ProfilePage() {
   const avatarFileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportCategory, setSupportCategory] = useState<'GENERAL' | 'SCAN_SCORING' | 'ARENA_DUEL' | 'ATELIER_ORDER' | 'ACCOUNT_PRIVACY'>('GENERAL');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [submittingSupport, setSubmittingSupport] = useState(false);
+  const [myTickets, setMyTickets] = useState<Array<{ id: string; subject: string; status: string; createdAt: string }>>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMenuFriendId, setActiveMenuFriendId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -143,6 +151,45 @@ export default function ProfilePage() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  const openSupportModal = async () => {
+    setShowSupportModal(true);
+    try {
+      const res = await fetch('/api/support');
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMyTickets(data.tickets || []);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSubmitSupport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingSupport(true);
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: supportSubject,
+          category: supportCategory,
+          message: supportMessage,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit ticket');
+      setMyTickets((prev) => [data.ticket, ...prev]);
+      setSupportSubject('');
+      setSupportMessage('');
+      showToast('Support ticket submitted!');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to submit ticket');
+    } finally {
+      setSubmittingSupport(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -261,12 +308,20 @@ export default function ProfilePage() {
           backLabel="Back to home"
           showQuickActions={false}
           rightSlot={
-            <Link
-              href="/card"
-              className="text-xs font-semibold text-[var(--foreground)] bg-[var(--surface-secondary)] hover:bg-[var(--accent)] border border-[var(--border)] px-3 py-1.5 rounded-full transition-colors"
-            >
-              My Card
-            </Link>
+            <div className="flex items-center gap-1.5">
+              <Link
+                href="/gallery"
+                className="text-xs font-semibold text-[var(--foreground)] bg-[var(--surface)] hover:bg-[var(--surface-secondary)] border border-[var(--border)] px-3 py-1.5 rounded-full transition-colors"
+              >
+                Gallery
+              </Link>
+              <Link
+                href="/card"
+                className="text-xs font-semibold text-[var(--foreground)] bg-[var(--surface-secondary)] hover:bg-[var(--accent)] border border-[var(--border)] px-3 py-1.5 rounded-full transition-colors"
+              >
+                My Card
+              </Link>
+            </div>
           }
         />
 
@@ -858,8 +913,40 @@ export default function ProfilePage() {
         )}
         </FramerTabPanel>
 
-        {/* Account & Sign Out Section */}
+        {/* Account, Support & Legal Section */}
         <section className="pt-2 space-y-3">
+          <div className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-[var(--shadow-xs)] flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <LifeBuoy className="w-4 h-4 text-[var(--accent-brand)] shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-[var(--text-main)]">Help &amp; Support</p>
+                <p className="text-[10px] text-[var(--text-muted)]">Questions about scans, Arena duels, or Atelier orders</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openSupportModal}
+                className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity cursor-pointer"
+              >
+                Contact Support
+              </button>
+              <Link
+                href="/terms"
+                className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[var(--surface-secondary)] text-[var(--foreground)] hover:opacity-90 transition-opacity inline-flex items-center gap-1"
+              >
+                <FileText className="w-3 h-3" />
+                <span>Terms</span>
+              </Link>
+              <Link
+                href="/privacy"
+                className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[var(--surface-secondary)] text-[var(--foreground)] hover:opacity-90 transition-opacity"
+              >
+                Privacy
+              </Link>
+            </div>
+          </div>
+
           <div className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-[var(--shadow-xs)] flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <Lock className="w-4 h-4 text-[var(--success)] shrink-0" />
@@ -883,6 +970,106 @@ export default function ProfilePage() {
               </button>
             </div>
           </div>
+
+          {/* Support Ticket Modal */}
+          {showSupportModal && (
+            <div
+              onClick={() => setShowSupportModal(false)}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-[24px] bg-[var(--surface)] border border-[var(--border-card)] p-6 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-[var(--foreground)]">Help &amp; Support</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowSupportModal(false)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--foreground-muted)] hover:bg-[var(--surface-secondary)] cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmitSupport} className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-[var(--foreground-secondary)] block mb-1">
+                      Category
+                    </label>
+                    <select
+                      value={supportCategory}
+                      onChange={(e) => setSupportCategory(e.target.value as typeof supportCategory)}
+                      className="w-full px-3 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs text-[var(--foreground)]"
+                    >
+                      <option value="GENERAL">General</option>
+                      <option value="SCAN_SCORING">Scan &amp; Scoring</option>
+                      <option value="ARENA_DUEL">Arena Duels</option>
+                      <option value="ATELIER_ORDER">Atelier Order</option>
+                      <option value="ACCOUNT_PRIVACY">Account &amp; Privacy</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-[var(--foreground-secondary)] block mb-1">
+                      Subject
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      minLength={3}
+                      value={supportSubject}
+                      onChange={(e) => setSupportSubject(e.target.value)}
+                      placeholder="Brief summary..."
+                      className="w-full px-3 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs text-[var(--foreground)]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-[var(--foreground-secondary)] block mb-1">
+                      Message
+                    </label>
+                    <textarea
+                      required
+                      minLength={10}
+                      rows={3}
+                      value={supportMessage}
+                      onChange={(e) => setSupportMessage(e.target.value)}
+                      placeholder="Describe how we can help..."
+                      className="w-full px-3 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs text-[var(--foreground)]"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={submittingSupport}
+                    className="w-full py-2.5 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+                  >
+                    {submittingSupport ? 'Submitting...' : 'Submit Support Ticket'}
+                  </button>
+                </form>
+
+                {myTickets.length > 0 && (
+                  <div className="pt-3 border-t border-[var(--border)] space-y-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--foreground-muted)] block">
+                      Your Recent Tickets
+                    </span>
+                    {myTickets.map((t) => (
+                      <div
+                        key={t.id}
+                        className="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] flex items-center justify-between gap-2 text-xs"
+                      >
+                        <span className="font-semibold text-[var(--foreground)] truncate">{t.subject}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--surface-secondary)] text-[var(--foreground-secondary)] shrink-0">
+                          {t.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Delete Account Confirmation Modal */}
           {showDeleteConfirm && (

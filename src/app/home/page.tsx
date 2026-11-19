@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import {
   Camera,
   Swords,
@@ -30,10 +31,34 @@ import { useFaceoff } from '@/hooks/useFaceoff';
 import { useFriends } from '@/hooks/useFriends';
 
 export default function HomePage() {
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('facecard_home_liked') === 'true';
+    }
+    return false;
+  });
+  const toggleLike = () => {
+    setIsLiked((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('facecard_home_liked', String(next));
+      }
+      return next;
+    });
+  };
   const { activeCard: backendCard, formula, spendableBalance, lifetimePoints, isLoading: cardLoading } = useCard();
   const { faceoffs, isLoading: duelsLoading } = useFaceoff();
   const { friends, isLoading: friendsLoading } = useFriends();
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['notifications-unread'],
+    queryFn: async () => {
+      const res = await fetch('/api/notifications?unreadOnly=true');
+      if (!res.ok) return 0;
+      const data = await res.json();
+      return typeof data.unreadCount === 'number' ? data.unreadCount : 0;
+    },
+    staleTime: 30 * 1000,
+  });
 
   const activeCard: FaceCardData | null = backendCard;
   const myDuels = faceoffs.filter((d) => (d as unknown as { isMine?: boolean }).isMine);
@@ -94,14 +119,16 @@ export default function HomePage() {
             </Link>
 
             <Link
-              href="/scan"
-              aria-label="Notifications and daily scan"
+              href="/notifications"
+              aria-label="Notifications"
               className="relative w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-main)] hover:bg-[var(--bg-surface-warm)] transition-colors"
             >
               <Bell className="w-5 h-5 stroke-[1.8]" />
-              <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[var(--accent-primary)] text-[var(--bg-page)] text-[9px] font-bold flex items-center justify-center tabular-nums">
-                {myDuels.length > 0 ? Math.min(myDuels.length, 9) : 1}
-              </span>
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[var(--accent-primary)] text-[var(--bg-page)] text-[9px] font-bold flex items-center justify-center tabular-nums">
+                  {Math.min(unreadCount, 9)}
+                </span>
+              )}
             </Link>
 
             <Link
@@ -284,7 +311,7 @@ export default function HomePage() {
 
                     <button
                       type="button"
-                      onClick={() => setIsLiked(!isLiked)}
+                      onClick={toggleLike}
                       aria-label={isLiked ? 'Remove favorite' : 'Favorite card'}
                       className="w-9 h-9 rounded-full bg-[#EBDCD5] text-[#251E24] flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
                     >
@@ -431,7 +458,7 @@ export default function HomePage() {
               </p>
             </div>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.08em] bg-[var(--bg-surface-warm)] text-[var(--text-secondary)]">
-              5 Factors
+              {formulaList.length} Factors
             </span>
           </div>
 
@@ -471,9 +498,9 @@ export default function HomePage() {
             <div className="w-8 h-8 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-card)] flex items-center justify-center text-[var(--status-success)]">
               <Lock className="w-4 h-4" />
             </div>
-            <h3 className="text-xs font-semibold text-[var(--text-main)]">Zero Image Retention</h3>
+            <h3 className="text-xs font-semibold text-[var(--text-main)]">Private by Default</h3>
             <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-              Selfies are processed in volatile memory and discarded immediately.
+              Selfies are processed in volatile memory and only saved to your Gallery if you choose.
             </p>
           </SurfaceCard>
         </section>
@@ -481,6 +508,7 @@ export default function HomePage() {
         <footer className="text-center text-xs text-[var(--text-muted)] space-y-2 pt-3 pb-4">
           <p>Portrait scores celebrate photo craft &amp; self-expression. 18+ only.</p>
           <div className="flex items-center justify-center gap-4 text-[11px] font-medium">
+            <Link href="/gallery" className="hover:text-[var(--text-main)] transition-colors">Gallery</Link>
             <Link href="/leaderboard" className="hover:text-[var(--text-main)] transition-colors">Leaderboard</Link>
             <Link href="/friends" className="hover:text-[var(--text-main)] transition-colors">Friends</Link>
             <Link href="/skincare" className="hover:text-[var(--text-main)] transition-colors">Atelier</Link>

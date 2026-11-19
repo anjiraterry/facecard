@@ -128,7 +128,9 @@ export default function LightOnboardingPage() {
                 className="mt-0.5 rounded border-[var(--border-strong)] text-[var(--accent-primary)] focus:ring-[var(--focus-ring)] w-4 h-4 cursor-pointer"
               />
               <span className="text-[11px] leading-relaxed text-[var(--text-muted)]">
-                I am 18+ and accept the NDPA biometric privacy terms. Raw selfies are scored in ephemeral memory and never permanently stored.
+                I am 18+ and accept the{' '}
+                <Link href="/terms" className="underline text-[var(--text-main)]">Terms</Link> and{' '}
+                <Link href="/privacy" className="underline text-[var(--text-main)]">Privacy Policy</Link>. Selfies are scored in ephemeral memory unless saved to your Gallery.
               </span>
             </label>
 

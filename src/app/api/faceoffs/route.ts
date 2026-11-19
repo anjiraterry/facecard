@@ -16,9 +16,10 @@ export async function GET(req: NextRequest) {
     const sessionUser = await getSessionUser();
     const now = new Date();
 
-    // Show duels relevant to current user: their own duels + open waiting unexpired duels
+    // Show active/waiting/completed duels relevant to current user (exclude CANCELLED & EXPIRED)
     const whereClause = sessionUser
       ? {
+          status: { notIn: [FaceOffStatus.CANCELLED, FaceOffStatus.EXPIRED] },
           OR: [
             { challengerId: sessionUser.id },
             { opponentId: sessionUser.id },
@@ -53,6 +54,7 @@ export async function GET(req: NextRequest) {
 
     const formatted = faceoffs.map((f) => {
       const isChallenger = sessionUser ? f.challengerId === sessionUser.id : false;
+      const isAwaitingOpenRival = isChallenger && !f.opponent;
       const targetUser = isChallenger && f.opponent ? f.opponent : f.challenger;
 
       const handleClean = targetUser.handle ? targetUser.handle.replace(/^@/, '') : 'contender';
@@ -68,7 +70,7 @@ export async function GET(req: NextRequest) {
       const tier = targetUser.tier;
       const isMine = sessionUser ? (f.challengerId === sessionUser.id || f.opponentId === sessionUser.id) : false;
       const isExpired = f.expiresAt.getTime() <= Date.now();
-      const sameTier = sessionUser ? sessionUser.tier === f.challenger.tier : true;
+      const sameTier = f.mode === FaceOffMode.FRIENDLY || !sessionUser ? true : sessionUser.tier === f.challenger.tier;
       const canJoin = Boolean(
         sessionUser &&
         !isMine &&
@@ -80,8 +82,8 @@ export async function GET(req: NextRequest) {
 
       return {
         id: f.id,
-        opponentName: targetUser.displayName,
-        handle: `@${handleClean}`,
+        opponentName: isAwaitingOpenRival ? 'Open Arena Challenge' : targetUser.displayName,
+        handle: isAwaitingOpenRival ? 'Waiting for Rival' : `@${handleClean}`,
         image,
         iconAvatar,
         tier: tier.charAt(0) + tier.slice(1).toLowerCase(),

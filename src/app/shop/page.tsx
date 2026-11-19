@@ -31,6 +31,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { FramerTabPanel } from '@/components/ui/MotionPrimitives';
 import { Tier } from '@/types';
 import { useShop } from '@/hooks/useShop';
+import { useFriends } from '@/hooks/useFriends';
 import { resolveItemAppearance, BOUTIQUE_CATEGORY_PALETTES } from '@/lib/boutique/palette';
 import { CollectibleArtwork } from '@/components/boutique/CollectibleArtwork';
 
@@ -102,6 +103,38 @@ export default function ShopPage() {
 
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('ALL');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { friends } = useFriends();
+  const [giftItem, setGiftItem] = useState<{ id: string; name: string; price: number } | null>(null);
+  const [giftHandle, setGiftHandle] = useState('');
+  const [giftMessage, setGiftMessage] = useState('');
+  const [sendingGift, setSendingGift] = useState(false);
+
+  const handleSendGift = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!giftItem || !giftHandle.trim()) return;
+    setSendingGift(true);
+    try {
+      const res = await fetch('/api/gifts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId: giftItem.id,
+          recipientHandle: giftHandle.trim().replace(/^@/, ''),
+          message: giftMessage.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send gift');
+      showToast(`Sent ${giftItem.name} to @${giftHandle.trim().replace(/^@/, '')}!`);
+      setGiftItem(null);
+      setGiftHandle('');
+      setGiftMessage('');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to send gift');
+    } finally {
+      setSendingGift(false);
+    }
+  };
 
   const balance = backendBalance ?? 0;
   const userTier: Tier = (backendTier as Tier) || 'GOLD';
@@ -322,7 +355,20 @@ export default function ShopPage() {
                   </div>
 
                   <div className="pt-3 pb-2 space-y-1">
-                    <h3 className="text-xs font-semibold text-[var(--text-main)] truncate">{item.name}</h3>
+                    <div className="flex items-center justify-between gap-1">
+                      <h3 className="text-xs font-semibold text-[var(--text-main)] truncate">{item.name}</h3>
+                      {item.isGiftable && (
+                        <button
+                          type="button"
+                          onClick={() => setGiftItem({ id: item.id, name: item.name, price: item.price })}
+                          title="Gift to a friend"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--bg-surface-warm)] text-[var(--text-main)] text-[9px] font-semibold hover:bg-[var(--accent-soft)] transition-colors shrink-0 cursor-pointer"
+                        >
+                          <Gift className="w-2.5 h-2.5" />
+                          <span>Gift</span>
+                        </button>
+                      )}
+                    </div>
                     <p className="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">
                       {item.description}
                     </p>
@@ -389,6 +435,79 @@ export default function ShopPage() {
           </p>
         </SurfaceCard>
       </main>
+
+      {giftItem && (
+        <div
+          onClick={() => setGiftItem(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-[24px] bg-[var(--surface)] border border-[var(--border)] p-5 space-y-4 shadow-2xl"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-[var(--foreground)]">Send Gift</h3>
+                <p className="text-[11px] text-[var(--foreground-muted)]">
+                  {giftItem.name} · {giftItem.price} PTS
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGiftItem(null)}
+                className="text-xs font-semibold text-[var(--foreground-muted)] hover:text-[var(--foreground)] cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+
+            {friends.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground-muted)]">
+                  Quick Pick from Circle
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {friends.slice(0, 6).map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setGiftHandle(f.handle)}
+                      className="px-2.5 py-1 rounded-full bg-[var(--surface-secondary)] text-[11px] font-semibold text-[var(--foreground)] hover:opacity-80 cursor-pointer"
+                    >
+                      {f.handle}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleSendGift} className="space-y-3">
+              <input
+                type="text"
+                required
+                value={giftHandle}
+                onChange={(e) => setGiftHandle(e.target.value)}
+                placeholder="@recipient_handle"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs text-[var(--foreground)]"
+              />
+              <textarea
+                rows={2}
+                value={giftMessage}
+                onChange={(e) => setGiftMessage(e.target.value)}
+                placeholder="Optional note..."
+                className="w-full px-3 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs text-[var(--foreground)]"
+              />
+              <button
+                type="submit"
+                disabled={sendingGift || balance < giftItem.price}
+                className="w-full py-2.5 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
+              >
+                {sendingGift ? 'Sending Gift...' : `Send Gift (${giftItem.price} PTS)`}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

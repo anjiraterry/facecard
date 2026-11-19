@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const name = searchParams.get('name') || 'CHIDINMA OKON';
+  const name = searchParams.get('name') || 'FACE CARD MEMBER';
   const tier = searchParams.get('tier') || 'GOLD';
   const score = searchParams.get('score') || '84';
   const band = searchParams.get('band') || 'DANGEROUS';

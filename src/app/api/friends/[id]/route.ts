@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
 import { getInitialsAvatarSvg } from '@/lib/avatar';
+import { createNotification } from '@/lib/notifications';
 
 export async function GET(
   req: NextRequest,
@@ -60,12 +61,14 @@ export async function GET(
     const isSelf = sessionUser ? sessionUser.id === user.id : false;
 
     if (sessionUser && !isSelf) {
-      // Check friendship via dedicated Friendship table
+      // Check mutual friendship via dedicated Friendship table
       const friendship = await db.friendship.findFirst({
         where: {
-          requesterId: sessionUser.id,
-          addresseeId: user.id,
           status: 'ACCEPTED',
+          OR: [
+            { requesterId: sessionUser.id, addresseeId: user.id },
+            { requesterId: user.id, addresseeId: sessionUser.id },
+          ],
         },
       });
       isFriend = Boolean(friendship);
@@ -200,6 +203,48 @@ export async function POST(
       return NextResponse.json({ error: 'Cannot add yourself as a friend' }, { status: 400 });
     }
 
+    const existing = await db.friendship.findFirst({
+      where: {
+        OR: [
+          { requesterId: sessionUser.id, addresseeId: target.id },
+          { requesterId: target.id, addresseeId: sessionUser.id },
+        ],
+      },
+    });
+
+    if (existing?.status === 'BLOCKED') {
+      return NextResponse.json({ error: 'Unable to send friend request to this user' }, { status: 403 });
+    }
+
+    if (existing?.status === 'ACCEPTED') {
+      return NextResponse.json({
+        success: true,
+        isFriend: true,
+        status: 'ACCEPTED',
+        message: `You and @${target.handle || target.displayName} are already friends.`,
+      });
+    }
+
+    if (existing && existing.requesterId === target.id && existing.status === 'PENDING') {
+      await db.friendship.update({
+        where: { id: existing.id },
+        data: { status: 'ACCEPTED' },
+      });
+      void createNotification({
+        userId: target.id,
+        type: 'FRIEND_ACCEPTED',
+        title: 'Circle Request Accepted',
+        body: `@${sessionUser.handle || sessionUser.displayName} accepted your Circle request.`,
+        href: '/friends',
+      });
+      return NextResponse.json({
+        success: true,
+        isFriend: true,
+        status: 'ACCEPTED',
+        message: `Accepted @${target.handle || target.displayName} into your Circle!`,
+      });
+    }
+
     await db.friendship.upsert({
       where: {
         requesterId_addresseeId: {
@@ -207,18 +252,27 @@ export async function POST(
           addresseeId: target.id,
         },
       },
-      update: { status: 'ACCEPTED' },
+      update: { status: 'PENDING' },
       create: {
         requesterId: sessionUser.id,
         addresseeId: target.id,
-        status: 'ACCEPTED',
+        status: 'PENDING',
       },
+    });
+
+    void createNotification({
+      userId: target.id,
+      type: 'FRIEND_REQUEST',
+      title: 'New Circle Request',
+      body: `@${sessionUser.handle || sessionUser.displayName} wants to join your Circle.`,
+      href: '/friends',
     });
 
     return NextResponse.json({
       success: true,
-      isFriend: true,
-      message: `Added @${target.handle || target.displayName} as a friend!`,
+      isFriend: false,
+      status: 'PENDING',
+      message: `Friend request sent to @${target.handle || target.displayName}!`,
     });
   } catch (error) {
     return NextResponse.json(
@@ -257,8 +311,10 @@ export async function DELETE(
 
     await db.friendship.deleteMany({
       where: {
-        requesterId: sessionUser.id,
-        addresseeId: target.id,
+        OR: [
+          { requesterId: sessionUser.id, addresseeId: target.id },
+          { requesterId: target.id, addresseeId: sessionUser.id },
+        ],
       },
     });
 
@@ -270,6 +326,63 @@ export async function DELETE(
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to remove friend', message: error instanceof Error ? error.message : 'Error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await req.json().catch(() => ({}));
+    const action = body?.action === 'accept' ? 'accept' : body?.action === 'decline' ? 'decline' : null;
+    if (!action) {
+      return NextResponse.json({ error: 'action must be accept or decline' }, { status: 400 });
+    }
+
+    // id can be Friendship.id or requester User.id
+    const pending = await db.friendship.findFirst({
+      where: {
+        addresseeId: sessionUser.id,
+        status: 'PENDING',
+        OR: [{ id }, { requesterId: id }],
+      },
+    });
+
+    if (!pending) {
+      return NextResponse.json({ error: 'Pending friend request not found' }, { status: 404 });
+    }
+
+    if (action === 'decline') {
+      await db.friendship.delete({ where: { id: pending.id } });
+      return NextResponse.json({ success: true, status: 'DECLINED' });
+    }
+
+    await db.friendship.update({
+      where: { id: pending.id },
+      data: { status: 'ACCEPTED' },
+    });
+
+    void createNotification({
+      userId: pending.requesterId,
+      type: 'FRIEND_ACCEPTED',
+      title: 'Circle Request Accepted!',
+      body: `@${sessionUser.handle || sessionUser.displayName} accepted your friend request.`,
+      href: '/friends',
+    });
+
+    return NextResponse.json({ success: true, status: 'ACCEPTED' });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to respond to friend request', message: error instanceof Error ? error.message : 'Error' },
       { status: 500 }
     );
   }

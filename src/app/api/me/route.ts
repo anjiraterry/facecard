@@ -71,8 +71,12 @@ export async function GET() {
       handle: `@${handleClean}`,
       avatar,
       avatarUrl: userAvatar,
-      dob: user.ageConfirmedAt ? user.ageConfirmedAt.toISOString().split('T')[0] : null,
-      dobFormatted: user.ageConfirmedAt ? 'Age 18+ (Verified)' : 'Unverified',
+      dob: user.dateOfBirth ? user.dateOfBirth.toISOString().split('T')[0] : null,
+      dobFormatted: user.dateOfBirth
+        ? user.dateOfBirth.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        : user.ageConfirmedAt
+        ? '18+ Confirmed (Set DOB)'
+        : 'Unverified',
       location: 'WAT (West Africa)',
       bio: null,
       memberSince: memberSinceStr,
@@ -123,11 +127,32 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    let nextDateOfBirth: Date | undefined;
+    if (typeof updates.dob === 'string' && updates.dob.trim().length > 0) {
+      const parsedDob = new Date(`${updates.dob.trim()}T00:00:00.000Z`);
+      if (Number.isNaN(parsedDob.getTime())) {
+        return NextResponse.json({ error: 'Invalid date of birth format.' }, { status: 400 });
+      }
+      const today = new Date();
+      const age =
+        today.getUTCFullYear() -
+        parsedDob.getUTCFullYear() -
+        (today.getUTCMonth() < parsedDob.getUTCMonth() ||
+        (today.getUTCMonth() === parsedDob.getUTCMonth() && today.getUTCDate() < parsedDob.getUTCDate())
+          ? 1
+          : 0);
+      if (age < 18) {
+        return NextResponse.json({ error: 'You must be at least 18 years old.' }, { status: 400 });
+      }
+      nextDateOfBirth = parsedDob;
+    }
+
     const updated = await db.user.update({
       where: { id: sessionUser.id },
       data: {
         displayName: nextDisplayName,
         handle: nextHandle,
+        ...(nextDateOfBirth ? { dateOfBirth: nextDateOfBirth } : {}),
       },
     });
 

@@ -87,6 +87,7 @@ model User {
   displayName        String
   handle             String?      @unique
   ageConfirmedAt     DateTime?
+  dateOfBirth        DateTime?
   consentVersion     String?
   consentAt          DateTime?
   lifetimePoints     Int          @default(0)
@@ -144,6 +145,8 @@ model User {
   collectionCompletions CollectionCompletion[]
   boutiqueRefunds       BoutiqueRefund[]
   tierUpgradeEvents     TierUpgradeEvent[]
+  savedScans            SavedScan[]
+  notifications         Notification[]
 }
 
 enum ScoringConfigKind {
@@ -273,6 +276,7 @@ model Scan {
   challengerBestInFaceOffs FaceOff[] @relation("ChallengerBestScan")
   opponentBestInFaceOffs   FaceOff[] @relation("OpponentBestScan")
   shareCards     ShareCard[]
+  savedScans     SavedScan[]
 
   @@index([userId, dayKey])
 }
@@ -1694,4 +1698,52 @@ model BoutiqueRefund {
 
   @@index([status, createdAt])
   @@index([userId])
+}
+
+model SavedScan {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  scanId         String?  @db.Uuid
+  score          Int
+  band           Band
+  tier           Tier
+  verdictLine    String?
+  categoryScores Json?
+  imageDataUrl   String?
+  caption        String?
+  isFavorite     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scan           Scan?    @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+}
+
+enum NotificationType {
+  TIER_UPGRADE
+  STREAK_MILESTONE
+  FACEOFF_INVITE
+  FACEOFF_RESULT
+  FRIEND_REQUEST
+  FRIEND_ACCEPTED
+  GIFT_RECEIVED
+  ORDER_UPDATE
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType @default(SYSTEM)
+  title     String
+  body      String
+  href      String?
+  metadata  Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
 }

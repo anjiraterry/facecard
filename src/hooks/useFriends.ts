@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { friendService } from '@/services/friendService';
+import { friendService, IncomingFriendRequest } from '@/services/friendService';
 import { FriendItem } from '@/app/api/friends/route';
 
 export function useFriends(searchQuery?: string, suggested?: boolean) {
   const [friends, setFriends] = useState<FriendItem[]>([]);
+  const [incomingRequests, setIncomingRequests] = useState<IncomingFriendRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,6 +17,7 @@ export function useFriends(searchQuery?: string, suggested?: boolean) {
       const res = await friendService.getFriends(searchQuery, suggested);
       if (res.success) {
         setFriends(res.friends);
+        setIncomingRequests(res.incomingRequests || []);
       }
     } catch (err: unknown) {
       console.warn('Failed to fetch friends:', err);
@@ -30,6 +32,7 @@ export function useFriends(searchQuery?: string, suggested?: boolean) {
       .then((res) => {
         if (!ignore && res.success) {
           setFriends(res.friends);
+          setIncomingRequests(res.incomingRequests || []);
           setIsLoading(false);
         }
       })
@@ -51,11 +54,19 @@ export function useFriends(searchQuery?: string, suggested?: boolean) {
     return res;
   };
 
+  const respondToRequest = async (id: string, action: 'accept' | 'decline') => {
+    const res = await friendService.respondToRequest(id, action);
+    await fetchFriends();
+    return res;
+  };
+
   return {
     friends,
+    incomingRequests,
     isLoading,
     error,
     addFriend,
+    respondToRequest,
     refreshFriends: fetchFriends,
   };
 }

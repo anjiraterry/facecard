@@ -38,6 +38,18 @@ export function PageHeader({
     staleTime: 60 * 1000,
   });
 
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['notifications-unread'],
+    queryFn: async () => {
+      const res = await fetch('/api/notifications?unreadOnly=true');
+      if (!res.ok) return 0;
+      const data = await res.json();
+      return typeof data.unreadCount === 'number' ? data.unreadCount : 0;
+    },
+    enabled: showQuickActions,
+    staleTime: 30 * 1000,
+  });
+
   const displayPoints = points ?? cardRes?.spendableBalance ?? 0;
 
   const handleBack = () => {
@@ -86,12 +98,17 @@ export function PageHeader({
             </Link>
 
             <Link
-              href="/scan"
-              aria-label="Notifications and daily scan"
+              href="/notifications"
+              aria-label="Notifications"
               className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-[var(--foreground)] hover:bg-[var(--surface-secondary)] transition-colors"
-              title="Daily Scan & Alerts"
+              title="Notifications"
             >
               <Bell className="w-[18px] h-[18px] stroke-[1.75]" />
+              {unreadCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] text-[9px] font-bold flex items-center justify-center tabular-nums">
+                  {Math.min(unreadCount, 9)}
+                </span>
+              )}
             </Link>
 
             <Link

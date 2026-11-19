@@ -44,8 +44,15 @@ export function DuelDetailModal({
 
   if (!duel) return null;
 
-  const opponentHandle = duel.handle?.startsWith('@') ? duel.handle : `@${duel.handle || 'opponent'}`;
-  const profileUrl = `/friends/${duel.targetUserId || duel.opponentId || opponentHandle.replace(/^@/, '')}`;
+  const isOpenWaiting = duel.handle === 'Waiting for Rival';
+  const opponentHandle = isOpenWaiting
+    ? 'Open Arena Slot'
+    : duel.handle?.startsWith('@')
+    ? duel.handle
+    : `@${duel.handle || 'opponent'}`;
+  const profileUrl = isOpenWaiting
+    ? null
+    : `/friends/${duel.targetUserId || duel.opponentId || opponentHandle.replace(/^@/, '')}`;
   const totalPrize = duel.stakeAmount ? duel.stakeAmount * 2 : 0;
 
   const copyLink = () => {
@@ -124,14 +131,20 @@ export function DuelDetailModal({
                 </div>
               </div>
 
-              <Link
-                href={profileUrl}
-                onClick={onClose}
-                className="w-full py-2 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-main)] text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <span>View Profile</span>
-                <ExternalLink className="w-3 h-3" />
-              </Link>
+              {profileUrl ? (
+                <Link
+                  href={profileUrl}
+                  onClick={onClose}
+                  className="w-full py-2 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-main)] text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <span>View Profile</span>
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+              ) : (
+                <div className="w-full py-2 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-muted)] text-[11px] font-medium text-center">
+                  Open Challenge
+                </div>
+              )}
             </div>
 
             <div className="p-4 rounded-2xl bg-[var(--bg-surface-warm)] border border-[var(--border-subtle)] space-y-3 flex flex-col justify-between">
@@ -248,7 +261,7 @@ export function DuelDetailModal({
                     </Button>
                   )}
                 </>
-              ) : duel.status !== 'COMPLETED' ? (
+              ) : duel.status === 'ACTIVE' ? (
                 <>
                   <Button
                     variant="primary"
@@ -283,15 +296,17 @@ export function DuelDetailModal({
           )}
 
           <div className="flex items-center gap-2 pt-1">
-            <Link
-              href={profileUrl}
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-full bg-[var(--bg-surface-warm)] hover:bg-[var(--bg-secondary)] text-[var(--text-main)] text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1.5"
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>View {opponentHandle}’s Profile</span>
-            </Link>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            {profileUrl && (
+              <Link
+                href={profileUrl}
+                onClick={onClose}
+                className="flex-1 py-2.5 rounded-full bg-[var(--bg-surface-warm)] hover:bg-[var(--bg-secondary)] text-[var(--text-main)] text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1.5"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>View {opponentHandle}’s Profile</span>
+              </Link>
+            )}
+            <Button variant="ghost" size="sm" className={profileUrl ? '' : 'flex-1'} onClick={onClose}>
               Close
             </Button>
           </div>

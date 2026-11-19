@@ -1,8 +1,22 @@
 import { apiRequest } from './apiClient';
 import { FriendItem } from '@/app/api/friends/route';
 
+export interface IncomingFriendRequest {
+  id: string;
+  userId: string;
+  name: string;
+  handle: string;
+  avatar: string;
+  tier: string;
+  score: number;
+  createdAt: string;
+}
+
 export const friendService = {
-  async getFriends(query?: string, suggested?: boolean): Promise<{ success: boolean; friends: FriendItem[]; total: number }> {
+  async getFriends(
+    query?: string,
+    suggested?: boolean
+  ): Promise<{ success: boolean; friends: FriendItem[]; incomingRequests?: IncomingFriendRequest[]; total: number }> {
     const params = new URLSearchParams();
     if (query) params.set('q', query);
     if (suggested) params.set('suggested', 'true');
@@ -31,6 +45,13 @@ export const friendService = {
   async removeFriendById(id: string): Promise<{ success: boolean; isFriend: boolean; message: string }> {
     return apiRequest(`/api/friends/${id}`, {
       method: 'DELETE',
+    });
+  },
+
+  async respondToRequest(id: string, action: 'accept' | 'decline'): Promise<{ success: boolean; status: string }> {
+    return apiRequest(`/api/friends/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action }),
     });
   },
 };

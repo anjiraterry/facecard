@@ -16,6 +16,7 @@ import {
 import { BottomNav } from '@/components/navigation/BottomNav';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { Tier } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
 import { useFriends } from '@/hooks/useFriends';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { FriendRowSkeleton } from '@/components/common/Skeleton';
@@ -32,14 +33,31 @@ interface SuggestedUser {
   tier: Tier;
   mutualCount: number;
   reason: string;
+  friendshipStatus?: 'NONE' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'ACCEPTED';
 }
 
 export default function AddFriendsPage() {
+  const { user: currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const { friends: apiFriends, isLoading, addFriend } = useFriends(searchQuery, true);
+
+  const cleanHandle = currentUser?.handle ? currentUser.handle.replace(/^@/, '') : '';
+  const personalInviteCode = cleanHandle
+    ? `FC-${cleanHandle.toUpperCase()}`
+    : currentUser?.id
+    ? `FC-${currentUser.id.slice(0, 6).toUpperCase()}`
+    : 'FACECARD';
+
+  const getInviteUrl = () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    if (currentUser?.id) {
+      return `${origin}/u/${currentUser.id}`;
+    }
+    return `${origin}/friends/add`;
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -50,17 +68,35 @@ export default function AddFriendsPage() {
     try {
       setAddedIds((prev) => ({ ...prev, [user.id]: true }));
       await addFriend(user.handle);
-      showToast(`Friend request sent to ${user.name}`);
+      showToast(`Added ${user.name} to your Circle`);
     } catch {
-      showToast(`Request sent to ${user.name}`);
+      showToast(`Added ${user.name} to your Circle`);
     }
   };
 
-  const handleCopyCode = () => {
+  const handleCopyCode = async () => {
+    const url = getInviteUrl();
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(`${window.location.origin}/faceoff`);
-      showToast('Invite link copied to clipboard');
+      await navigator.clipboard.writeText(url);
+      showToast('Friend invite link copied to clipboard');
     }
+  };
+
+  const handleShareInvite = async () => {
+    const url = getInviteUrl();
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join my Face Card Circle',
+          text: `Add me on Face Card (${personalInviteCode})`,
+          url,
+        });
+        return;
+      } catch {
+        // fallback to copy
+      }
+    }
+    await handleCopyCode();
   };
 
   const candidateUsers: SuggestedUser[] = apiFriends.map((f, i) => ({
@@ -72,6 +108,7 @@ export default function AddFriendsPage() {
     tier: (f.tier as Tier) || 'GOLD',
     mutualCount: 3 + i,
     reason: f.status === 'IN_ARENA' ? 'Currently active in Arena' : 'Verified Contender',
+    friendshipStatus: f.friendshipStatus ?? 'NONE',
   }));
 
   const filtered = candidateUsers;
@@ -107,7 +144,7 @@ export default function AddFriendsPage() {
                 Your Personal Invite
               </span>
               <h2 className="font-display text-xl font-semibold tracking-wide mt-0.5 text-[#FAF7F4]">
-                FC-8821-ATELIER
+                {personalInviteCode}
               </h2>
             </div>
             <div className="w-10 h-10 rounded-2xl bg-[#FAF7F4]/10 border border-[#EBDCD5]/20 flex items-center justify-center">
@@ -116,7 +153,7 @@ export default function AddFriendsPage() {
           </div>
 
           <p className="text-xs text-[#EBDCD5]/80 leading-relaxed">
-            Invite friends to join your Face Card circle. Earn <strong className="text-[#FAF7F4]">+100 PTS</strong> when a friend claims their card.
+            Share your personal profile link so friends can find and add you to their Face Card circle.
           </p>
 
           <div className="flex gap-2 pt-1">
@@ -131,7 +168,7 @@ export default function AddFriendsPage() {
 
             <button
               type="button"
-              onClick={handleCopyCode}
+              onClick={handleShareInvite}
               className="py-2.5 px-5 rounded-full bg-[#EBDCD5] hover:bg-[#FAF7F4] text-[#251E24] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <Share2 className="w-3.5 h-3.5" />
@@ -163,7 +200,11 @@ export default function AddFriendsPage() {
               />
             ) : (
               filtered.map((user) => {
-                const isAdded = !!addedIds[user.id];
+                const status = addedIds[user.id] ? 'PENDING_SENT' : user.friendshipStatus || 'NONE';
+                const isAccepted = status === 'ACCEPTED';
+                const isPending = status === 'PENDING_SENT';
+                const isIncoming = status === 'PENDING_RECEIVED';
+                const isDisabled = isAccepted || isPending;
 
                 return (
                   <SurfaceCard
@@ -201,17 +242,29 @@ export default function AddFriendsPage() {
                     <button
                       type="button"
                       onClick={() => handleAddFriend(user)}
-                      disabled={isAdded}
+                      disabled={isDisabled}
                       className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer ${
-                        isAdded
+                        isAccepted
                           ? 'bg-[var(--status-success-bg)] text-[var(--status-success)]'
+                          : isPending
+                          ? 'bg-[var(--bg-surface-warm)] text-[var(--text-muted)] border border-[var(--border-card)]'
                           : 'bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--bg-page)]'
                       }`}
                     >
-                      {isAdded ? (
+                      {isAccepted ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>In Circle</span>
+                        </>
+                      ) : isPending ? (
                         <>
                           <Check className="w-3.5 h-3.5" />
                           <span>Requested</span>
+                        </>
+                      ) : isIncoming ? (
+                        <>
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>Accept</span>
                         </>
                       ) : (
                         <>

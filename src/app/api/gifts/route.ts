@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
 import { postLedger, InsufficientBalanceError } from '@/lib/ledger';
+import { createNotification } from '@/lib/notifications';
 import { hashRequest, parseIdempotencyKey, runIdempotent } from '@/lib/idempotency';
 
 export const dynamic = 'force-dynamic';
@@ -156,6 +157,15 @@ async function performSendGift(
       });
 
       return { gift, remainingBalance: freshSender?.spendableBalance ?? 0 };
+    });
+
+    void createNotification({
+      userId: recipient.id,
+      type: 'GIFT_RECEIVED',
+      title: 'You Received a Boutique Gift!',
+      body: `Someone sent you "${item.name}". Open The Vanity to accept or decline it.`,
+      href: '/vanity',
+      metadata: { giftId: txResult.gift.id, itemName: item.name },
     });
 
     return {

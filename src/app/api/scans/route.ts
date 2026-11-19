@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
 
-import { getStreakMultiplier } from '@/lib/scoring';
+import { getLagosDayKey, getStreakMultiplier } from '@/lib/scoring';
+import { EconomyConfig } from '@/lib/economy';
+import { ScanSource } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,10 +62,20 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    const todayKey = getLagosDayKey();
+    const scansTodayCount = await db.scan.count({
+      where: { userId: sessionUser.id, dayKey: todayKey, source: ScanSource.SOLO },
+    });
+    const freeScansRemaining = Math.max(0, EconomyConfig.DAILY_SCAN_CAP - scansTodayCount);
+
     return NextResponse.json({
       success: true,
       scans: scansFormatted,
       total: scansFormatted.length,
+      scansTodayCount,
+      freeScansRemaining,
+      dailyFreeCap: EconomyConfig.DAILY_SCAN_CAP,
+      extraSnapCostPts: EconomyConfig.EXTRA_SCAN_COST_PTS,
     });
   } catch (error) {
     return NextResponse.json(

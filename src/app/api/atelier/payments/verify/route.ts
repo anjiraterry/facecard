@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
 import { AtelierOrderError, finalizePaidOrder } from '@/lib/atelier/orders';
 import { jsonResponse } from '@/lib/atelier/serialize';
+import { createNotification } from '@/lib/notifications';
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,6 +46,15 @@ export async function POST(req: NextRequest) {
       paidAmountMinor: BigInt(payload.data.amount ?? 0),
       currency: String(payload.data.currency || 'NGN'),
       providerTransactionId: payload.data.id != null ? String(payload.data.id) : undefined,
+    });
+
+    void createNotification({
+      userId: user.id,
+      type: 'ORDER_UPDATE',
+      title: 'Atelier Order Confirmed',
+      body: `Your payment (${reference}) was verified and your Atelier order is being prepared.`,
+      href: '/skincare',
+      metadata: { reference },
     });
 
     return jsonResponse({ success: true, ...result });

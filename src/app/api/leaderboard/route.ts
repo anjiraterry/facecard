@@ -23,10 +23,18 @@ export async function GET(req: NextRequest) {
         });
       }
       const friendships = await db.friendship.findMany({
-        where: { requesterId: sessionUser.id, status: 'ACCEPTED' },
-        select: { addresseeId: true },
+        where: {
+          status: 'ACCEPTED',
+          OR: [{ requesterId: sessionUser.id }, { addresseeId: sessionUser.id }],
+        },
+        select: { requesterId: true, addresseeId: true },
       });
-      friendIds = [sessionUser.id, ...friendships.map((f) => f.addresseeId)];
+      friendIds = [
+        sessionUser.id,
+        ...friendships.map((f) =>
+          f.requesterId === sessionUser.id ? f.addresseeId : f.requesterId
+        ),
+      ];
     }
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
