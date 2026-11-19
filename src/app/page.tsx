@@ -1,18 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { FaceCard } from '@/components/card/FaceCard';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { ClaimFaceCardModal } from '@/components/card/ClaimFaceCardModal';
 import { Button } from '@/components/ui/Button';
 import { SurfaceCard } from '@/components/ui/SurfaceCard';
+import { useAuth } from '@/hooks/useAuth';
 import { FaceCardData } from '@/types';
 
 export default function LandingPage() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'claim' | 'login'>('claim');
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace('/home');
+    }
+  }, [isLoading, user, router]);
 
   const openClaimModal = () => {
     setModalMode('claim');
@@ -60,9 +70,18 @@ export default function LandingPage() {
 
         <nav aria-label="Landing navigation" className="flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
-          <Button variant="ghost" size="sm" onClick={openLoginModal}>
-            Sign In
-          </Button>
+          {user ? (
+            <Link
+              href="/home"
+              className="inline-flex items-center justify-center h-9 px-3 rounded-full text-xs font-semibold text-[var(--foreground)] hover:bg-[var(--surface-secondary)] transition-colors"
+            >
+              Home
+            </Link>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={openLoginModal}>
+              Sign In
+            </Button>
+          )}
           <Link
             href="/atelier"
             className="inline-flex items-center justify-center h-9 px-4 rounded-full text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity shadow-[var(--shadow-xs)]"

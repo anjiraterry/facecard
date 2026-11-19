@@ -73,6 +73,8 @@ export default function ControlCentrePage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [stockDelta, setStockDelta] = useState<Record<string, string>>({});
+  const [uploadingProductId, setUploadingProductId] = useState<string | null>(null);
+  const [imagePrimaryByProduct, setImagePrimaryByProduct] = useState<Record<string, boolean>>({});
 
   // Economy & Approvals
   const [reconcileData, setReconcileData] = useState<any | null>(null);
@@ -316,6 +318,33 @@ export default function ControlCentrePage() {
       loadSection('atelier_inventory');
     } else {
       notify('err', data.error || 'Stock adjustment failed');
+    }
+  };
+
+  const handleProductImageUpload = async (productId: string, file: File | null) => {
+    if (!file) return;
+    setUploadingProductId(productId);
+    try {
+      const formData = new FormData();
+      formData.append('productId', productId);
+      formData.append('file', file);
+      formData.append('isPrimary', String(imagePrimaryByProduct[productId] ?? true));
+
+      const res = await fetch('/api/admin/atelier/products/images', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        notify('ok', 'Product image uploaded & saved');
+        loadSection('atelier_inventory');
+      } else {
+        notify('err', data.error || 'Product image upload failed');
+      }
+    } catch {
+      notify('err', 'Network error uploading product image');
+    } finally {
+      setUploadingProductId(null);
     }
   };
 
@@ -937,7 +966,54 @@ export default function ControlCentrePage() {
                   <div key={p.id} className="py-3 space-y-2">
                     <div className="flex justify-between text-xs font-semibold">
                       <span>{p.name} ({p.brand?.name})</span>
-                      <span className="text-[#6E626B]">{p.variants?.length ?? 0} variants</span>
+                      <span className="text-[#6E626B]">{p.variants?.length ?? 0} variants · {p.images?.length ?? 0} images</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {(p.images || []).map((img: any) => (
+                        <a
+                          key={img.id}
+                          href={img.objectKey}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="relative group block w-12 h-12 rounded-lg overflow-hidden border border-[#E6DDD6] bg-[#FAF7F4]"
+                          title={img.altText || p.name}
+                        >
+                          <img src={img.objectKey} alt={img.altText || p.name} className="w-full h-full object-cover" />
+                          {img.isPrimary && (
+                            <span className="absolute bottom-0 inset-x-0 bg-[#251E24]/80 text-white text-[9px] text-center leading-tight py-0.5">
+                              Primary
+                            </span>
+                          )}
+                        </a>
+                      ))}
+                      {perms.has('atelier.write') && (
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <label className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded border border-[#DDD3CB] bg-[#FAF7F4] hover:bg-[#F2ECE6] cursor-pointer">
+                            <span>{uploadingProductId === p.id ? 'Uploading…' : 'Upload image'}</span>
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/avif"
+                              disabled={uploadingProductId === p.id}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0] ?? null;
+                                e.target.value = '';
+                                handleProductImageUpload(p.id, file);
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                          <label className="inline-flex items-center gap-1 text-[#6E626B] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={imagePrimaryByProduct[p.id] ?? true}
+                              onChange={(e) =>
+                                setImagePrimaryByProduct((prev) => ({ ...prev, [p.id]: e.target.checked }))
+                              }
+                            />
+                            <span>Set primary</span>
+                          </label>
+                        </div>
+                      )}
                     </div>
                     {(p.variants || []).map((v: any) =>
                       (v.inventoryLevels || []).map((lvl: any) => (

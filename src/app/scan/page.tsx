@@ -107,38 +107,114 @@ function ScanContent() {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const cameraReqIdRef = useRef(0);
+
+  const stopCameraStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks?.().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setStreamActive(false);
+  };
+
+  const getFriendlyCameraError = (err: unknown): string => {
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      return 'Camera requires HTTPS (or localhost). Open this page over HTTPS to enable the camera.';
+    }
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      return 'Camera API is unavailable in this browser or context.';
+    }
+    const name = err instanceof DOMException ? err.name : (err as { name?: string })?.name;
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      return 'Camera permission was denied. Please allow camera access in your browser site settings and retry.';
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return 'No camera device was found on this device.';
+    }
+    if (name === 'NotReadableError' || name === 'TrackStartError') {
+      return 'Camera is currently in use by another app or tab. Close it and tap Retry.';
+    }
+    return 'Live camera access is required to issue your verified Face Card. Please enable camera permissions.';
+  };
 
   const startCamera = async (targetFacingMode?: 'user' | 'environment') => {
     if (phase !== 'CAMERA') return;
+    const reqId = ++cameraReqIdRef.current;
+
     try {
       setCameraError(null);
-      const modeToUse = targetFacingMode || facingMode;
-
-      // Stop existing stream before re-requesting
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks?.().forEach((track) => track.stop());
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        setCameraError(getFriendlyCameraError(null));
+        setStreamActive(false);
+        return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: modeToUse,
-          width: { ideal: 1080 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      });
+      const modeToUse = targetFacingMode || facingMode;
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
+      // Stop any existing stream before re-requesting
+      stopCameraStream();
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: modeToUse },
+            width: { ideal: 1080 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
+        });
+      } catch (constraintErr) {
+        const errName =
+          constraintErr instanceof DOMException
+            ? constraintErr.name
+            : (constraintErr as { name?: string })?.name;
+        if (errName === 'OverconstrainedError' || errName === 'ConstraintNotSatisfiedError') {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } else {
+          throw constraintErr;
+        }
+      }
+
+      // If unmounted, phase changed, or a newer startCamera call ran while awaiting, release immediately
+      if (reqId !== cameraReqIdRef.current || !videoRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      streamRef.current = stream;
+      const video = videoRef.current;
+      video.srcObject = stream;
+
+      const activateVideo = async () => {
+        if (reqId !== cameraReqIdRef.current) return;
+        try {
+          await video.play();
+        } catch {
+          // Autoplay with muted+playsInline normally succeeds; ignore transient abort
+        }
+        if (reqId === cameraReqIdRef.current) {
           setStreamActive(true);
+        }
+      };
+
+      if (video.readyState >= 1) {
+        await activateVideo();
+      } else {
+        video.onloadedmetadata = () => {
+          void activateVideo();
         };
       }
     } catch (err) {
+      if (reqId !== cameraReqIdRef.current) return;
       console.warn('Camera access denied or unavailable:', err);
-      setCameraError('Live camera access is required to issue your verified Face Card. Please enable camera permissions.');
+      setCameraError(getFriendlyCameraError(err));
       setStreamActive(false);
     }
   };
@@ -151,13 +227,16 @@ function ScanContent() {
 
   // Initialize camera
   useEffect(() => {
-    startCamera();
+    if (phase === 'CAMERA') {
+      void startCamera();
+    } else {
+      cameraReqIdRef.current += 1;
+      stopCameraStream();
+    }
 
     return () => {
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks?.().forEach((track) => track.stop());
-      }
+      cameraReqIdRef.current += 1;
+      stopCameraStream();
     };
   }, [phase]);
 
@@ -188,6 +267,8 @@ function ScanContent() {
 
     const stream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : null;
     if (stream && videoRef.current) {
+      stopCameraStream();
+      streamRef.current = stream;
       videoRef.current.srcObject = stream;
       videoRef.current.play().catch(() => {});
       setStreamActive(true);
@@ -368,7 +449,7 @@ function ScanContent() {
                 autoPlay
                 playsInline
                 muted
-                className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''} ${streamActive ? 'block' : 'hidden'}`}
+                className={`absolute inset-0 w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''} ${streamActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
               />
 
               {streamActive ? (

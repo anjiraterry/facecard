@@ -28,6 +28,12 @@ export function useAuth() {
         if (!ignore) {
           setUser(profile);
           setIsLoading(false);
+          if (profile) {
+            fetch('/api/auth/session/refresh', {
+              method: 'GET',
+              credentials: 'include',
+            }).catch(() => {});
+          }
         }
       })
       .catch(() => {

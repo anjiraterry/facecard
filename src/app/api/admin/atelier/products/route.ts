@@ -14,6 +14,7 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
       include: {
         brand: { select: { name: true, slug: true } },
+        images: { orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }] },
         variants: {
           include: {
             inventoryLevels: true,
