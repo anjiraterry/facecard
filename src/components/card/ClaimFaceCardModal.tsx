@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, KeyRound, User, AtSign, AlertCircle } from 'lucide-react';
@@ -23,6 +23,19 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
   const { toast } = useToast();
 
   const [mode, setMode] = useState<'claim' | 'login'>(defaultMode);
+
+  useEffect(() => {
+    if (isOpen) {
+      setMode(defaultMode);
+      setError(null);
+    }
+  }, [isOpen, defaultMode]);
+
+  const maxAdultDob = (() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 18);
+    return d.toISOString().split('T')[0];
+  })();
 
   // Claim fields
   const [displayName, setDisplayName] = useState('');
@@ -274,6 +287,7 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
                   <Input
                     label="Date of Birth (18+)"
                     type="date"
+                    max={maxAdultDob}
                     value={dob}
                     onChange={(e) => setDob(e.target.value)}
                     required

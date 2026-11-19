@@ -328,16 +328,16 @@ export default function ShopPage() {
                     </p>
                   </div>
 
-                  <div className="mt-1 p-1.5 rounded-full bg-[#65475D] text-[#FAF7F4] flex items-center justify-between shadow-xs">
+                  <div className="mt-1 p-1.5 rounded-full bg-[#251E24] text-[#FAF7F4] flex items-center justify-between shadow-xs">
                     <div className="pl-2.5 text-xs font-bold tabular-nums text-[#FAF7F4]">
-                      {item.price} <span className="text-[9px] text-[#FAF7F4]/85 font-semibold">PTS</span>
+                      {item.price} <span className="text-[9px] text-[#EBDCD5] font-semibold">PTS</span>
                     </div>
 
                     {isTierLocked ? (
                       <button
                         type="button"
                         disabled
-                        className="px-3 py-1.5 rounded-full bg-[#FAF7F4]/20 text-[10px] font-semibold text-[#FAF7F4] flex items-center gap-1 cursor-not-allowed"
+                        className="px-3 py-1.5 rounded-full bg-[#65475D]/50 text-[10px] font-semibold text-[#FAF7F4]/85 flex items-center gap-1 cursor-not-allowed"
                       >
                         <Lock className="w-3 h-3" />
                         <span>{item.minTier}</span>
@@ -346,10 +346,10 @@ export default function ShopPage() {
                       <button
                         type="button"
                         onClick={() => handleEquip(item.id)}
-                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-semibold transition-colors cursor-pointer ${
+                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-semibold text-[#FAF7F4] transition-colors cursor-pointer ${
                           item.equipped
-                            ? 'bg-[#251E24] text-[#FAF7F4]'
-                            : 'bg-[#FAF7F4] text-[#251E24] hover:bg-[#EBDCD5]'
+                            ? 'bg-[#96788D]'
+                            : 'bg-[#65475D] hover:bg-[#7A5770]'
                         }`}
                       >
                         {item.equipped ? 'Equipped' : 'Equip'}
@@ -359,7 +359,7 @@ export default function ShopPage() {
                         type="button"
                         onClick={() => handleBuy(item.id)}
                         disabled={balance < item.price}
-                        className="px-4 py-1.5 rounded-full text-[10px] font-semibold bg-[#FAF7F4] text-[#251E24] hover:bg-[#EBDCD5] transition-colors disabled:bg-[#FAF7F4]/60 disabled:text-[#251E24]/70 disabled:cursor-not-allowed cursor-pointer"
+                        className="px-4 py-1.5 rounded-full text-[10px] font-semibold bg-[#65475D] text-[#FAF7F4] hover:bg-[#7A5770] transition-colors disabled:bg-[#65475D]/45 disabled:text-[#FAF7F4]/75 disabled:cursor-not-allowed cursor-pointer"
                       >
                         Redeem
                       </button>

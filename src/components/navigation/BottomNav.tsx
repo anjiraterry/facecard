@@ -15,6 +15,7 @@ import {
   Swords,
   Trophy,
   Layers,
+  LogOut,
 } from 'lucide-react';
 
 const SHOW_NAV_PREFIXES = [
@@ -31,7 +32,7 @@ const SHOW_NAV_PREFIXES = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const isAccountAtelier = pathname === '/skincare' || pathname?.startsWith('/skincare/');
   const shouldShowNav =
@@ -111,9 +112,22 @@ export function BottomNav() {
           </nav>
         </div>
 
-        <p className="hidden lg:block px-2 text-[11px] text-[var(--foreground-muted)] leading-relaxed">
-          Good skin. Great face card.
-        </p>
+        <div className="space-y-3">
+          {user && (
+            <button
+              type="button"
+              onClick={signOut}
+              title="Sign Out"
+              className="w-full h-10 px-3 rounded-xl flex items-center justify-center lg:justify-start gap-3 text-xs font-semibold text-[var(--foreground-secondary)] hover:text-red-600 hover:bg-red-50/70 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+            >
+              <LogOut className="w-4 h-4 stroke-[1.75] shrink-0" />
+              <span className="hidden lg:inline">Sign Out</span>
+            </button>
+          )}
+          <p className="hidden lg:block px-2 text-[11px] text-[var(--foreground-muted)] leading-relaxed">
+            Good skin. Great face card.
+          </p>
+        </div>
       </aside>
 
       {/* Mobile Floating Bottom Dock */}
