@@ -18,11 +18,18 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { itemId } = body;
+    const { itemId, expectedUnitPricePoints, expectedItemVersionId, quantity: rawQty } = body as {
+      itemId?: string;
+      expectedUnitPricePoints?: number;
+      expectedItemVersionId?: string;
+      quantity?: number;
+    };
 
     if (!itemId || typeof itemId !== 'string') {
       return NextResponse.json({ error: 'itemId is required' }, { status: 400 });
     }
+
+    const quantity = typeof rawQty === 'number' && Number.isInteger(rawQty) && rawQty > 0 ? rawQty : 1;
 
     const idempotencyKey = parseIdempotencyKey(req) || `shop-purchase-${sessionUser.id}-${itemId}-${randomUUID()}`;
 
@@ -30,8 +37,8 @@ export async function POST(req: NextRequest) {
       sessionUser.id,
       'shop-purchase',
       idempotencyKey,
-      hashRequest({ itemId }),
-      () => performPurchase(sessionUser.id, itemId)
+      hashRequest({ itemId, quantity, expectedUnitPricePoints, expectedItemVersionId }),
+      () => performPurchase(sessionUser.id, itemId, quantity, expectedUnitPricePoints, expectedItemVersionId)
     );
 
     return NextResponse.json(result.body, { status: result.status });
@@ -44,7 +51,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function performPurchase(userId: string, itemId: string) {
+async function performPurchase(
+  userId: string,
+  itemId: string,
+  quantity = 1,
+  expectedUnitPricePoints?: number,
+  expectedItemVersionId?: string
+) {
   const user = await db.user.findUnique({
     where: { id: userId },
     include: {
@@ -61,8 +74,31 @@ async function performPurchase(userId: string, itemId: string) {
     where: { id: itemId },
   });
 
-  if (!item || !item.active) {
+  if (!item || !item.active || item.status !== 'PUBLISHED') {
     return { status: 404, body: { error: 'Item not found in database catalog or inactive' } };
+  }
+
+  const now = new Date();
+  if ((item.startsAt && item.startsAt > now) || (item.endsAt && item.endsAt < now)) {
+    return { status: 400, body: { error: 'This item is outside its active sale window.' } };
+  }
+
+  if (
+    (typeof expectedUnitPricePoints === 'number' && expectedUnitPricePoints !== item.price) ||
+    (expectedItemVersionId && item.currentVersionId && expectedItemVersionId !== item.currentVersionId)
+  ) {
+    return {
+      status: 409,
+      body: {
+        error: 'Item price or version changed before purchase.',
+        conflict: true,
+        currentItem: {
+          id: item.id,
+          price: item.price,
+          currentVersionId: item.currentVersionId,
+        },
+      },
+    };
   }
 
   // Tier requirement check
@@ -79,7 +115,7 @@ async function performPurchase(userId: string, itemId: string) {
 
   // Max owned check
   const currentOwnedQuantity = user.items[0]?.quantity ?? 0;
-  if (currentOwnedQuantity >= item.maxOwned) {
+  if (currentOwnedQuantity + quantity > item.maxOwned) {
     return {
       status: 400,
       body: { error: `You already own the maximum allowed quantity (${item.maxOwned}) for this item.` },
@@ -89,7 +125,7 @@ async function performPurchase(userId: string, itemId: string) {
   // Streak freeze holding cap check
   if (item.slug === 'streak-freeze') {
     const freezesHeld = user.streak?.freezesHeld ?? 0;
-    if (freezesHeld >= EconomyConfig.MAX_STREAK_FREEZES) {
+    if (freezesHeld + quantity > EconomyConfig.MAX_STREAK_FREEZES) {
       return {
         status: 400,
         body: { error: `You are already holding the maximum limit of ${EconomyConfig.MAX_STREAK_FREEZES} Streak Freezes.` },
@@ -97,16 +133,17 @@ async function performPurchase(userId: string, itemId: string) {
     }
   }
 
+  const totalPrice = item.price * quantity;
   const purchaseId = randomUUID();
   const purchaseIdempotencyKey = `shop:${purchaseId}`;
 
   try {
     const txResult = await db.$transaction(async (tx) => {
-      // 1. Post ledger debit (enforces spendableBalance >= item.price atomically)
+      // 1. Post ledger debit (enforces spendableBalance >= totalPrice atomically)
       await postLedger(tx, {
         userId: user.id,
         type: 'SHOP_PURCHASE',
-        amount: -item.price,
+        amount: -totalPrice,
         balanceKind: 'SPENDABLE',
         refType: 'SHOP_PURCHASE',
         refId: purchaseId,
@@ -122,12 +159,12 @@ async function performPurchase(userId: string, itemId: string) {
           },
         },
         update: {
-          quantity: { increment: 1 },
+          quantity: { increment: quantity },
         },
         create: {
           userId: user.id,
           itemId: item.id,
-          quantity: 1,
+          quantity,
         },
       });
 
@@ -135,13 +172,13 @@ async function performPurchase(userId: string, itemId: string) {
       if (item.slug === 'streak-freeze') {
         await tx.streak.upsert({
           where: { userId: user.id },
-          update: { freezesHeld: { increment: 1 } },
+          update: { freezesHeld: { increment: quantity } },
           create: {
             userId: user.id,
             currentCount: 1,
             longestCount: 1,
             lastScanDayKey: getLagosDayKey(),
-            freezesHeld: 1,
+            freezesHeld: quantity,
           },
         });
       }
@@ -152,8 +189,22 @@ async function performPurchase(userId: string, itemId: string) {
           id: purchaseId,
           userId: user.id,
           itemId: item.id,
-          price: item.price,
+          itemVersionId: item.currentVersionId,
+          quantity,
+          price: totalPrice,
           idempotencyKey: purchaseIdempotencyKey,
+        },
+      });
+
+      // 4. Record inventory movement
+      await tx.userItemMovement.create({
+        data: {
+          userId: user.id,
+          userItemId: userItem.id,
+          itemId: item.id,
+          quantityDelta: quantity,
+          reason: 'BOUTIQUE_PURCHASE',
+          referenceId: purchaseRecord.id,
         },
       });
 
@@ -166,7 +217,7 @@ async function performPurchase(userId: string, itemId: string) {
       return {
         purchaseRecord,
         userItem,
-        newSpendableBalance: freshUser?.spendableBalance ?? (user.spendableBalance - item.price),
+        newSpendableBalance: freshUser?.spendableBalance ?? (user.spendableBalance - totalPrice),
       };
     });
 

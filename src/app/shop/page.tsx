@@ -4,17 +4,25 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ShoppingBag,
-  Coins,
-  Lock,
+  Aperture,
   ArrowLeft,
-  Layers,
-  Palette,
-  Award,
-  Zap,
-  CheckCircle2,
-  Snowflake,
   ArrowRight,
+  Award,
+  CheckCircle2,
+  Coins,
+  Crown,
+  Feather,
+  Flower2,
+  Frame,
+  Gem,
+  Gift,
+  Layers,
+  Lock,
+  Palette,
+  ShoppingBag,
+  Snowflake,
+  Swords,
+  Zap,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { SurfaceCard } from '@/components/ui/SurfaceCard';
@@ -23,6 +31,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { FramerTabPanel } from '@/components/ui/MotionPrimitives';
 import { Tier } from '@/types';
 import { useShop } from '@/hooks/useShop';
+import { resolveItemAppearance, BOUTIQUE_CATEGORY_PALETTES } from '@/lib/boutique/palette';
+import { CollectibleArtwork } from '@/components/boutique/CollectibleArtwork';
 
 const Cannon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -45,27 +55,40 @@ const Cannon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const getShopItemIcon = (kind: string, id: string) => {
-  if (id.includes('freeze')) return Snowflake;
-  if (id.includes('boost') || id.includes('surge')) return Zap;
-  if (kind === 'CONSUMABLE') return Snowflake;
-  if (kind === 'TITLE') return Cannon;
+const getShopItemIcon = (kind: string, slugOrId: string, category?: string) => {
+  const key = slugOrId.toLowerCase();
+  if (key.includes('freeze')) return Snowflake;
+  if (key.includes('crown') || key.includes('champagne') || key.includes('golden-hour') || key.includes('icon')) return Crown;
+  if (key.includes('rose') || key.includes('bouquet') || key.includes('bloom')) return Flower2;
+  if (key.includes('moonstone') || key.includes('pearl') || key.includes('porcelain')) return Gem;
+  if (key.includes('muse') || key.includes('title')) return Feather;
+  if (key.includes('nameplate') || key.includes('backdrop') || key.includes('frame')) return Frame;
+  if (key.includes('studio') || key.includes('portrait')) return Aperture;
+  if (key.includes('admiration') || key.includes('ovation') || key.includes('gift') || category === 'GIFTS') return Gift;
+  if (key.includes('arena') || key.includes('entrance') || category === 'ARENA') return Swords;
+  if (key.includes('boost') || key.includes('surge')) return Zap;
   if (kind === 'SKIN') return Palette;
   if (kind === 'FRAME') return Award;
+  if (kind === 'TITLE') return Feather;
   return Layers;
 };
 
-const getShopItemGradient = (kind: string, id: string) => {
-  if (id.includes('freeze')) return 'linear-gradient(135deg, #EAE3E8 0%, #D2B8C9 55%, #96788D 100%)';
-  if (id.includes('gold') || id.includes('weapon')) return 'linear-gradient(135deg, #F6ECD6 0%, #E7CFA0 50%, #D4B072 100%)';
-  if (id.includes('lavender') || id.includes('mauve')) return 'linear-gradient(135deg, #F2E8EE 0%, #D2B8C9 50%, #96788D 100%)';
-  if (id.includes('black')) return 'linear-gradient(145deg, #2D242C 0%, #251E24 55%, #171216 100%)';
-  if (id.includes('foil') || id.includes('silver')) return 'linear-gradient(135deg, #FAF7F4 0%, #EBDCD5 50%, #D2B8C9 100%)';
-  if (id.includes('surge') || id.includes('boost')) return 'linear-gradient(135deg, #EBDCD5 0%, #D2B8C9 50%, #96788D 100%)';
-  return 'linear-gradient(135deg, #EBDCD5 0%, #D2B8C9 60%, #96788D 100%)';
+const getShopItemPastelBg = (kind: string, slugOrId: string) => {
+  const key = slugOrId.toLowerCase();
+  if (key.includes('velvet-rose') || key.includes('rose') || key.includes('bouquet')) return '#F2E4EC';
+  if (key.includes('porcelain')) return '#F7EFEA';
+  if (key.includes('champagne') || key.includes('golden')) return '#F4EAD7';
+  if (key.includes('moonstone')) return '#E8E5F0';
+  if (key.includes('obsidian') || key.includes('midnight') || key.includes('black')) return '#E5DCE2';
+  if (key.includes('editorial') || key.includes('studio-pass')) return '#EDE3E9';
+  if (key.includes('freeze')) return '#E6EEF2';
+  if (key.includes('pearl') || key.includes('lavender')) return '#F1E6ED';
+  if (key.includes('arena') || key.includes('entrance') || key.includes('victory')) return '#EFE5EC';
+  if (kind === 'SKIN') return '#F2E8EE';
+  return '#F4ECE7';
 };
 
-type CategoryFilter = 'ALL' | 'SKIN' | 'TITLE' | 'FRAME' | 'CONSUMABLE';
+type CategoryFilter = 'ALL' | 'CARDS' | 'PROFILE' | 'GIFTS' | 'PERKS' | 'ARENA';
 
 export default function ShopPage() {
   const {
@@ -83,13 +106,17 @@ export default function ShopPage() {
   const balance = backendBalance ?? 0;
   const userTier: Tier = (backendTier as Tier) || 'GOLD';
 
-  const items = backendItems.map((bi) => ({
-    ...bi,
-    owned: Boolean(bi.isOwned),
-    equipped: Boolean(bi.isEquipped),
-    gradient: bi.gradient || getShopItemGradient(bi.kind, bi.id),
-    icon: getShopItemIcon(bi.kind, bi.id),
-  }));
+  const items = backendItems.map((bi) => {
+    const slugKey = bi.slug || bi.id;
+    const appearance = resolveItemAppearance(bi);
+    return {
+      ...bi,
+      owned: Boolean(bi.isOwned),
+      equipped: Boolean(bi.isEquipped),
+      appearance,
+      icon: getShopItemIcon(bi.kind, slugKey, bi.category),
+    };
+  });
 
   const TIER_RANK: Record<Tier, number> = { CLASSIC: 1, GOLD: 2, PLATINUM: 3, BLACK: 4 };
 
@@ -124,7 +151,7 @@ export default function ShopPage() {
 
   const filteredItems = items.filter((item) => {
     if (activeCategory === 'ALL') return true;
-    return item.kind === activeCategory;
+    return item.category === activeCategory;
   });
 
   return (
@@ -149,6 +176,15 @@ export default function ShopPage() {
           backHref="/home"
           backLabel="Back to home"
           points={balance}
+          rightSlot={
+            <Link
+              href="/vanity"
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-[#251E24] text-[#FAF7F4] text-xs font-semibold hover:opacity-90 transition-opacity"
+            >
+              <span>The Vanity</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          }
         />
 
         {/* Skincare Atelier Link */}
@@ -174,10 +210,11 @@ export default function ShopPage() {
         <section aria-label="Item categories" className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
           {[
             { id: 'ALL', label: 'All Editions' },
-            { id: 'SKIN', label: 'Card Finishes' },
-            { id: 'TITLE', label: 'Titles' },
-            { id: 'FRAME', label: 'Frames' },
-            { id: 'CONSUMABLE', label: 'Perks' },
+            { id: 'CARDS', label: 'Card Skins' },
+            { id: 'PROFILE', label: 'Profile & Identity' },
+            { id: 'GIFTS', label: 'Social Gifts' },
+            { id: 'PERKS', label: 'Perks' },
+            { id: 'ARENA', label: 'Arena' },
           ].map((cat) => (
             <button
               key={cat.id}
@@ -212,7 +249,8 @@ export default function ShopPage() {
             filteredItems.map((item) => {
               const isTierLocked = TIER_RANK[item.minTier] > TIER_RANK[userTier];
               const Icon = item.icon;
-              const isDarkSwatch = item.id.includes('black');
+              const { palette } = item.appearance;
+              const rarity = (item.rarity || 'ESSENTIAL').toUpperCase();
 
               return (
                 <SurfaceCard
@@ -222,16 +260,29 @@ export default function ShopPage() {
                   className="p-3.5 flex flex-col justify-between overflow-hidden"
                 >
                   <div
-                    className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden p-3 flex flex-col justify-between border border-[var(--border-subtle)]"
-                    style={{ background: item.gradient }}
+                    className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden p-3 flex flex-col justify-between"
+                    style={{
+                      backgroundColor: palette.surface,
+                      color: palette.text,
+                    }}
                   >
+                    {/* Subtle material contour lines */}
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 200 150"
+                      className="pointer-events-none absolute inset-0 w-full h-full opacity-30"
+                      fill="none"
+                    >
+                      <path d="M-10 120 Q 70 40, 210 90" stroke={palette.accent} strokeWidth="0.9" strokeOpacity="0.35" />
+                      <path d="M-10 140 Q 90 60, 210 115" stroke={palette.accent} strokeWidth="0.7" strokeOpacity="0.2" />
+                    </svg>
                     <div className="relative z-10 flex items-center justify-between gap-1">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider ${
-                          isDarkSwatch
-                            ? 'bg-[#FAF7F4]/15 text-[#FAF7F4]'
-                            : 'bg-[#251E24]/10 text-[#251E24]'
-                        }`}
+                        className="px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider"
+                        style={{
+                          backgroundColor: palette.border,
+                          color: palette.text,
+                        }}
                       >
                         {item.categoryLabel}
                       </span>
@@ -244,30 +295,30 @@ export default function ShopPage() {
                     </div>
 
                     <div className="relative z-10 flex items-center justify-center my-auto">
-                      <div
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${
-                          isDarkSwatch
-                            ? 'bg-[#FAF7F4]/15 border-[#FAF7F4]/25 text-[#FAF7F4]'
-                            : 'bg-[#FAF7F4]/65 border-[#251E24]/10 text-[#251E24]'
-                        }`}
-                      >
-                        <Icon className="w-5 h-5" />
-                      </div>
+                      <Icon
+                        className="w-11 h-11 stroke-[1.65]"
+                        style={{ color: palette.text }}
+                      />
                     </div>
 
-                    {item.minTier !== 'CLASSIC' && (
-                      <div className="relative z-10 self-start">
+                    <div className="relative z-10 flex items-center justify-between gap-1">
+                      {rarity !== 'ESSENTIAL' ? (
                         <span
-                          className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${
-                            isDarkSwatch
-                              ? 'bg-[#FAF7F4]/15 text-[#FAF7F4]'
-                              : 'bg-[#251E24]/10 text-[#251E24]'
-                          }`}
+                          className="text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider"
+                          style={{ backgroundColor: palette.border, color: palette.text }}
+                        >
+                          {rarity}
+                        </span>
+                      ) : <span />}
+                      {item.minTier !== 'CLASSIC' && (
+                        <span
+                          className="text-[9px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: palette.border, color: palette.text }}
                         >
                           {item.minTier} Only
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
 
                   <div className="pt-3 pb-2 space-y-1">
@@ -277,16 +328,16 @@ export default function ShopPage() {
                     </p>
                   </div>
 
-                  <div className="mt-1 p-1.5 rounded-full bg-[#251E24] text-[#FAF7F4] flex items-center justify-between">
-                    <div className="pl-2.5 text-xs font-bold tabular-nums">
-                      {item.price} <span className="text-[9px] text-[#EBDCD5] font-medium">PTS</span>
+                  <div className="mt-1 p-1.5 rounded-full bg-[#65475D] text-[#FAF7F4] flex items-center justify-between shadow-xs">
+                    <div className="pl-2.5 text-xs font-bold tabular-nums text-[#FAF7F4]">
+                      {item.price} <span className="text-[9px] text-[#FAF7F4]/85 font-semibold">PTS</span>
                     </div>
 
                     {isTierLocked ? (
                       <button
                         type="button"
                         disabled
-                        className="px-3 py-1.5 rounded-full bg-[#FAF7F4]/15 text-[10px] font-semibold text-[#FAF7F4]/60 flex items-center gap-1 cursor-not-allowed"
+                        className="px-3 py-1.5 rounded-full bg-[#FAF7F4]/20 text-[10px] font-semibold text-[#FAF7F4] flex items-center gap-1 cursor-not-allowed"
                       >
                         <Lock className="w-3 h-3" />
                         <span>{item.minTier}</span>
@@ -295,9 +346,9 @@ export default function ShopPage() {
                       <button
                         type="button"
                         onClick={() => handleEquip(item.id)}
-                        className={`px-3 py-1.5 rounded-full text-[10px] font-semibold transition-colors cursor-pointer ${
+                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-semibold transition-colors cursor-pointer ${
                           item.equipped
-                            ? 'bg-[#D2B8C9] text-[#251E24]'
+                            ? 'bg-[#251E24] text-[#FAF7F4]'
                             : 'bg-[#FAF7F4] text-[#251E24] hover:bg-[#EBDCD5]'
                         }`}
                       >
@@ -308,7 +359,7 @@ export default function ShopPage() {
                         type="button"
                         onClick={() => handleBuy(item.id)}
                         disabled={balance < item.price}
-                        className="px-3.5 py-1.5 rounded-full text-[10px] font-semibold bg-[#FAF7F4] text-[#251E24] hover:bg-[#EBDCD5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        className="px-4 py-1.5 rounded-full text-[10px] font-semibold bg-[#FAF7F4] text-[#251E24] hover:bg-[#EBDCD5] transition-colors disabled:bg-[#FAF7F4]/60 disabled:text-[#251E24]/70 disabled:cursor-not-allowed cursor-pointer"
                       >
                         Redeem
                       </button>

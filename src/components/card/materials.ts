@@ -187,7 +187,76 @@ export function resolveCardMaterial(
   let result: TierMaterialSpec = base;
 
   if (skinId) {
-    if (skinId.includes('lavender') || skinId.includes('mauve')) {
+    if (skinId.includes('velvet-rose') || skinId.includes('velvet_rose')) {
+      result = {
+        ...result,
+        finishName: 'Velvet Rose',
+        typography: '#F7E9F0',
+        mutedTypography: 'rgba(247, 233, 240, 0.78)',
+        badgeBorder: 'rgba(247, 233, 240, 0.35)',
+        badgeText: '#F7E9F0',
+        engravingDarkColor: '#3A2334',
+        engravingLightColor: '#F7E9F0',
+        baseGradient: [
+          'radial-gradient(110% 90% at 18% 12%, rgba(247, 233, 240, 0.28) 0%, transparent 58%)',
+          'linear-gradient(135deg, #96788D 0%, #7B5B72 52%, #65475D 100%)',
+        ].join(', '),
+      };
+    } else if (skinId.includes('porcelain')) {
+      result = {
+        ...result,
+        finishName: 'Porcelain',
+        typography: '#251E24',
+        mutedTypography: 'rgba(37, 30, 36, 0.72)',
+        badgeBorder: 'rgba(37, 30, 36, 0.25)',
+        badgeText: '#251E24',
+        baseGradient: [
+          'radial-gradient(110% 90% at 18% 12%, rgba(255, 255, 255, 0.85) 0%, transparent 58%)',
+          'linear-gradient(135deg, #FAF7F4 0%, #F2E9E2 52%, #EBDCD5 100%)',
+        ].join(', '),
+      };
+    } else if (skinId.includes('champagne-silk')) {
+      result = {
+        ...result,
+        finishName: 'Champagne Silk',
+        typography: '#513A23',
+        mutedTypography: 'rgba(81, 58, 35, 0.74)',
+        badgeBorder: 'rgba(81, 58, 35, 0.28)',
+        badgeText: '#513A23',
+        baseGradient: [
+          'radial-gradient(110% 90% at 15% 15%, rgba(255, 245, 217, 0.7) 0%, transparent 56%)',
+          'linear-gradient(132deg, #EBD9B2 0%, #D3B888 52%, #BB9864 100%)',
+        ].join(', '),
+      };
+    } else if (skinId.includes('moonstone')) {
+      result = {
+        ...result,
+        finishName: 'Moonstone',
+        typography: '#363347',
+        mutedTypography: 'rgba(54, 51, 71, 0.74)',
+        badgeBorder: 'rgba(54, 51, 71, 0.28)',
+        badgeText: '#363347',
+        baseGradient: [
+          'radial-gradient(110% 90% at 18% 12%, rgba(255, 255, 255, 0.72) 0%, transparent 58%)',
+          'linear-gradient(135deg, #E5E0EB 0%, #C4C4D4 52%, #A3A7BD 100%)',
+        ].join(', '),
+      };
+    } else if (skinId.includes('obsidian-bloom')) {
+      result = {
+        ...result,
+        finishName: 'Obsidian Bloom',
+        typography: '#F1DCE8',
+        mutedTypography: 'rgba(241, 220, 232, 0.74)',
+        badgeBorder: 'rgba(241, 220, 232, 0.3)',
+        badgeText: '#F1DCE8',
+        engravingDarkColor: '#161116',
+        engravingLightColor: '#D2B8C9',
+        baseGradient: [
+          'radial-gradient(110% 90% at 18% 12%, rgba(210, 184, 201, 0.2) 0%, transparent 58%)',
+          'linear-gradient(135deg, #49313F 0%, #2C1D26 52%, #161116 100%)',
+        ].join(', '),
+      };
+    } else if (skinId.includes('lavender') || skinId.includes('mauve')) {
       result = {
         ...result,
         baseGradient: [
@@ -198,6 +267,7 @@ export function resolveCardMaterial(
     } else if (skinId.includes('black')) {
       result = {
         ...TIER_MATERIALS.BLACK,
+        tier: base.tier,
         name: base.name,
       };
     }

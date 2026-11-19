@@ -47,6 +47,8 @@ enum LedgerType {
   FACEOFF_FEE
   FACEOFF_WIN_BONUS
   SHOP_PURCHASE
+  BOUTIQUE_REFUND
+  ACTIVITY_BONUS
   ADJUSTMENT
 }
 
@@ -129,6 +131,17 @@ model User {
   cardSnapshots       CardSnapshot[]
   supportTickets      SupportTicket[]
   productReviews      ProductReview[]
+
+  // Boutique, Vanity & Social Gifting relations
+  equipment             UserEquipment[]
+  activeEffects         ActiveEffect[]
+  inventoryMovements    UserItemMovement[]
+  sentGifts             SocialGift[]          @relation("GiftSender")
+  receivedGifts         SocialGift[]          @relation("GiftRecipient")
+  giftPreference        GiftPreference?
+  shopWishlist          ShopWishlistItem[]
+  collectionCompletions CollectionCompletion[]
+  boutiqueRefunds       BoutiqueRefund[]
 }
 
 /// Server-side login session. Only a SHA-256 hash of the random cookie token is stored.
@@ -265,23 +278,41 @@ model Card {
 }
 
 model ShopItem {
-  id          String     @id @default(uuid()) @db.Uuid
-  slug        String     @unique
-  kind        ItemKind
-  name        String
-  description String?
-  price       Int
-  minTier     Tier       @default(CLASSIC)
-  maxOwned    Int        @default(1)
-  active      Boolean    @default(true)
-  assetRef    String?
-  createdAt   DateTime   @default(now())
+  id               String             @id @default(uuid()) @db.Uuid
+  sku              String?            @unique
+  slug             String             @unique
+  kind             ItemKind
+  category         String             @default("CARDS")
+  rarity           ItemRarity         @default(ESSENTIAL)
+  status           BoutiqueItemStatus @default(PUBLISHED)
+  slot             EquipmentSlot?
+  effectKind       EffectKind?
+  effectConfig     Json?
+  isGiftable       Boolean            @default(false)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  currentVersionId String?            @db.Uuid
+  name             String
+  description      String?
+  price            Int
+  minTier          Tier               @default(CLASSIC)
+  maxOwned         Int                @default(1)
+  active           Boolean            @default(true)
+  assetRef         String?
+  createdAt        DateTime           @default(now())
 
-  userItems   UserItem[]
-  purchases   Purchase[]
-  cardSkins   Card[]     @relation("CardSkin")
-  cardTitles  Card[]     @relation("CardTitle")
-  cardFrames  Card[]     @relation("CardFrame")
+  userItems        UserItem[]
+  purchases        Purchase[]
+  versions         ShopItemVersion[]
+  equipment        UserEquipment[]
+  activeEffects    ActiveEffect[]
+  inventoryMoves   UserItemMovement[]
+  socialGifts      SocialGift[]
+  wishlistItems    ShopWishlistItem[]
+  collectionItems  ShopCollectionItem[]
+  cardSkins        Card[]             @relation("CardSkin")
+  cardTitles       Card[]             @relation("CardTitle")
+  cardFrames       Card[]             @relation("CardFrame")
 }
 
 model UserItem {
@@ -291,8 +322,11 @@ model UserItem {
   quantity   Int      @default(1)
   acquiredAt DateTime @default(now())
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  item       ShopItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item           ShopItem            @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  equipment      UserEquipment[]
+  activeEffects  ActiveEffect[]
+  movements      UserItemMovement[]
 
   @@unique([userId, itemId])
 }
@@ -301,12 +335,17 @@ model Purchase {
   id             String   @id @default(uuid()) @db.Uuid
   userId         String   @db.Uuid
   itemId         String   @db.Uuid
+  itemVersionId  String?  @db.Uuid
+  quantity       Int      @default(1)
   price          Int
   idempotencyKey String   @unique
   createdAt      DateTime @default(now())
 
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  item           ShopItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item           ShopItem         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  itemVersion    ShopItemVersion? @relation(fields: [itemVersionId], references: [id], onDelete: SetNull)
+  socialGifts    SocialGift[]
+  refunds        BoutiqueRefund[]
 
   @@index([userId])
 }
@@ -1333,4 +1372,278 @@ model ProductReview {
 
   @@unique([productId, userId])
   @@index([productId, createdAt])
+}
+
+// ==========================================
+// BOUTIQUE, VANITY & SOCIAL ECONOMY
+// ==========================================
+
+enum BoutiqueItemStatus {
+  DRAFT
+  VALIDATED
+  UNDER_REVIEW
+  APPROVED
+  PUBLISHED
+  PAUSED
+  RETIRED
+}
+
+enum ItemRarity {
+  ESSENTIAL
+  SIGNATURE
+  COLLECTOR
+  EXCLUSIVE
+}
+
+enum EquipmentSlot {
+  CARD_SKIN
+  CARD_FRAME
+  AVATAR_FRAME
+  AVATAR_EFFECT
+  PROFILE_BACKGROUND
+  PROFILE_EFFECT
+  PROFILE_TITLE
+  NAMEPLATE
+  ARENA_ENTRANCE
+  ARENA_VICTORY
+  ARENA_THEME
+  SHARE_TEMPLATE
+  ROUTINE_THEME
+}
+
+enum EffectKind {
+  EQUIP_COSMETIC
+  STREAK_PROTECTION
+  REWARD_MULTIPLIER
+  FEATURE_ENTITLEMENT
+  CAPACITY_INCREASE
+  SOCIAL_GIFT
+  PROFILE_SHOWCASE
+  EXPORT_ENTITLEMENT
+  COLLECTION_COMPLETION
+}
+
+enum ActiveEffectStatus {
+  ACTIVE
+  EXHAUSTED
+  EXPIRED
+  REVOKED
+}
+
+enum SocialGiftStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REFUNDED
+}
+
+enum BoutiqueRefundStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+}
+
+model ShopItemVersion {
+  id              String     @id @default(uuid()) @db.Uuid
+  itemId          String     @db.Uuid
+  version         Int
+  name            String
+  description     String?
+  rarity          ItemRarity @default(ESSENTIAL)
+  pricePoints     Int
+  ownershipPolicy String     @default("PERMANENT")
+  giftPolicy      Json?
+  maxOwned        Int        @default(1)
+  effectKind      EffectKind
+  effectConfig    Json
+  handlerVersion  String     @default("1.0")
+  assetRef        String?
+  createdAt       DateTime   @default(now())
+
+  item            ShopItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  purchases       Purchase[]
+  socialGifts     SocialGift[]
+
+  @@unique([itemId, version])
+  @@index([itemId])
+}
+
+model UserEquipment {
+  id         String        @id @default(uuid()) @db.Uuid
+  userId     String        @db.Uuid
+  slot       EquipmentSlot
+  userItemId String        @db.Uuid
+  itemId     String        @db.Uuid
+  equippedAt DateTime      @default(now())
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userItem   UserItem      @relation(fields: [userItemId], references: [id], onDelete: Cascade)
+  item       ShopItem      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, slot])
+  @@index([userId])
+}
+
+model ActiveEffect {
+  id                   String             @id @default(uuid()) @db.Uuid
+  userId               String             @db.Uuid
+  userItemId           String             @db.Uuid
+  itemId               String             @db.Uuid
+  effectKind           EffectKind
+  config               Json
+  status               ActiveEffectStatus @default(ACTIVE)
+  startsAt             DateTime           @default(now())
+  expiresAt            DateTime?
+  remainingUses        Int?
+  remainingBonusPoints Int?
+  terminalReason       String?
+  endedAt              DateTime?
+  createdAt            DateTime           @default(now())
+
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userItem             UserItem           @relation(fields: [userItemId], references: [id], onDelete: Cascade)
+  item                 ShopItem           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  executions           EffectExecution[]
+
+  @@index([userId, status])
+  @@index([expiresAt])
+}
+
+model EffectExecution {
+  id                 String       @id @default(uuid()) @db.Uuid
+  activeEffectId     String       @db.Uuid
+  eventId            String
+  targetModule       String
+  result             String
+  consumedUses       Int          @default(1)
+  bonusPointsAwarded Int          @default(0)
+  metadata           Json?
+  executedAt         DateTime     @default(now())
+
+  activeEffect       ActiveEffect @relation(fields: [activeEffectId], references: [id], onDelete: Cascade)
+
+  @@unique([activeEffectId, eventId])
+  @@index([executedAt])
+}
+
+model UserItemMovement {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  userItemId    String   @db.Uuid
+  itemId        String   @db.Uuid
+  quantityDelta Int
+  reason        String
+  referenceId   String?
+  createdAt     DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userItem      UserItem @relation(fields: [userItemId], references: [id], onDelete: Cascade)
+  item          ShopItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+}
+
+model SocialGift {
+  id            String           @id @default(uuid()) @db.Uuid
+  senderId      String           @db.Uuid
+  recipientId   String           @db.Uuid
+  itemId        String           @db.Uuid
+  itemVersionId String?          @db.Uuid
+  purchaseId    String?          @db.Uuid
+  status        SocialGiftStatus @default(PENDING)
+  message       String?
+  expiresAt     DateTime
+  acceptedAt    DateTime?
+  declinedAt    DateTime?
+  createdAt     DateTime         @default(now())
+
+  sender        User             @relation("GiftSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient     User             @relation("GiftRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  item          ShopItem         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  itemVersion   ShopItemVersion? @relation(fields: [itemVersionId], references: [id], onDelete: SetNull)
+  purchase      Purchase?        @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+
+  @@index([recipientId, status])
+  @@index([senderId, createdAt])
+}
+
+model GiftPreference {
+  userId         String   @id @db.Uuid
+  enabled        Boolean  @default(true)
+  allowedSenders String   @default("ALL") // ALL | FRIENDS_ONLY | NONE
+  publicDisplay  Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ShopWishlistItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  itemId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item      ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemId])
+  @@index([userId])
+}
+
+model ShopCollection {
+  id          String             @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String             @unique
+  description String?
+  status      BoutiqueItemStatus @default(PUBLISHED)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime           @default(now())
+
+  items       ShopCollectionItem[]
+  completions CollectionCompletion[]
+}
+
+model ShopCollectionItem {
+  id           String         @id @default(uuid()) @db.Uuid
+  collectionId String         @db.Uuid
+  itemId       String         @db.Uuid
+  required     Boolean        @default(true)
+
+  collection   ShopCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  item         ShopItem       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, itemId])
+}
+
+model CollectionCompletion {
+  id           String         @id @default(uuid()) @db.Uuid
+  userId       String         @db.Uuid
+  collectionId String         @db.Uuid
+  completedAt  DateTime       @default(now())
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection   ShopCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, collectionId])
+}
+
+model BoutiqueRefund {
+  id                 String               @id @default(uuid()) @db.Uuid
+  purchaseId         String               @db.Uuid
+  userId             String               @db.Uuid
+  pointsRefunded     Int
+  reason             String
+  status             BoutiqueRefundStatus @default(REQUESTED)
+  requestedByStaffId String?              @db.Uuid
+  approvedByStaffId  String?              @db.Uuid
+  createdAt          DateTime             @default(now())
+  resolvedAt         DateTime?
+
+  purchase           Purchase             @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([userId])
 }

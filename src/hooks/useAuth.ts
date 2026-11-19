@@ -79,7 +79,15 @@ export function useAuth() {
     return res;
   };
 
-  const claimFacecard = async (data: { displayName: string; handle: string; pin: string }) => {
+  const claimFacecard = async (data: {
+    displayName: string;
+    handle: string;
+    pin: string;
+    dob?: string;
+    ageConfirmed?: boolean;
+    termsAccepted?: boolean;
+    biometricConsent?: boolean;
+  }) => {
     setError(null);
     const res = await authService.claimFacecard(data);
     if (res.user) {

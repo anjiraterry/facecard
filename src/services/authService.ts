@@ -64,7 +64,15 @@ export const authService = {
     });
   },
 
-  async claimFacecard(data: { displayName: string; handle: string; pin: string }): Promise<{ success: boolean; user: UserProfile }> {
+  async claimFacecard(data: {
+    displayName: string;
+    handle: string;
+    pin: string;
+    dob?: string;
+    ageConfirmed?: boolean;
+    termsAccepted?: boolean;
+    biometricConsent?: boolean;
+  }): Promise<{ success: boolean; user: UserProfile }> {
     const res = await apiRequest<{ success: boolean; user: UserProfile }>('/api/card/claim', {
       method: 'POST',
       body: JSON.stringify(data),

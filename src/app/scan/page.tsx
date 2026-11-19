@@ -22,6 +22,8 @@ import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { Tier, FaceCardData, CategoryBreakdown } from '@/types';
 import { scanService } from '@/services/scanService';
 import { faceoffService } from '@/services/faceoffService';
+import { authService } from '@/services/authService';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/common/ToastProvider';
 import { LivenessOverlay } from '@/components/camera/LivenessOverlay';
 import { LivenessActionType } from '@/lib/vision/liveness';
@@ -79,6 +81,37 @@ function ScanContent() {
   const [isSettingAvatar, setIsSettingAvatar] = useState(false);
   const [avatarSaved, setAvatarSaved] = useState(false);
   const { showToast } = useToast();
+  const { user, isLoading: authLoading, refreshUser } = useAuth();
+  const [consentGrantedLocally, setConsentGrantedLocally] = useState(false);
+  const [consentAgeChecked, setConsentAgeChecked] = useState(false);
+  const [consentBiometricChecked, setConsentBiometricChecked] = useState(false);
+  const [consentSaving, setConsentSaving] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
+
+  const consentReady = consentGrantedLocally || Boolean(user?.biometricVerified && user?.dob);
+
+  const handleGrantConsent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setConsentError(null);
+    if (!consentAgeChecked || !consentBiometricChecked) {
+      setConsentError('Please confirm both 18+ age verification and biometric portrait consent.');
+      return;
+    }
+    setConsentSaving(true);
+    try {
+      await authService.recordConsent({
+        ageConfirmed: true,
+        biometricConsent: true,
+      });
+      setConsentGrantedLocally(true);
+      await refreshUser();
+      showToast('18+ & biometric consent saved. Starting camera…', 'success');
+    } catch (err: unknown) {
+      setConsentError(err instanceof Error ? err.message : 'Failed to save consent');
+    } finally {
+      setConsentSaving(false);
+    }
+  };
 
   const handleSetAsAvatar = async () => {
     if (!capturedImage) return;
@@ -225,9 +258,9 @@ function ScanContent() {
     await startCamera(nextMode);
   };
 
-  // Initialize camera
+  // Initialize camera ONLY after 18+ age & biometric consent are verified
   useEffect(() => {
-    if (phase === 'CAMERA') {
+    if (phase === 'CAMERA' && !authLoading && consentReady) {
       void startCamera();
     } else {
       cameraReqIdRef.current += 1;
@@ -238,7 +271,7 @@ function ScanContent() {
       cameraReqIdRef.current += 1;
       stopCameraStream();
     };
-  }, [phase]);
+  }, [phase, authLoading, consentReady]);
 
   const startSyntheticCamera = () => {
     const canvas = document.createElement('canvas');
@@ -440,7 +473,61 @@ function ScanContent() {
         )}
 
         {/* Phase: Camera HUD View */}
-        {phase === 'CAMERA' && (
+        {phase === 'CAMERA' && !authLoading && !consentReady && (
+          <div className="flex-1 flex items-center justify-center py-8">
+            <form
+              onSubmit={handleGrantConsent}
+              className="w-full max-w-md rounded-3xl bg-[var(--surface)] border border-[var(--border)] p-6 space-y-4 shadow-[var(--shadow-md)]"
+            >
+              <div className="space-y-1">
+                <h2 className="font-display text-xl font-semibold text-[var(--foreground)]">
+                  Before We Open Your Camera
+                </h2>
+                <p className="text-xs text-[var(--foreground-secondary)] leading-relaxed">
+                  Face Card requires 18+ age confirmation and explicit biometric portrait consent before accessing your camera.
+                </p>
+              </div>
+
+              {consentError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+                  {consentError}
+                </div>
+              )}
+
+              <label className="flex items-start gap-2.5 text-xs text-[var(--foreground)] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={consentAgeChecked}
+                  onChange={(e) => setConsentAgeChecked(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>I confirm that I am at least 18 years old.</span>
+              </label>
+
+              <label className="flex items-start gap-2.5 text-xs text-[var(--foreground)] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={consentBiometricChecked}
+                  onChange={(e) => setConsentBiometricChecked(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  I consent to biometric portrait processing to score and issue my Face Card (ephemeral processing, no silent photo retention).
+                </span>
+              </label>
+
+              <button
+                type="submit"
+                disabled={consentSaving || !consentAgeChecked || !consentBiometricChecked}
+                className="w-full h-11 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold disabled:opacity-50 cursor-pointer"
+              >
+                {consentSaving ? 'Saving Consent…' : 'Confirm & Enable Camera'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {phase === 'CAMERA' && (authLoading || consentReady) && (
           <div className="flex-1 flex flex-col justify-between min-h-0 pt-2 pb-24 sm:pb-28">
             {/* Camera Viewport (Enlarged Selfie Taking Area, Constrained to Viewport) */}
             <div className="relative my-auto flex items-center justify-center min-h-0 max-h-[58vh] sm:max-h-[62vh] aspect-[3/4] w-full max-w-[360px] mx-auto rounded-[32px] overflow-hidden bg-black shadow-2xl border border-white/10">
@@ -457,7 +544,7 @@ function ScanContent() {
                   videoRef={videoRef}
                   isActive={streamActive}
                   onLivenessComplete={(details) => {
-                    capturePhoto({
+                    setLivenessData({
                       passed: details.livenessVerified,
                       actionsCompleted: details.actions,
                     });
@@ -511,7 +598,7 @@ function ScanContent() {
               {/* Shutter Button */}
               <button
                 type="button"
-                onClick={streamActive ? () => capturePhoto() : () => startCamera()}
+                onClick={streamActive ? () => capturePhoto(livenessData ?? undefined) : () => startCamera()}
                 className="w-[72px] h-[72px] rounded-full flex items-center justify-center p-1.5 border-[3px] border-[var(--primary)] bg-transparent hover:scale-105 active:scale-95 transition-transform cursor-pointer shadow-[var(--shadow-md)]"
                 title="Take Selfie"
                 aria-label="Take Selfie"

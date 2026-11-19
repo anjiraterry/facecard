@@ -21,6 +21,23 @@ export const STAFF_PERMISSIONS = [
   'staff.read',
   'staff.manage',
   'audit.read',
+  'boutique.items.read',
+  'boutique.items.create',
+  'boutique.items.edit',
+  'boutique.items.publish',
+  'boutique.items.pause',
+  'boutique.items.retire',
+  'boutique.prices.manage',
+  'boutique.assets.manage',
+  'boutique.collections.manage',
+  'boutique.entitlements.read',
+  'boutique.entitlements.grant',
+  'boutique.entitlements.revoke',
+  'boutique.refunds.request',
+  'boutique.refunds.approve',
+  'boutique.effects.inspect',
+  'boutique.effects.disable',
+  'boutique.analytics.read',
 ] as const;
 
 export type StaffPermission = (typeof STAFF_PERMISSIONS)[number];

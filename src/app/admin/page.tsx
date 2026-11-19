@@ -21,6 +21,13 @@ import {
   Lock,
   Plus,
 } from 'lucide-react';
+import {
+  BOUTIQUE_CATEGORY_PALETTES,
+  getContrastRatio,
+  type BoutiquePaletteKey,
+  type MaterialTexture,
+} from '@/lib/boutique/palette';
+import { CollectibleArtwork } from '@/components/boutique/CollectibleArtwork';
 
 interface StaffSession {
   id: string;
@@ -38,6 +45,7 @@ type NavSection =
   | 'users'
   | 'atelier_orders'
   | 'atelier_inventory'
+  | 'boutique'
   | 'economy'
   | 'approvals'
   | 'support'
@@ -80,6 +88,33 @@ export default function ControlCentrePage() {
   const [reconcileData, setReconcileData] = useState<any | null>(null);
   const [approvals, setApprovals] = useState<any[]>([]);
   const [decisionNote, setDecisionNote] = useState('');
+
+  // Boutique & Effect Lab
+  const [boutiqueItems, setBoutiqueItems] = useState<any[]>([]);
+  const [boutiqueAnalytics, setBoutiqueAnalytics] = useState<any | null>(null);
+  const [effectLabMode, setEffectLabMode] = useState<'AURA_CHARGE' | 'STREAK_FREEZE' | 'STUDIO_PASS' | 'SHARE_PASS'>('AURA_CHARGE');
+  const [effectLabState, setEffectLabState] = useState<any | null>(null);
+  const [newBoutiqueItem, setNewBoutiqueItem] = useState({
+    sku: '',
+    slug: '',
+    name: '',
+    description: '',
+    kind: 'SKIN',
+    category: 'CARDS',
+    rarity: 'SIGNATURE',
+    price: 650,
+    slot: 'CARD_SKIN',
+    effectKind: 'EQUIP_COSMETIC',
+    assetVersionId: '',
+    isGiftable: true,
+    presetKey: 'CARDS' as BoutiquePaletteKey,
+    texture: 'SATIN' as MaterialTexture,
+    artworkUrl: '',
+    customSurface: '',
+    customBorder: '',
+    customAccent: '',
+    customText: '',
+  });
 
   // Support & Moderation
   const [tickets, setTickets] = useState<any[]>([]);
@@ -159,6 +194,19 @@ export default function ControlCentrePage() {
     } else if (section === 'economy') {
       const res = await fetch('/api/admin/economy/reconcile');
       if (res.ok) setReconcileData(await res.json());
+    } else if (section === 'boutique') {
+      const [itemsRes, analyticsRes, labRes] = await Promise.all([
+        fetch('/api/admin/v1/boutique/items'),
+        fetch('/api/admin/v1/boutique/analytics'),
+        fetch('/api/admin/v1/boutique/effects/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: effectLabMode, action: 'RESET' }),
+        }),
+      ]);
+      if (itemsRes.ok) setBoutiqueItems((await itemsRes.json()).items || []);
+      if (analyticsRes.ok) setBoutiqueAnalytics(await analyticsRes.json());
+      if (labRes.ok) setEffectLabState((await labRes.json()).state || null);
     } else if (section === 'approvals') {
       const res = await fetch('/api/admin/approvals');
       if (res.ok) setApprovals((await res.json()).approvals || []);
@@ -493,6 +541,7 @@ export default function ControlCentrePage() {
     {
       group: 'Economy & Governance',
       items: [
+        { id: 'boutique', label: 'Boutique & Effect Lab', icon: <Coins className="w-4 h-4" />, perm: 'boutique.items.read' },
         { id: 'economy', label: 'Points & Ledger', icon: <Coins className="w-4 h-4" />, perm: 'economy.reconcile' },
         { id: 'approvals', label: 'Approvals', icon: <CheckSquare className="w-4 h-4" /> },
       ],
@@ -1044,6 +1093,402 @@ export default function ControlCentrePage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* 4B. BOUTIQUE & EFFECT LAB */}
+          {activeNav === 'boutique' && (
+            <div className="space-y-5">
+              {boutiqueAnalytics?.metrics && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="rounded-xl bg-white border border-[#E6DDD6] p-4">
+                    <div className="text-[11px] text-[#6E626B]">Published Items</div>
+                    <div className="text-xl font-bold mt-1">{boutiqueAnalytics.metrics.publishedItems}</div>
+                  </div>
+                  <div className="rounded-xl bg-white border border-[#E6DDD6] p-4">
+                    <div className="text-[11px] text-[#6E626B]">Points Spent</div>
+                    <div className="text-xl font-bold mt-1">{boutiqueAnalytics.metrics.pointsSpent.toLocaleString()} PTS</div>
+                  </div>
+                  <div className="rounded-xl bg-white border border-[#E6DDD6] p-4">
+                    <div className="text-[11px] text-[#6E626B]">Active Effects</div>
+                    <div className="text-xl font-bold mt-1">{boutiqueAnalytics.metrics.activeEffects}</div>
+                  </div>
+                  <div className="rounded-xl bg-white border border-[#E6DDD6] p-4">
+                    <div className="text-[11px] text-[#6E626B]">Social Gifts Sent</div>
+                    <div className="text-xl font-bold mt-1">{boutiqueAnalytics.metrics.giftsSent}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Effect Lab */}
+              <div className="rounded-xl bg-white border border-[#E6DDD6] p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-base font-semibold">Control Centre Effect Lab</h2>
+                    <p className="text-xs text-[#6E626B]">Isolated sandbox simulation using production handler rules.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={effectLabMode}
+                      onChange={async (e) => {
+                        const mode = e.target.value as typeof effectLabMode;
+                        setEffectLabMode(mode);
+                        const res = await fetch('/api/admin/v1/boutique/effects/simulate', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ mode, action: 'RESET' }),
+                        });
+                        if (res.ok) setEffectLabState((await res.json()).state);
+                      }}
+                      className="h-9 px-2.5 rounded-lg border border-[#DDD3CB] bg-[#FAF7F4] text-xs"
+                    >
+                      <option value="AURA_CHARGE">Aura Charge (3 uses / 24h)</option>
+                      <option value="STREAK_FREEZE">Streak Freeze (1 missed day)</option>
+                      <option value="STUDIO_PASS">Studio Pass (24h)</option>
+                      <option value="SHARE_PASS">Share Studio Pass (3 exports / 7d)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {effectLabState && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="px-2.5 py-1 rounded bg-[#F1E6ED] text-[#251E24] font-semibold">
+                        Status: {effectLabState.status}
+                      </span>
+                      <span className="px-2.5 py-1 rounded bg-[#FAF7F4] border border-[#E6DDD6]">
+                        Clock: {Math.floor(effectLabState.elapsedSeconds / 3600)}h
+                      </span>
+                      {effectLabState.remainingUses !== null && (
+                        <span className="px-2.5 py-1 rounded bg-[#FAF7F4] border border-[#E6DDD6]">
+                          Uses left: {effectLabState.remainingUses}
+                        </span>
+                      )}
+                      {effectLabState.remainingBonusPoints !== null && (
+                        <span className="px-2.5 py-1 rounded bg-[#FAF7F4] border border-[#E6DDD6]">
+                          Bonus cap left: {effectLabState.remainingBonusPoints} PTS
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(['ACTIVATE', 'SIMULATE_EVENT', 'ADVANCE_1H', 'ADVANCE_6H', 'EXPIRE', 'RESET'] as const).map((act) => (
+                        <button
+                          key={act}
+                          type="button"
+                          onClick={async () => {
+                            const res = await fetch('/api/admin/v1/boutique/effects/simulate', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ mode: effectLabMode, state: effectLabState, action: act }),
+                            });
+                            if (res.ok) setEffectLabState((await res.json()).state);
+                          }}
+                          className="px-3 h-8 rounded-lg bg-[#251E24] text-white text-xs cursor-pointer hover:bg-[#3A2F38]"
+                        >
+                          {act.replace('_', ' ')}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="rounded-lg bg-[#251E24] text-[#FAF7F4] p-3 font-mono text-[11px] space-y-1 max-h-40 overflow-y-auto">
+                      {(effectLabState.logs || []).map((log: string, idx: number) => (
+                        <div key={idx}>{log}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Dynamic Item Builder + Catalogue */}
+              <div className="rounded-xl bg-white border border-[#E6DDD6] p-5 space-y-4">
+                <h2 className="text-base font-semibold">Boutique Catalogue & Draft Builder</h2>
+                {perms.has('boutique.items.create') && (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-[#FAF7F4] p-3 rounded-lg border border-[#E6DDD6]">
+                    <input
+                      placeholder="SKU (e.g. FC-S009)"
+                      value={newBoutiqueItem.sku}
+                      onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, sku: e.target.value }))}
+                      className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs"
+                    />
+                    <input
+                      placeholder="Slug (e.g. skin-rose-quartz)"
+                      value={newBoutiqueItem.slug}
+                      onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, slug: e.target.value }))}
+                      className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs"
+                    />
+                    <input
+                      placeholder="Name"
+                      value={newBoutiqueItem.name}
+                      onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, name: e.target.value }))}
+                      className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Price PTS"
+                      value={newBoutiqueItem.price}
+                      onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, price: Number(e.target.value) }))}
+                      className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs"
+                    />
+                    <input
+                      placeholder="Asset Version ID (e.g. rose-quartz-v1)"
+                      value={newBoutiqueItem.assetVersionId}
+                      onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, assetVersionId: e.target.value }))}
+                      className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs sm:col-span-2"
+                    />
+                    <select
+                      value={newBoutiqueItem.slot}
+                      onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, slot: e.target.value }))}
+                      className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs"
+                    >
+                      <option value="CARD_SKIN">CARD_SKIN</option>
+                      <option value="CARD_FRAME">CARD_FRAME</option>
+                      <option value="AVATAR_FRAME">AVATAR_FRAME</option>
+                      <option value="PROFILE_TITLE">PROFILE_TITLE</option>
+                      <option value="NAMEPLATE">NAMEPLATE</option>
+                      <option value="ARENA_ENTRANCE">ARENA_ENTRANCE</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const basePreset = BOUTIQUE_CATEGORY_PALETTES[newBoutiqueItem.presetKey].palette;
+                        const hasCustom =
+                          newBoutiqueItem.customSurface ||
+                          newBoutiqueItem.customBorder ||
+                          newBoutiqueItem.customAccent ||
+                          newBoutiqueItem.customText;
+                        const res = await fetch('/api/admin/v1/boutique/items', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            ...newBoutiqueItem,
+                            effectConfig: {
+                              kind: newBoutiqueItem.effectKind,
+                              slot: newBoutiqueItem.slot,
+                              assetVersionId: newBoutiqueItem.assetVersionId,
+                            },
+                            appearance: {
+                              presetKey: newBoutiqueItem.presetKey,
+                              texture: newBoutiqueItem.texture,
+                              artworkUrl: newBoutiqueItem.artworkUrl || undefined,
+                              customPalette: hasCustom
+                                ? {
+                                    surface: newBoutiqueItem.customSurface || basePreset.surface,
+                                    border: newBoutiqueItem.customBorder || basePreset.border,
+                                    accent: newBoutiqueItem.customAccent || basePreset.accent,
+                                    text: newBoutiqueItem.customText || basePreset.text,
+                                  }
+                                : undefined,
+                            },
+                          }),
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                          notify('ok', `Draft ${data.item.name} created`);
+                          loadSection('boutique');
+                        } else {
+                          notify('err', data.validationErrors?.join(', ') || data.error || 'Failed to create draft');
+                        }
+                      }}
+                      className="h-8 rounded bg-[#251E24] text-white text-xs font-semibold cursor-pointer"
+                    >
+                      Create Draft
+                    </button>
+                  </div>
+                )}
+
+                {/* Appearance & Light/Dark Live Preview */}
+                {perms.has('boutique.items.create') && (() => {
+                  const preset = BOUTIQUE_CATEGORY_PALETTES[newBoutiqueItem.presetKey];
+                  const previewPalette = {
+                    surface: newBoutiqueItem.customSurface || preset.palette.surface,
+                    border: newBoutiqueItem.customBorder || preset.palette.border,
+                    accent: newBoutiqueItem.customAccent || preset.palette.accent,
+                    text: newBoutiqueItem.customText || preset.palette.text,
+                  };
+                  const contrast = getContrastRatio(previewPalette.surface, previewPalette.text);
+                  return (
+                    <div className="rounded-lg border border-[#E6DDD6] bg-[#FAF7F4] p-3 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="font-semibold">Appearance &amp; Contrast Preview</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${contrast >= 4.5 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'}`}>
+                          Contrast: {contrast}:1 {contrast >= 4.5 ? '(AA Pass)' : '(Min 4.5:1)'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
+                        <select
+                          value={newBoutiqueItem.presetKey}
+                          onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, presetKey: e.target.value as BoutiquePaletteKey }))}
+                          className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs sm:col-span-2"
+                        >
+                          {Object.values(BOUTIQUE_CATEGORY_PALETTES).map((p) => (
+                            <option key={p.key} value={p.key}>
+                              {p.label} · {p.familyName}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={newBoutiqueItem.texture}
+                          onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, texture: e.target.value as MaterialTexture }))}
+                          className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs"
+                        >
+                          <option value="SATIN">Satin</option>
+                          <option value="CERAMIC">Ceramic</option>
+                          <option value="PEARLESCENT">Pearlescent</option>
+                          <option value="BRUSHED">Brushed</option>
+                          <option value="LINEN">Linen</option>
+                        </select>
+                        <input
+                          placeholder="Surface #HEX"
+                          value={newBoutiqueItem.customSurface}
+                          onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, customSurface: e.target.value }))}
+                          className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs"
+                        />
+                        <input
+                          placeholder="Accent #HEX"
+                          value={newBoutiqueItem.customAccent}
+                          onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, customAccent: e.target.value }))}
+                          className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs"
+                        />
+                        <input
+                          placeholder="Artwork URL (optional)"
+                          value={newBoutiqueItem.artworkUrl}
+                          onChange={(e) => setNewBoutiqueItem((p) => ({ ...p, artworkUrl: e.target.value }))}
+                          className="h-8 px-2 rounded border border-[#DDD3CB] bg-white text-xs"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="p-3 rounded-xl bg-[#FAF7F4] border border-[#E6DDD6] space-y-1.5">
+                          <div className="text-[10px] font-semibold uppercase text-[#6E626B]">Light Mode Preview</div>
+                          <div
+                            className="p-3 rounded-xl flex items-center gap-3 border"
+                            style={{ backgroundColor: previewPalette.surface, borderColor: previewPalette.border, color: previewPalette.text }}
+                          >
+                            <CollectibleArtwork
+                              slug={newBoutiqueItem.slug}
+                              presetKey={newBoutiqueItem.presetKey}
+                              palette={previewPalette}
+                              artworkUrl={newBoutiqueItem.artworkUrl || null}
+                              size="sm"
+                            />
+                            <div className="text-xs">
+                              <div className="font-bold">{newBoutiqueItem.name || 'Item Name'}</div>
+                              <div className="opacity-80">{newBoutiqueItem.price} PTS · {newBoutiqueItem.texture}</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-[#1A1419] border border-[#3A2F38] space-y-1.5">
+                          <div className="text-[10px] font-semibold uppercase text-[#D2B8C9]">Dark Mode Preview</div>
+                          <div
+                            className="p-3 rounded-xl flex items-center gap-3 border"
+                            style={{ backgroundColor: previewPalette.surface, borderColor: previewPalette.border, color: previewPalette.text }}
+                          >
+                            <CollectibleArtwork
+                              slug={newBoutiqueItem.slug}
+                              presetKey={newBoutiqueItem.presetKey}
+                              palette={previewPalette}
+                              artworkUrl={newBoutiqueItem.artworkUrl || null}
+                              size="sm"
+                            />
+                            <div className="text-xs">
+                              <div className="font-bold">{newBoutiqueItem.name || 'Item Name'}</div>
+                              <div className="opacity-80">{newBoutiqueItem.price} PTS · {newBoutiqueItem.texture}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="divide-y divide-[#F0EAE4]">
+                  {boutiqueItems.map((item) => (
+                    <div key={item.id} className="py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div>
+                        <span className="font-semibold">{item.name}</span>{' '}
+                        <span className="text-[#6E626B]">({item.sku || item.slug}) · {item.price} PTS · {item.status}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {perms.has('boutique.items.publish') && item.status !== 'PUBLISHED' && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const res = await fetch(`/api/admin/v1/boutique/items/${item.id}/publish`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'PUBLISH' }),
+                              });
+                              const data = await res.json();
+                              if (res.ok) {
+                                notify('ok', `Published ${item.name}`);
+                                loadSection('boutique');
+                              } else {
+                                notify('err', data.validationErrors?.join(', ') || data.error || 'Publish blocked');
+                              }
+                            }}
+                            className="px-2.5 h-7 rounded bg-emerald-700 text-white text-[11px] cursor-pointer"
+                          >
+                            Publish
+                          </button>
+                        )}
+                        {perms.has('boutique.items.pause') && item.status === 'PUBLISHED' && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const res = await fetch(`/api/admin/v1/boutique/items/${item.id}/publish`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'PAUSE' }),
+                              });
+                              if (res.ok) {
+                                notify('ok', `Paused ${item.name}`);
+                                loadSection('boutique');
+                              }
+                            }}
+                            className="px-2.5 h-7 rounded border border-[#DDD3CB] text-[11px] cursor-pointer"
+                          >
+                            Pause
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 90-Day Economy Simulation */}
+              {boutiqueAnalytics?.simulation && (
+                <div className="rounded-xl bg-white border border-[#E6DDD6] p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-semibold">90-Day Deterministic Economy Simulation</h2>
+                    <span className="text-xs text-[#6E626B]">
+                      Source-to-Sink Ratio: <strong>{boutiqueAnalytics.simulation.sourceToSinkRatio}</strong>
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="text-[#6E626B] border-b border-[#E6DDD6]">
+                        <tr>
+                          <th className="py-1.5">Archetype</th>
+                          <th className="py-1.5">Earned</th>
+                          <th className="py-1.5">Spent</th>
+                          <th className="py-1.5">Ending Bal</th>
+                          <th className="py-1.5">Days → Velvet Rose</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#F0EAE4]">
+                        {boutiqueAnalytics.simulation.archetypes.map((a: any) => (
+                          <tr key={a.archetype}>
+                            <td className="py-1.5 font-medium">{a.archetype}</td>
+                            <td className="py-1.5">{a.totalEarned}</td>
+                            <td className="py-1.5">{a.totalSpent}</td>
+                            <td className="py-1.5">{a.endingBalance}</td>
+                            <td className="py-1.5">{a.daysToAffordVelvetRose650}d</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

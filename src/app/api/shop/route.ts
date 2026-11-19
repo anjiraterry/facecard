@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
       include: {
         items: true,
         cards: true,
+        equipment: true,
+        shopWishlist: true,
       },
     });
 
@@ -24,11 +26,13 @@ export async function GET(req: NextRequest) {
     }
 
     const shopItems = await db.shopItem.findMany({
-      where: { active: true },
-      orderBy: { price: 'asc' },
+      where: { active: true, status: 'PUBLISHED' },
+      orderBy: [{ category: 'asc' }, { price: 'asc' }],
     });
 
-    const ownedItemIds = user.items.map((ui) => ui.itemId);
+    const ownedByItemId = new Map(user.items.map((ui) => [ui.itemId, ui.quantity]));
+    const equippedItemIds = new Set(user.equipment.map((eq) => eq.itemId));
+    const wishlistItemIds = new Set(user.shopWishlist.map((w) => w.itemId));
     const card = user.cards[0];
     const equipped = {
       skin: card?.equippedSkinId ?? null,
@@ -39,22 +43,59 @@ export async function GET(req: NextRequest) {
     const tierRank: Record<string, number> = { CLASSIC: 0, GOLD: 1, PLATINUM: 2, BLACK: 3 };
 
     const items = shopItems.map((item) => {
-      const isOwned = ownedItemIds.includes(item.id);
+      const ownedQuantity = ownedByItemId.get(item.id) ?? 0;
+      const isOwned = ownedQuantity > 0;
       const isEquipped =
-        equipped.title === item.id || equipped.skin === item.id || equipped.frame === item.id;
+        equippedItemIds.has(item.id) ||
+        equipped.title === item.id ||
+        equipped.skin === item.id ||
+        equipped.frame === item.id;
       const isTierLocked = tierRank[item.minTier] > tierRank[user.tier];
+      const normalizedCategory =
+        item.category === 'CARDS' && item.kind !== 'SKIN'
+          ? item.kind === 'CONSUMABLE'
+            ? 'PERKS'
+            : ['TITLE', 'FRAME', 'BADGE'].includes(item.kind)
+              ? 'PROFILE'
+              : item.category
+          : item.category;
+
+      const categoryLabel =
+        normalizedCategory === 'GIFTS'
+          ? 'Social Gift'
+          : normalizedCategory === 'ARENA'
+            ? 'Arena'
+            : normalizedCategory === 'PERKS'
+              ? item.slug === 'streak-freeze'
+                ? 'Streak'
+                : item.slug.includes('share')
+                  ? 'Sharing'
+                  : 'Perk'
+              : CATEGORY_LABELS[item.kind] || item.kind;
 
       return {
         id: item.id,
+        sku: item.sku,
+        slug: item.slug,
         name: item.name,
         kind: item.kind,
-        categoryLabel: CATEGORY_LABELS[item.kind] || item.kind,
+        category: normalizedCategory,
+        categoryLabel,
+        rarity: item.rarity,
+        slot: item.slot,
+        effectKind: item.effectKind,
+        effectConfig: item.effectConfig,
+        isGiftable: item.isGiftable,
+        maxOwned: item.maxOwned,
+        currentVersionId: item.currentVersionId,
         price: item.price,
         minTier: item.minTier,
         description: item.description || '',
-        gradient: ITEM_GRADIENTS[item.slug] || ITEM_GRADIENTS[item.id] || 'linear-gradient(135deg, #6366F1 0%, #A855F7 100%)',
+        gradient: ITEM_GRADIENTS[item.slug] || ITEM_GRADIENTS[item.id] || 'linear-gradient(135deg, #96788D 0%, #65475D 100%)',
         isOwned,
+        ownedQuantity,
         isEquipped,
+        isWishlisted: wishlistItemIds.has(item.id),
         isLocked: isTierLocked,
         canAfford: user.spendableBalance >= item.price,
       };

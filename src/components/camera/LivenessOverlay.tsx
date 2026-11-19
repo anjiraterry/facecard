@@ -36,7 +36,6 @@ export function LivenessOverlay({
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [stepSuccess, setStepSuccess] = useState(false);
   const [allVerified, setAllVerified] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
   const [detectionProgress, setDetectionProgress] = useState(0);
   const [isMediaPipeActive, setIsMediaPipeActive] = useState(false);
   const [stepSecondsElapsed, setStepSecondsElapsed] = useState(0);
@@ -125,8 +124,10 @@ export function LivenessOverlay({
                 holdCounterRef.current = 0;
               } else {
                 setAllVerified(true);
-                // Start auto-capture countdown: 3, 2, 1, Snap!
-                setCountdown(2);
+                onLivenessComplete({
+                  actions: sequence.map((s) => s.type),
+                  livenessVerified: true,
+                });
               }
             }, 750);
             return;
@@ -150,20 +151,6 @@ export function LivenessOverlay({
     };
   }, [isActive, currentStepIndex, sequence, allVerified, videoRef]);
 
-  // Countdown timer to auto-capture
-  useEffect(() => {
-    if (countdown === null) return;
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 700);
-      return () => clearTimeout(timer);
-    } else if (countdown === 0) {
-      onLivenessComplete({
-        actions: sequence.map((s) => s.type),
-        livenessVerified: true,
-      });
-    }
-  }, [countdown, onLivenessComplete, sequence]);
-
   const currentChallenge = sequence[currentStepIndex];
 
   const handleManualActionPass = () => {
@@ -177,7 +164,10 @@ export function LivenessOverlay({
       }, 500);
     } else {
       setAllVerified(true);
-      setCountdown(1);
+      onLivenessComplete({
+        actions: sequence.map((s) => s.type),
+        livenessVerified: true,
+      });
     }
   };
 
@@ -232,12 +222,12 @@ export function LivenessOverlay({
         </div>
       </div>
 
-      {/* Active Challenge Card in Upper-Center of Viewport */}
+      {/* Active Challenge Card near bottom so user's face stays unobstructed */}
       {!allVerified && currentChallenge && (
-        <div className="absolute top-16 inset-x-4 z-30 flex flex-col items-center pointer-events-auto">
+        <div className="absolute bottom-12 inset-x-4 z-30 flex flex-col items-center pointer-events-auto">
           <div 
             onClick={handleManualActionPass}
-            className={`w-full max-w-[300px] p-3.5 rounded-2xl backdrop-blur-md border shadow-lg flex items-center gap-3 transition-all cursor-pointer ${
+            className={`w-full max-w-[300px] p-3 rounded-2xl backdrop-blur-md border shadow-lg flex items-center gap-3 transition-all cursor-pointer ${
               stepSuccess
                 ? 'bg-[#251E24]/90 border-[#78B894] text-[#FAF7F4] scale-[1.02]'
                 : 'bg-[#251E24]/85 border-[#EBDCD5]/25 text-[#FAF7F4]'
@@ -284,20 +274,12 @@ export function LivenessOverlay({
         </div>
       )}
 
-      {/* Verified Banner and Countdown Overlay */}
+      {/* Non-blocking Verified Pill at bottom so user can see their face, pose, and tap shutter */}
       {allVerified && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#251E24]/50 backdrop-blur-xs pointer-events-none">
-          <div className="p-5 rounded-3xl bg-[#251E24]/95 border border-[#EBDCD5]/25 shadow-2xl text-center space-y-2 text-[#FAF7F4] max-w-[260px]">
-            <div className="w-12 h-12 mx-auto rounded-full bg-[#78B894]/20 text-[#78B894] flex items-center justify-center border border-[#78B894]/40">
-              <CheckCircle2 className="w-7 h-7" />
-            </div>
-            <h3 className="font-display text-lg font-semibold text-[#FAF7F4]">Live Portrait Verified</h3>
-            <p className="text-[11px] text-[#EBDCD5]/80">Capturing your verified portrait...</p>
-            {countdown !== null && (
-              <div className="text-3xl font-bold text-[#EBDCD5] pt-1 tabular-nums">
-                {countdown > 0 ? countdown : 'Ready'}
-              </div>
-            )}
+        <div className="absolute bottom-4 inset-x-4 z-30 flex justify-center pointer-events-none">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#251E24]/90 backdrop-blur-md border border-[#78B894]/50 shadow-lg text-[#FAF7F4]">
+            <CheckCircle2 className="w-4 h-4 text-[#78B894] shrink-0" />
+            <span className="text-xs font-semibold">Verified · Pose &amp; tap Shutter when ready</span>
           </div>
         </div>
       )}

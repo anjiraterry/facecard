@@ -27,7 +27,9 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
   // Claim fields
   const [displayName, setDisplayName] = useState('');
   const [handle, setHandle] = useState('');
+  const [dob, setDob] = useState('');
   const [pin, setPin] = useState('');
+  const [consentChecked, setConsentChecked] = useState(false);
 
   // Login fields
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -75,12 +77,44 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
       return;
     }
 
+    if (!dob) {
+      const msg = 'Please enter your date of birth.';
+      setError(msg);
+      toast.warning(msg);
+      return;
+    }
+
+    const birthDate = new Date(`${dob}T00:00:00Z`);
+    const today = new Date();
+    let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
+    const monthDiff = today.getUTCMonth() - birthDate.getUTCMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getUTCDate() < birthDate.getUTCDate())) {
+      age -= 1;
+    }
+    if (Number.isNaN(age) || age < 18) {
+      const msg = 'You must be at least 18 years old to use Face Card.';
+      setError(msg);
+      toast.warning(msg);
+      return;
+    }
+
+    if (!consentChecked) {
+      const msg = 'Please confirm 18+ age verification and biometric portrait consent.';
+      setError(msg);
+      toast.warning(msg);
+      return;
+    }
+
     setIsLoading(true);
     try {
       await claimFacecard({
         displayName: displayName.trim(),
         handle: cleanHandle,
         pin: pin.trim(),
+        dob,
+        ageConfirmed: true,
+        termsAccepted: true,
+        biometricConsent: true,
       });
       toast.success(`Face Card claimed! Welcome, @${cleanHandle}`);
       onClose();
@@ -238,6 +272,14 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
                   />
 
                   <Input
+                    label="Date of Birth (18+)"
+                    type="date"
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                    required
+                  />
+
+                  <Input
                     label="Security PIN (4–6 Digits)"
                     type="password"
                     inputMode="numeric"
@@ -251,6 +293,19 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
                     helperText="Used to unlock your Face Card anytime."
                     leftIcon={<KeyRound className="w-4 h-4" />}
                   />
+
+                  <label className="flex items-start gap-2.5 text-[11px] text-[var(--text-muted)] leading-relaxed cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={consentChecked}
+                      onChange={(e) => setConsentChecked(e.target.checked)}
+                      className="mt-0.5 rounded border-[var(--border)]"
+                      required
+                    />
+                    <span>
+                      I confirm I am 18+ and consent to biometric portrait processing and the Face Card Terms &amp; Privacy Policy.
+                    </span>
+                  </label>
 
                   <Button type="submit" variant="primary" size="lg" fullWidth isLoading={isLoading}>
                     Claim Your Face Card

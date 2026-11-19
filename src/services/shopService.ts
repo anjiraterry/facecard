@@ -2,9 +2,22 @@ import { apiRequest } from './apiClient';
 
 export interface ShopItemData {
   id: string;
+  sku?: string | null;
+  slug?: string;
   name: string;
   kind: 'SKIN' | 'TITLE' | 'FRAME' | 'BADGE' | 'CONSUMABLE' | 'FEATURE';
+  category?: string;
   categoryLabel: string;
+  rarity?: string;
+  slot?: string | null;
+  effectKind?: string | null;
+  effectConfig?: Record<string, unknown> | null;
+  assetRef?: string | null;
+  isGiftable?: boolean;
+  isWishlisted?: boolean;
+  ownedQuantity?: number;
+  maxOwned?: number;
+  currentVersionId?: string | null;
   price: number;
   minTier: 'CLASSIC' | 'GOLD' | 'PLATINUM' | 'BLACK';
   description: string;

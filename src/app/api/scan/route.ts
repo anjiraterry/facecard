@@ -331,17 +331,47 @@ async function performScan(
   const multiplier = getStreakMultiplier(streakDays);
   const basePointsEarned = calculateScanPoints(scoredResult.score, scanIndexOfDay, streakDays);
 
-  // Check if user holds an active Double Points Surge consumable (`boost-aura-2x`)
-  const boostItem = await db.userItem.findFirst({
+  const now = new Date();
+  // 1. Check active REWARD_MULTIPLIER effect (new Effect Engine)
+  const activeBoostEffect = await db.activeEffect.findFirst({
     where: {
       userId: user.id,
-      quantity: { gt: 0 },
-      item: { slug: 'boost-aura-2x' },
+      effectKind: 'REWARD_MULTIPLIER',
+      status: 'ACTIVE',
+      AND: [
+        { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+        { OR: [{ remainingUses: null }, { remainingUses: { gt: 0 } }] },
+      ],
     },
-    select: { id: true, quantity: true },
+    orderBy: { createdAt: 'asc' },
   });
-  const boostApplied = Boolean(boostItem);
-  const pointsEarned = boostApplied ? basePointsEarned * 2 : basePointsEarned;
+
+  let bonusPoints = 0;
+  if (activeBoostEffect) {
+    const cfg = (activeBoostEffect.config ?? {}) as { multiplierBps?: number };
+    const bps = typeof cfg.multiplierBps === 'number' ? cfg.multiplierBps : 15000;
+    const rawBonus = Math.max(0, Math.round((basePointsEarned * (bps - 10000)) / 10000));
+    const cap = activeBoostEffect.remainingBonusPoints ?? rawBonus;
+    bonusPoints = Math.min(rawBonus, cap);
+  }
+
+  // 2. Legacy fallback for unactivated `boost-aura-2x` UserItem
+  const boostItem = !activeBoostEffect
+    ? await db.userItem.findFirst({
+        where: {
+          userId: user.id,
+          quantity: { gt: 0 },
+          item: { slug: 'boost-aura-2x' },
+        },
+        select: { id: true, quantity: true },
+      })
+    : null;
+  if (boostItem) {
+    bonusPoints = basePointsEarned;
+  }
+
+  const boostApplied = bonusPoints > 0;
+  const pointsEarned = basePointsEarned + bonusPoints;
 
   const flatBreakdown = {
     photoCraft: Math.round(
@@ -402,7 +432,31 @@ async function performScan(
         }
       }
 
-      if (boostItem) {
+      if (activeBoostEffect && bonusPoints > 0) {
+        const nextUses = activeBoostEffect.remainingUses !== null ? Math.max(0, activeBoostEffect.remainingUses - 1) : null;
+        const nextBonus = activeBoostEffect.remainingBonusPoints !== null ? Math.max(0, activeBoostEffect.remainingBonusPoints - bonusPoints) : null;
+        const exhausted = (nextUses !== null && nextUses <= 0) || (nextBonus !== null && nextBonus <= 0);
+        await tx.activeEffect.update({
+          where: { id: activeBoostEffect.id },
+          data: {
+            remainingUses: nextUses,
+            remainingBonusPoints: nextBonus,
+            status: exhausted ? 'EXHAUSTED' : 'ACTIVE',
+            terminalReason: exhausted ? (nextUses === 0 ? 'USAGE_EXHAUSTED' : 'BONUS_CAP_REACHED') : null,
+            endedAt: exhausted ? now : null,
+          },
+        });
+        await tx.effectExecution.create({
+          data: {
+            activeEffectId: activeBoostEffect.id,
+            eventId: `scan:${scanId}`,
+            targetModule: 'ECONOMY',
+            result: 'APPLIED',
+            consumedUses: 1,
+            bonusPointsAwarded: bonusPoints,
+          },
+        });
+      } else if (boostItem) {
         await tx.userItem.updateMany({
           where: { id: boostItem.id, quantity: { gt: 0 } },
           data: { quantity: { decrement: 1 } },

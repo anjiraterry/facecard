@@ -25,10 +25,31 @@ export async function POST(req: NextRequest) {
       displayName,
       handle,
       pin,
+      dob,
       ageConfirmed,
       termsAccepted,
+      biometricConsent,
       consentVersion = '1.0-NDPA',
     } = await req.json().catch(() => ({}));
+
+    let dobVerified18Plus = false;
+    if (typeof dob === 'string' && dob.trim()) {
+      const birthDate = new Date(`${dob.trim()}T00:00:00Z`);
+      const today = new Date();
+      let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
+      const monthDiff = today.getUTCMonth() - birthDate.getUTCMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getUTCDate() < birthDate.getUTCDate())) {
+        age -= 1;
+      }
+      if (Number.isNaN(age) || age < 18) {
+        return NextResponse.json(
+          { error: 'You must be at least 18 years old to claim a Face Card.' },
+          { status: 400 }
+        );
+      }
+      dobVerified18Plus = true;
+    }
+    const isAgeConfirmed = ageConfirmed === true || dobVerified18Plus;
 
     // 1. Validation
     const cleanName = (displayName || '').trim();
@@ -99,11 +120,11 @@ export async function POST(req: NextRequest) {
           tier: 'CLASSIC',
           lifetimePoints: 0,
           spendableBalance: 0,
-          ...(ageConfirmed === true ? { ageConfirmedAt: new Date() } : {}),
-          ...(ageConfirmed === true && termsAccepted !== false
+          ...(isAgeConfirmed ? { ageConfirmedAt: new Date() } : {}),
+          ...(isAgeConfirmed && termsAccepted !== false
             ? { consentAt: new Date(), consentVersion }
             : {}),
-          ...(ageConfirmed === true
+          ...(isAgeConfirmed
             ? {
                 consentRecords: {
                   create: [
@@ -117,6 +138,16 @@ export async function POST(req: NextRequest) {
                       ? [
                           {
                             purpose: 'TERMS_PRIVACY' as const,
+                            version: consentVersion,
+                            ip: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
+                            userAgent: req.headers.get('user-agent') || null,
+                          },
+                        ]
+                      : []),
+                    ...(biometricConsent === true
+                      ? [
+                          {
+                            purpose: 'PORTRAIT_PROCESSING' as const,
                             version: consentVersion,
                             ip: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
                             userAgent: req.headers.get('user-agent') || null,
