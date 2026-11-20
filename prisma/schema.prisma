@@ -146,6 +146,11 @@ model User {
   boutiqueRefunds       BoutiqueRefund[]
   tierUpgradeEvents     TierUpgradeEvent[]
   savedScans            SavedScan[]
+  skinObservations      SkinObservation[]
+  skinConcernAssessments SkinConcernAssessment[]
+  recommendationSessions RecommendationSession[]
+  skinProgressEntries   SkinProgressEntry[]
+  recommendationInteractions RecommendationInteraction[]
   notifications         Notification[]
 }
 
@@ -153,6 +158,8 @@ enum ScoringConfigKind {
   SCORING_WEIGHTS
   REWARD_POLICY
   TIER_POLICY
+  BEAUTY_RUBRIC
+  RECOMMENDATION_RULES
 }
 
 enum ScoringConfigStatus {
@@ -277,6 +284,7 @@ model Scan {
   opponentBestInFaceOffs   FaceOff[] @relation("OpponentBestScan")
   shareCards     ShareCard[]
   savedScans     SavedScan[]
+  skinObservations SkinObservation[]
 
   @@index([userId, dayKey])
 }
@@ -689,6 +697,8 @@ model AtelierProduct {
   wishlistItems   WishlistItem[]
   routineSteps    RoutineStepProduct[]
   reviews         ProductReview[]
+  suitabilities   ProductSuitability[]
+  recommendedIn   RecommendedProduct[]
 
   @@index([status, featured])
   @@index([categoryId])
@@ -737,14 +747,28 @@ model ProductImage {
 }
 
 model Ingredient {
-  id                String              @id @default(uuid()) @db.Uuid
-  slug              String              @unique
-  name              String
-  inciName          String?
-  summary           String?
-  isPotentialIrritant Boolean           @default(false)
+  id                  String              @id @default(uuid()) @db.Uuid
+  slug                String              @unique
+  name                String
+  aliases             String[]            @default([])
+  inciName            String?
+  summary             String?
+  purposes            String[]            @default([])
+  usageContext        String?
+  typicalConcentration String?
+  timeOfDay           TimeOfDay?
+  precautionsText     String?
+  evidenceSummary     String?
+  reviewStatus        String              @default("PUBLISHED")
+  publicationVersion  Int                 @default(1)
+  isPotentialIrritant Boolean             @default(false)
 
-  products          ProductIngredient[]
+  products            ProductIngredient[]
+  benefits            IngredientBenefit[]
+  precautions         IngredientPrecaution[]
+  compatibilitiesA    IngredientCompatibility[] @relation("IngredientCompatA")
+  compatibilitiesB    IngredientCompatibility[] @relation("IngredientCompatB")
+  concernMappings     ConcernIngredientMapping[]
 }
 
 model ProductIngredient {
@@ -766,6 +790,8 @@ model SkinConcern {
 
   products    ProductConcern[]
   profiles    SkinProfileConcern[]
+  ingredientMappings ConcernIngredientMapping[]
+  assessments SkinConcernAssessment[]
 }
 
 model ProductConcern {
@@ -1112,7 +1138,12 @@ model SkinProfile {
   budgetMinMinor       BigInt?
   budgetMaxMinor       BigInt?
   preferredCurrency    String                   @default("NGN")
-  questionnaireVersion Int                      @default(1)
+  drynessLevel         Int?
+  oilinessLevel        Int?
+  existingProducts     String[]                 @default([])
+  adverseReactions     String?
+  restrictions         String[]                 @default([])
+  questionnaireVersion Int                      @default(2)
   completedAt          DateTime?
   createdAt            DateTime                 @default(now())
   updatedAt            DateTime                 @updatedAt
@@ -1165,6 +1196,7 @@ model SkincareRoutine {
 
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   steps     RoutineStep[]
+  progressEntries SkinProgressEntry[]
 
   @@index([userId, isActive])
 }
@@ -1746,4 +1778,225 @@ model Notification {
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt, createdAt])
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// BEAUTY INTELLIGENCE V2.1 — OBSERVATIONS, INGREDIENTS, RULES & ANALYTICS
+// ═════════════════════════════════════════════════════════════════════════════
+
+model IngredientBenefit {
+  id            String     @id @default(uuid()) @db.Uuid
+  ingredientId  String     @db.Uuid
+  title         String
+  description   String
+  evidenceLevel String     @default("MODERATE")
+  evidenceSource String?
+  createdAt     DateTime   @default(now())
+
+  ingredient    Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@index([ingredientId])
+}
+
+model IngredientPrecaution {
+  id           String     @id @default(uuid()) @db.Uuid
+  ingredientId String     @db.Uuid
+  title        String
+  severity     String     @default("MODERATE")
+  guidance     String
+  createdAt    DateTime   @default(now())
+
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@index([ingredientId])
+}
+
+model IngredientCompatibility {
+  id            String     @id @default(uuid()) @db.Uuid
+  ingredientAId String     @db.Uuid
+  ingredientBId String     @db.Uuid
+  status        String     @default("COMPATIBLE") // COMPATIBLE | CAUTION | INCOMPATIBLE
+  rationale     String
+  guidance      String?
+  createdAt     DateTime   @default(now())
+
+  ingredientA   Ingredient @relation("IngredientCompatA", fields: [ingredientAId], references: [id], onDelete: Cascade)
+  ingredientB   Ingredient @relation("IngredientCompatB", fields: [ingredientBId], references: [id], onDelete: Cascade)
+
+  @@unique([ingredientAId, ingredientBId])
+}
+
+model ConcernIngredientMapping {
+  id                 String      @id @default(uuid()) @db.Uuid
+  concernId          String      @db.Uuid
+  ingredientId       String      @db.Uuid
+  rationale          String
+  evidenceStrength   String      @default("MODERATE")
+  restrictions       String?
+  exclusions         String?
+  compatibilityNotes String?
+  reviewStatus       String      @default("PUBLISHED")
+  publicationVersion Int         @default(1)
+  createdAt          DateTime    @default(now())
+
+  concern            SkinConcern @relation(fields: [concernId], references: [id], onDelete: Cascade)
+  ingredient         Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([concernId, ingredientId])
+}
+
+model SkinObservation {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @db.Uuid
+  scanId            String?  @db.Uuid
+  observationKey    String
+  method            String
+  measuredValue     Float?
+  confidence        Float
+  availability      String   @default("AVAILABLE")
+  region            String
+  limitations       String[] @default([])
+  algorithmVersion  String
+  concernCandidates String[] @default([])
+  userConfirmed     Boolean?
+  dismissed         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scan              Scan?    @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([scanId])
+}
+
+model SkinConcernAssessment {
+  id             String      @id @default(uuid()) @db.Uuid
+  userId         String      @db.Uuid
+  concernId      String      @db.Uuid
+  observationKey String?
+  confirmed      Boolean     @default(false)
+  source         String      @default("QUESTIONNAIRE") // QUESTIONNAIRE | SCAN_PROMPT
+  notes          String?
+  createdAt      DateTime    @default(now())
+
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  concern        SkinConcern @relation(fields: [concernId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model ProductSuitability {
+  id               String         @id @default(uuid()) @db.Uuid
+  productId        String         @db.Uuid
+  skinType         SkinType
+  suitabilityLevel String         @default("SUITABLE") // SUITABLE | CAUTION | UNSUITABLE
+  rationale        String
+  exclusions       String?
+  incompleteData   Boolean        @default(false)
+  reviewedAt       DateTime?
+  createdAt        DateTime       @default(now())
+
+  product          AtelierProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, skinType])
+}
+
+model RecommendationRuleVersion {
+  id            String              @id @default(uuid()) @db.Uuid
+  version       Int                 @unique
+  status        ScoringConfigStatus @default(DRAFT)
+  rules         Json
+  notes         String?
+  createdById   String?             @db.Uuid
+  publishedById String?             @db.Uuid
+  createdAt     DateTime            @default(now())
+  publishedAt   DateTime?
+
+  sessions      RecommendationSession[]
+
+  @@index([status])
+}
+
+model RecommendationSession {
+  id                  String                     @id @default(uuid()) @db.Uuid
+  userId              String                     @db.Uuid
+  ruleVersionId       String?                    @db.Uuid
+  skinType            SkinType                   @default(UNSURE)
+  concernSlugs        String[]                   @default([])
+  sensitivities       String[]                   @default([])
+  budgetMaxMinor      BigInt?
+  noPurchaseSuggested Boolean                    @default(false)
+  noPurchaseReason    String?
+  createdAt           DateTime                   @default(now())
+
+  user                User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ruleVersion         RecommendationRuleVersion? @relation(fields: [ruleVersionId], references: [id], onDelete: SetNull)
+  products            RecommendedProduct[]
+
+  @@index([userId, createdAt])
+}
+
+model RecommendedProduct {
+  id                  String                @id @default(uuid()) @db.Uuid
+  sessionId           String                @db.Uuid
+  productId           String                @db.Uuid
+  matchedGoal         String
+  relevantIngredients String[]              @default([])
+  rationale           String
+  confidence          Float                 @default(0.8)
+  limitations         String[]              @default([])
+  usageGuidance       String?
+  precautions         String[]              @default([])
+  routinePlacement    String
+  isPromoted          Boolean               @default(false)
+  rankOrder           Int                   @default(1)
+
+  session             RecommendationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  product             AtelierProduct        @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, rankOrder])
+}
+
+model RoutineTemplate {
+  id             String    @id @default(uuid()) @db.Uuid
+  slug           String    @unique
+  name           String
+  targetSkinType SkinType?
+  complexity     String    @default("MINIMAL") // MINIMAL | BALANCED | TARGETED
+  steps          Json
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+}
+
+model SkinProgressEntry {
+  id                 String           @id @default(uuid()) @db.Uuid
+  userId             String           @db.Uuid
+  routineId          String?          @db.Uuid
+  adherencePercent   Int?
+  userNotes          String?
+  productsUsed       String[]         @default([])
+  captureConditions  Json?
+  observationVersion String?
+  comparisonEligible Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  routine            SkincareRoutine? @relation(fields: [routineId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+}
+
+model RecommendationInteraction {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  sessionId String?  @db.Uuid
+  productId String?  @db.Uuid
+  eventType String   // IMPRESSION | CLICK | VIEW_PDP | ADD_WISHLIST | ADD_BAG | PURCHASE | ROUTINE_ADD | DISMISS | ADVERSE_REACTION
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([eventType, createdAt])
+  @@index([userId, createdAt])
 }

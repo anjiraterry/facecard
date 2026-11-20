@@ -28,6 +28,8 @@ export async function runFairnessAudit(): Promise<{
     passRate: number;
   }>;
   disparityMaxPercent: number;
+  passRateParity: number;
+  skinToneCorrelation: number;
 }> {
   const cohortResults = [];
   const meanScores: number[] = [];
@@ -85,12 +87,38 @@ export async function runFairnessAudit(): Promise<{
   const maxMean = Math.max(...meanScores);
   const disparityMaxPercent = Math.round(((maxMean - minMean) / maxMean) * 100);
 
-  // Acceptance rule: maximum disparity between demographic cohorts must not exceed 8%
-  const passed = disparityMaxPercent <= 8;
+  const passRates = cohortResults.map((c) => c.passRate);
+  const minPass = Math.min(...passRates);
+  const maxPass = Math.max(...passRates);
+  const passRateParity = maxPass > 0 ? Number((minPass / maxPass).toFixed(3)) : 0;
+
+  // Pearson correlation between Monk Scale (1-10) and cohort mean scores
+  const mstValues = CALIBRATION_COHORTS.map((c) => c.monkScale);
+  const mstMean = mstValues.reduce((a, b) => a + b, 0) / mstValues.length;
+  const scoreMean = meanScores.reduce((a, b) => a + b, 0) / meanScores.length;
+  let num = 0;
+  let denA = 0;
+  let denB = 0;
+  for (let i = 0; i < mstValues.length; i++) {
+    const dx = mstValues[i] - mstMean;
+    const dy = meanScores[i] - scoreMean;
+    num += dx * dy;
+    denA += dx * dx;
+    denB += dy * dy;
+  }
+  const skinToneCorrelation = denA > 0 && denB > 0 ? Number((num / Math.sqrt(denA * denB)).toFixed(3)) : 0;
+
+  // Acceptance rules: score disparity <= 8%, pass-rate parity >= 0.90, and |r| < 0.10
+  const passed =
+    disparityMaxPercent <= 8 &&
+    passRateParity >= 0.9 &&
+    Math.abs(skinToneCorrelation) < 0.1;
 
   return {
     passed,
     cohortResults,
     disparityMaxPercent,
+    passRateParity,
+    skinToneCorrelation,
   };
 }

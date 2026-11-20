@@ -76,6 +76,15 @@ export async function PUT(req: NextRequest) {
 
     const budgetMinMinor = body.budgetMinMinor != null ? BigInt(body.budgetMinMinor) : undefined;
     const budgetMaxMinor = body.budgetMaxMinor != null ? BigInt(body.budgetMaxMinor) : undefined;
+    const drynessLevel = typeof body.drynessLevel === 'number' ? Math.max(1, Math.min(5, Math.round(body.drynessLevel))) : undefined;
+    const oilinessLevel = typeof body.oilinessLevel === 'number' ? Math.max(1, Math.min(5, Math.round(body.oilinessLevel))) : undefined;
+    const existingProducts: string[] = Array.isArray(body.existingProducts)
+      ? body.existingProducts.filter((p: unknown): p is string => typeof p === 'string' && p.trim().length > 0).slice(0, 20)
+      : [];
+    const adverseReactions = typeof body.adverseReactions === 'string' ? body.adverseReactions.trim().slice(0, 300) : undefined;
+    const restrictions: string[] = Array.isArray(body.restrictions)
+      ? body.restrictions.filter((r: unknown): r is string => typeof r === 'string' && r.trim().length > 0).slice(0, 12)
+      : [];
 
     const profile = await db.$transaction(async (tx) => {
       const upserted = await tx.skinProfile.upsert({
@@ -87,6 +96,12 @@ export async function PUT(req: NextRequest) {
           routinePreference,
           budgetMinMinor,
           budgetMaxMinor,
+          drynessLevel,
+          oilinessLevel,
+          existingProducts,
+          adverseReactions,
+          restrictions,
+          questionnaireVersion: 2,
           completedAt: new Date(),
         },
         create: {
@@ -97,6 +112,12 @@ export async function PUT(req: NextRequest) {
           routinePreference,
           budgetMinMinor,
           budgetMaxMinor,
+          drynessLevel,
+          oilinessLevel,
+          existingProducts,
+          adverseReactions,
+          restrictions,
+          questionnaireVersion: 2,
           completedAt: new Date(),
         },
       });

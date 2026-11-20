@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { BeautyIntelligenceAdminPanel } from '@/components/admin/BeautyIntelligenceAdminPanel';
 import {
   LayoutDashboard,
   Users,
@@ -1573,6 +1574,7 @@ export default function ControlCentrePage() {
                 )}
               </div>
             )}
+            <BeautyIntelligenceAdminPanel canAdjust={perms.has('economy.adjust')} onNotify={notify} />
             <div className="rounded-xl bg-white border border-[#E6DDD6] p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>

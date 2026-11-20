@@ -12,6 +12,8 @@ import {
   Layers,
   HeartHandshake,
   Check,
+  BookOpen,
+  FlaskConical,
 } from 'lucide-react';
 import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { Button } from '@/components/ui/Button';
@@ -20,6 +22,7 @@ import { ProductCard } from '@/components/commerce/ProductCard';
 import { ProductDetailLayout } from '@/components/commerce/ProductDetailLayout';
 import { ShoppingBagLayout, CheckoutLayout } from '@/components/commerce/BagAndCheckoutLayout';
 import { OrderHistoryLayout, PersonalRoutineLayout } from '@/components/commerce/RoutineAndOrdersLayout';
+import { IngredientLibraryView, ProgressJournalView } from '@/components/commerce/BeautyIntelligenceViews';
 import { useToast } from '@/components/common/ToastProvider';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -32,7 +35,7 @@ import {
   AtelierRecommendationDTO,
 } from '@/services/atelierService';
 
-type CommerceView = 'CATALOGUE' | 'PDP' | 'ROUTINES' | 'QUESTIONNAIRE' | 'BAG' | 'CHECKOUT' | 'ORDERS';
+type CommerceView = 'CATALOGUE' | 'PDP' | 'ROUTINES' | 'QUESTIONNAIRE' | 'INGREDIENTS' | 'JOURNAL' | 'BAG' | 'CHECKOUT' | 'ORDERS';
 
 const CATEGORIES = [
   { id: 'ALL', label: 'All' },
@@ -55,6 +58,8 @@ const VIEWS: { id: CommerceView; label: string; icon: React.ComponentType<{ clas
   { id: 'CATALOGUE', label: 'Catalogue', icon: Layers },
   { id: 'QUESTIONNAIRE', label: 'Skin Profile', icon: HeartHandshake },
   { id: 'ROUTINES', label: 'Routines', icon: Droplet },
+  { id: 'INGREDIENTS', label: 'Ingredients', icon: FlaskConical },
+  { id: 'JOURNAL', label: 'Journal', icon: BookOpen },
   { id: 'BAG', label: 'Bag', icon: ShoppingBag },
   { id: 'CHECKOUT', label: 'Checkout', icon: CreditCard },
   { id: 'ORDERS', label: 'History', icon: Package },
@@ -77,10 +82,15 @@ export default function SkincareAtelierPage() {
   // Skin Profile & Recommendations & Routines
   const [concerns, setConcerns] = useState<AtelierConcernDTO[]>([]);
   const [skinType, setSkinType] = useState('COMBINATION');
+  const [routinePreference, setRoutinePreference] = useState<'MINIMAL' | 'BALANCED' | 'COMPLETE'>('MINIMAL');
+  const [sensitivitiesInput, setSensitivitiesInput] = useState('');
+  const [existingOwned, setExistingOwned] = useState<string[]>([]);
+  const [restrictions, setRestrictions] = useState<string[]>([]);
   const [selectedConcernIds, setSelectedConcernIds] = useState<string[]>([]);
   const [skinConsent, setSkinConsent] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [recommendations, setRecommendations] = useState<AtelierRecommendationDTO[]>([]);
+  const [noPurchaseReason, setNoPurchaseReason] = useState<string | null>(null);
   const [routines, setRoutines] = useState<Array<{
     id: string;
     name: string;
@@ -130,7 +140,10 @@ export default function SkincareAtelierPage() {
           atelierService.getShippingQuote(def.state).then((q) => setShippingQuote(q.quote)).catch(() => {});
         }
       }
-      if (recRes?.recommendations) setRecommendations(recRes.recommendations);
+      if (recRes?.recommendations) {
+        setRecommendations(recRes.recommendations);
+        setNoPurchaseReason(recRes.noPurchaseSuggested ? recRes.noPurchaseReason || null : null);
+      }
       if (routineRes?.routines) setRoutines(routineRes.routines);
       if (profileRes) {
         setSkinConsent(profileRes.hasConsent);
@@ -149,6 +162,12 @@ export default function SkincareAtelierPage() {
   }, [loadProducts]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const requested = new URLSearchParams(window.location.search).get('view') as CommerceView | null;
+      if (requested && VIEWS.some((v) => v.id === requested)) {
+        queueMicrotask(() => setActiveView(requested));
+      }
+    }
     atelierService.getConcerns().then((res) => setConcerns(res.concerns || [])).catch(() => {});
     loadUserData();
   }, [loadUserData]);
@@ -221,12 +240,21 @@ export default function SkincareAtelierPage() {
         await atelierService.grantSkinConsent();
         setSkinConsent(true);
       }
+      const sensitivities = sensitivitiesInput
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       await atelierService.saveSkinProfile({
         skinType,
+        routinePreference,
         concernIds: selectedConcernIds,
+        sensitivities,
+        existingProducts: existingOwned,
+        restrictions,
       });
       const recRes = await atelierService.getRecommendations();
       setRecommendations(recRes.recommendations || []);
+      setNoPurchaseReason(recRes.noPurchaseSuggested ? recRes.noPurchaseReason || null : null);
       showToast('Skin profile saved & recommendations updated!', 'success');
       setActiveView('ROUTINES');
     } catch (err) {
@@ -471,6 +499,103 @@ export default function SkincareAtelierPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="space-y-1.5 block">
+                    <span className="text-xs font-semibold text-[var(--foreground)] block">
+                      Known Sensitivities or Allergies (comma-separated)
+                    </span>
+                    <input
+                      type="text"
+                      value={sensitivitiesInput}
+                      onChange={(e) => setSensitivitiesInput(e.target.value)}
+                      placeholder="e.g. fragrance, salicylic acid, retinol"
+                      className="w-full h-11 px-4 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border)] text-xs text-[var(--foreground)]"
+                    />
+                  </label>
+
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-semibold text-[var(--foreground)] block">
+                      Preferred Routine Complexity
+                    </span>
+                    <div className="flex gap-2">
+                      {(['MINIMAL', 'BALANCED', 'COMPLETE'] as const).map((pref) => (
+                        <button
+                          key={pref}
+                          type="button"
+                          onClick={() => setRoutinePreference(pref)}
+                          className={`flex-1 h-11 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                            routinePreference === pref
+                              ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-transparent'
+                              : 'bg-[var(--surface)] border-[var(--border)] text-[var(--foreground-secondary)]'
+                          }`}
+                        >
+                          {pref.charAt(0) + pref.slice(1).toLowerCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-semibold text-[var(--foreground)] block">
+                      Products You Already Own
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {['Gentle Cleanser', 'Moisturiser', 'Sunscreen SPF'].map((owned) => {
+                        const active = existingOwned.includes(owned);
+                        return (
+                          <button
+                            key={owned}
+                            type="button"
+                            onClick={() =>
+                              setExistingOwned((prev) =>
+                                prev.includes(owned) ? prev.filter((x) => x !== owned) : [...prev, owned]
+                              )
+                            }
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                              active
+                                ? 'bg-[var(--surface-accent)] border-[var(--brand-plum)] text-[var(--foreground)]'
+                                : 'bg-[var(--surface)] border-[var(--border)] text-[var(--foreground-secondary)]'
+                            }`}
+                          >
+                            {owned}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-semibold text-[var(--foreground)] block">
+                      Restrictions
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {['pregnancy', 'fragrance-free'].map((rest) => {
+                        const active = restrictions.includes(rest);
+                        return (
+                          <button
+                            key={rest}
+                            type="button"
+                            onClick={() =>
+                              setRestrictions((prev) =>
+                                prev.includes(rest) ? prev.filter((x) => x !== rest) : [...prev, rest]
+                              )
+                            }
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                              active
+                                ? 'bg-[var(--surface-accent)] border-[var(--brand-plum)] text-[var(--foreground)]'
+                                : 'bg-[var(--surface)] border-[var(--border)] text-[var(--foreground-secondary)]'
+                            }`}
+                          >
+                            {rest === 'pregnancy' ? 'Pregnancy / Nursing Safe' : 'Fragrance-Free Only'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between pt-2 border-t border-[var(--border)] gap-3">
                   <span className="text-[11px] text-[var(--foreground-muted)]">
                     Saving grants consent to personalise your Atelier recommendations.
@@ -483,13 +608,25 @@ export default function SkincareAtelierPage() {
             )}
 
             {activeView === 'ROUTINES' && (
-              <PersonalRoutineLayout
-                recommendations={recommendations}
-                routines={routines}
-                onCreateRoutine={handleCreateRoutine}
-                onSelectProductSlug={handleInspectBySlug}
-              />
+              <div className="space-y-4">
+                {noPurchaseReason && (
+                  <SurfaceCard variant="warm" padding="md" className="space-y-1">
+                    <p className="text-xs font-semibold text-[var(--foreground)]">No New Purchase Needed</p>
+                    <p className="text-xs text-[var(--foreground-secondary)]">{noPurchaseReason}</p>
+                  </SurfaceCard>
+                )}
+                <PersonalRoutineLayout
+                  recommendations={recommendations}
+                  routines={routines}
+                  onCreateRoutine={handleCreateRoutine}
+                  onSelectProductSlug={handleInspectBySlug}
+                />
+              </div>
             )}
+
+            {activeView === 'INGREDIENTS' && <IngredientLibraryView />}
+
+            {activeView === 'JOURNAL' && <ProgressJournalView isAuthenticated={Boolean(user)} />}
 
             {activeView === 'BAG' && (
               <ShoppingBagLayout

@@ -31,6 +31,8 @@ import { LivenessOverlay } from '@/components/camera/LivenessOverlay';
 import { LivenessActionType } from '@/lib/vision/liveness';
 import { analyzeVideoFrame } from '@/lib/vision/localIntelligence';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { SkinEditFunnelCard } from '@/components/scan/SkinEditFunnelCard';
+import type { SkinAppearanceObservation } from '@/lib/vision/skinAppearanceEngine';
 
 type ScanPhase = 'CAMERA' | 'CAPTURED' | 'ANALYZING' | 'RESULT';
 
@@ -97,6 +99,7 @@ function ScanContent() {
   const [isSettingAvatar, setIsSettingAvatar] = useState(false);
   const [avatarSaved, setAvatarSaved] = useState(false);
   const [lastScanId, setLastScanId] = useState<string | null>(null);
+  const [skinAppearance, setSkinAppearance] = useState<SkinAppearanceObservation | null>(null);
   const [isSavingToGallery, setIsSavingToGallery] = useState(false);
   const [savedToGallery, setSavedToGallery] = useState(false);
   const { showToast } = useToast();
@@ -477,6 +480,7 @@ function ScanContent() {
       setVerdictLine(res.verdictLine);
       setTips(res.tips);
       setUnlockedNewTier(Boolean(res.unlockedNewTier));
+      setSkinAppearance(res.skinAppearance ?? null);
       setImprovementPlan(res.improvementPlan || []);
       setExtraSnapUnlocked(false);
       void loadDailyAllowance();
@@ -498,6 +502,7 @@ function ScanContent() {
     setLastScanId(null);
     setSavedToGallery(false);
     setAvatarSaved(false);
+    setSkinAppearance(null);
     setBreakdown(null);
     setLivenessData(null);
     setLivenessResult(null);
@@ -1010,6 +1015,9 @@ function ScanContent() {
                 </div>
               </div>
             )}
+
+            {/* The Skin Edit — Voluntary Scan-to-Atelier Discovery */}
+            <SkinEditFunnelCard skinAppearance={skinAppearance} scanId={lastScanId} />
 
             {/* Action Buttons */}
             <div className="space-y-3">

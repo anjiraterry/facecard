@@ -19,6 +19,7 @@ import { evaluateSkinAppearance } from '@/lib/vision/skinAppearanceEngine';
 import { generateImprovementPlan } from '@/lib/insights/improvementEngine';
 import {
   computeLethalityScore,
+  evaluateHarmonyV21,
   lethalityInputsFromPresentation,
 } from '@/lib/rating/lethalityEngine';
 import { calculateScanReward } from '@/lib/rewards/rewardPolicy';
@@ -602,6 +603,20 @@ async function performScan(
   const skinAppearance = evaluateSkinAppearance({
     exposure: scoredResult.qualityGate.exposure,
     sharpness: scoredResult.qualityGate.sharpness,
+    lightingBalance: scoredResult.breakdown.photoCraft.lighting,
+  });
+  const harmonyV21 = evaluateHarmonyV21({
+    presentationEval: lethalityEval,
+    skinAppearanceNote: skinAppearance.availability === 'AVAILABLE' ? scoredResult.breakdown.face.skinClarity : null,
+    facialHarmonyNote: scoredResult.breakdown.face.harmony,
+    facialDefinitionNote: scoredResult.breakdown.face.featureDefinition,
+    expressionPresentation: scoredResult.breakdown.expression,
+    photoCraft: Math.round(
+      (scoredResult.breakdown.photoCraft.lighting +
+        scoredResult.breakdown.photoCraft.sharpness +
+        scoredResult.breakdown.photoCraft.framing) /
+        3
+    ),
   });
   const improvementPlan = generateImprovementPlan({
     lightingScore: scoredResult.breakdown.photoCraft.lighting,
@@ -618,6 +633,7 @@ async function performScan(
       weightsVersion: activeWeights.version,
       rewardPolicyVersion: rewardPolicy.version,
       lethalityComponents: lethalityEval.components,
+      harmonyV21,
       band: finalBand,
       verdictLine: scoredResult.verdictLine,
       categoryBreakdown: flatBreakdown,

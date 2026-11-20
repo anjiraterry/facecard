@@ -207,6 +207,9 @@ export const atelierService = {
     sensitivityLevel?: string;
     routinePreference?: string;
     concernIds: string[];
+    sensitivities?: string[];
+    existingProducts?: string[];
+    restrictions?: string[];
   }) {
     return apiRequest<{ success: boolean }>('/api/atelier/skin-profile', {
       method: 'PUT',
@@ -215,9 +218,13 @@ export const atelierService = {
   },
 
   async getRecommendations() {
-    return apiRequest<{ success: boolean; hasProfile: boolean; recommendations: AtelierRecommendationDTO[] }>(
-      '/api/atelier/recommendations'
-    );
+    return apiRequest<{
+      success: boolean;
+      hasProfile: boolean;
+      noPurchaseSuggested?: boolean;
+      noPurchaseReason?: string | null;
+      recommendations: AtelierRecommendationDTO[];
+    }>('/api/atelier/recommendations');
   },
 
   async getRoutines() {

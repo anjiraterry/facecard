@@ -1,5 +1,7 @@
 import { apiRequest } from './apiClient';
 import { CategoryBreakdown, Tier, ToneMode } from '@/types';
+import type { SkinAppearanceObservation } from '@/lib/vision/skinAppearanceEngine';
+import type { HarmonyV21Evaluation } from '@/lib/rating/lethalityEngine';
 
 export interface ScanResultResponse {
   success: boolean;
@@ -40,6 +42,8 @@ export interface ScanResultResponse {
   };
   evaluatedAt: string;
   scoringVersion?: string;
+  harmonyV21?: HarmonyV21Evaluation;
+  skinAppearance?: SkinAppearanceObservation;
   lifetimePoints?: number;
   spendableBalance?: number;
   improvementPlan?: Array<{
