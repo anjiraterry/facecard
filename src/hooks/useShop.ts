@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { shopService, ShopItemData } from '@/services/shopService';
 
 export function useShop() {
+  const queryClient = useQueryClient();
   const [items, setItems] = useState<ShopItemData[]>([]);
   const [spendableBalance, setSpendableBalance] = useState<number>(0);
   const [tier, setTier] = useState<string>('CLASSIC');
@@ -76,6 +78,8 @@ export function useShop() {
   const equipItem = async (itemId: string, kind?: string) => {
     const res = await shopService.equipItem(itemId, kind);
     if (res.success) {
+      void queryClient.invalidateQueries({ queryKey: ['card-details'] });
+      void queryClient.invalidateQueries({ queryKey: ['header-balance'] });
       setItems((prev) =>
         prev.map((item) => {
           if (item.id === itemId) return { ...item, isEquipped: true };

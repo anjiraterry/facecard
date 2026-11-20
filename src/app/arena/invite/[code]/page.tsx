@@ -2,6 +2,7 @@ import React from 'react';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { db } from '@/lib/db';
+import { getSessionUser } from '@/lib/auth/session';
 import { Swords, ArrowLeft, ArrowRight, Trophy } from 'lucide-react';
 import { FaceCard } from '@/components/card/FaceCard';
 import { SurfaceCard } from '@/components/ui/SurfaceCard';
@@ -35,6 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArenaInvitePage({ params }: Props) {
   const { code } = await params;
+  const sessionUser = await getSessionUser();
 
   const duel = await db.faceOff.findUnique({
     where: { inviteCode: code.toUpperCase() },
@@ -70,6 +72,7 @@ export default async function ArenaInvitePage({ params }: Props) {
   }
 
   const challenger = duel.challenger;
+  const isCreator = sessionUser?.id === duel.challengerId;
   const latestScan = challenger.scans[0];
   const score = latestScan?.score ?? 84;
   const band = (latestScan?.band as Band) ?? 'DANGEROUS';
@@ -109,10 +112,10 @@ export default async function ArenaInvitePage({ params }: Props) {
             <Swords className="w-6 h-6" />
           </div>
           <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--accent-brand)] block">
-            Arena Duel Invitation
+            {isCreator ? 'Your Arena Duel Invite' : 'Arena Duel Invitation'}
           </span>
           <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--text-main)]">
-            {challenger.displayName} Invited You
+            {isCreator ? 'You Created This Challenge' : `${challenger.displayName} Invited You`}
           </h1>
           <p className="text-xs text-[var(--text-muted)] max-w-xs mx-auto leading-relaxed">
             {duel.mode === 'STAKED'
@@ -148,14 +151,25 @@ export default async function ArenaInvitePage({ params }: Props) {
         </SurfaceCard>
 
         <div className="space-y-2.5">
-          <Link
-            href={`/faceoff?duel=${duel.inviteCode}`}
-            className="w-full py-3.5 px-6 rounded-full bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--bg-page)] text-xs font-semibold flex items-center justify-center gap-2 shadow-[var(--shadow-sm)] transition-colors"
-          >
-            <Swords className="w-4 h-4" />
-            <span>Accept Duel &amp; Enter Arena</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          {isCreator ? (
+            <Link
+              href={`/faceoff/${duel.id}`}
+              className="w-full py-3.5 px-6 rounded-full bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--bg-page)] text-xs font-semibold flex items-center justify-center gap-2 shadow-[var(--shadow-sm)] transition-colors"
+            >
+              <Swords className="w-4 h-4" />
+              <span>View Your Challenge</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          ) : (
+            <Link
+              href={`/faceoff?duel=${duel.inviteCode}`}
+              className="w-full py-3.5 px-6 rounded-full bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--bg-page)] text-xs font-semibold flex items-center justify-center gap-2 shadow-[var(--shadow-sm)] transition-colors"
+            >
+              <Swords className="w-4 h-4" />
+              <span>Accept Duel &amp; Enter Arena</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          )}
 
           <Link
             href="/faceoff"

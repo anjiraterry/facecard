@@ -157,6 +157,19 @@ export function computeFeatureVectorFromLandmarks(
     ((Math.atan2(leftEyeOuter.y - rightEyeOuter.y, rightEyeOuter.x - leftEyeOuter.x) * 180) / Math.PI).toFixed(2)
   );
 
+  const basePassed =
+    (pixelMetrics ? pixelMetrics.usable : exposureScore >= 40 && sharpnessScore >= 25) &&
+    poseAcceptable &&
+    framingCoverage >= 50 &&
+    sharpnessScore >= 25 &&
+    noiseLevel <= 75;
+
+  const qualityDecision = !basePassed
+    ? 'RETAKE_REQUIRED'
+    : pixelMetrics?.qualityDecision === 'PASS_WITH_LIMITATIONS'
+      ? 'PASS_WITH_LIMITATIONS'
+      : 'PASS';
+
   const featureVector: ClientFeatureVector = {
     symmetry,
     jawlineDefinition,
@@ -168,20 +181,22 @@ export function computeFeatureVectorFromLandmarks(
     eyeCanthalTiltAngle,
     clientEngine: 'MEDIAPIPE_WASM',
     qualityGate: {
-      passed:
-        (pixelMetrics ? pixelMetrics.usable : exposureScore >= 40 && sharpnessScore >= 35) &&
-        poseAcceptable &&
-        framingCoverage >= 50 &&
-        sharpnessScore >= 35 &&
-        noiseLevel <= 60,
+      passed: basePassed,
+      qualityDecision,
       sharpness: Math.round(sharpnessScore),
       exposure: Math.round(exposureScore),
       framingCoverage,
       noiseLevel,
       overExposedFraction: pixelMetrics?.overExposedFraction,
+      facialOverExposedFraction: pixelMetrics?.facialOverExposedFraction,
+      globalOverExposedFraction: pixelMetrics?.globalOverExposedFraction,
       crushedShadowFraction: pixelMetrics?.crushedShadowFraction,
       lumaContrast: pixelMetrics?.lumaContrast,
+      skinRegionCoverage: pixelMetrics?.skinRegionCoverage,
+      maskMode: pixelMetrics?.maskMode,
       faceDetected: true,
+      warnings: pixelMetrics?.warnings,
+      rejectionReasonCodes: pixelMetrics?.rejectionReasonCodes,
       failureReasons: pixelMetrics?.failureReasons ?? ['Pixel quality metrics unavailable.'],
     },
   };
@@ -237,7 +252,7 @@ export async function analyzeVideoFrame(video: HTMLVideoElement): Promise<LocalA
       if (octx) {
         octx.drawImage(video, 0, 0, w, h);
         const imgData = octx.getImageData(0, 0, w, h);
-        pixelMetrics = analyzeDecodedPixels(imgData.data, w, h);
+        pixelMetrics = analyzeDecodedPixels(imgData.data, w, h, faces[0]);
       }
     } catch {
       pixelMetrics = null;

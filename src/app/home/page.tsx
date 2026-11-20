@@ -258,7 +258,7 @@ export default function HomePage() {
                       {activeCard.cardholderName}
                     </span>
                     <span className="text-[11px] text-[var(--text-muted)] block">
-                      Verified Portrait · {activeCard.tier} Edition
+                      {activeCard.title ? `${activeCard.title} · ` : ''}{activeCard.tier} Edition
                     </span>
                   </div>
                 </div>

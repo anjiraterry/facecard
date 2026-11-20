@@ -1,3 +1,9 @@
+import {
+  PIXEL_QUALITY_VERSION,
+  QUALITY_THRESHOLDS,
+  type QualityDecision,
+} from './pixelQuality';
+
 export type MeasurementAvailability = 'AVAILABLE' | 'UNAVAILABLE';
 
 export type QualityCheckId =
@@ -23,17 +29,25 @@ export interface QualityCheckResult {
 
 export interface ScanQualityAssessment {
   usable: boolean;
+  qualityDecision: QualityDecision;
+  algorithmVersion: string;
   reliableForSkinObservation: boolean;
   faceDetected: boolean;
   faceCount: number;
   framingScore: number | null;
   exposureScore: number | null;
   sharpnessScore: number | null;
+  facialOverExposedFraction: number | null;
+  globalOverExposedFraction: number | null;
+  skinRegionCoverage: number | null;
   headRotationAcceptable: boolean;
   smoothingSuspected: boolean;
   availability: MeasurementAvailability;
   checks: QualityCheckResult[];
+  rejectionReasonCodes: string[];
+  warnings: string[];
   guidance: string[];
+  thresholds: typeof QUALITY_THRESHOLDS;
 }
 
 export interface ScanQualityInput {
@@ -43,8 +57,11 @@ export interface ScanQualityInput {
   motionBlurScore?: number | null;
   exposure?: number | null;
   overExposedFraction?: number | null;
+  facialOverExposedFraction?: number | null;
+  globalOverExposedFraction?: number | null;
   crushedShadowFraction?: number | null;
   lightingBalance?: number | null;
+  skinRegionCoverage?: number | null;
   framing?: number | null;
   faceWidthRatio?: number | null;
   yaw?: number;
@@ -63,18 +80,30 @@ export interface ScanQualityInput {
  */
 export function evaluateScanQuality(input: ScanQualityInput): ScanQualityAssessment {
   const guidance: string[] = [];
+  const warnings: string[] = [];
+  const rejectionReasonCodes: string[] = [];
   const checks: QualityCheckResult[] = [];
 
+  const facialClip = input.facialOverExposedFraction ?? input.overExposedFraction ?? null;
+  const globalClip = input.globalOverExposedFraction ?? null;
+  const skinCoverage = input.skinRegionCoverage ?? null;
+
   if (!input.faceDetected || input.faceCount === 0) {
+    rejectionReasonCodes.push('NO_FACE_DETECTED');
     guidance.push('No face detected. Position your face clearly inside the oval.');
     return {
       usable: false,
+      qualityDecision: 'RETAKE_REQUIRED',
+      algorithmVersion: PIXEL_QUALITY_VERSION,
       reliableForSkinObservation: false,
       faceDetected: false,
       faceCount: 0,
       framingScore: null,
       exposureScore: input.exposure ?? null,
       sharpnessScore: input.sharpness ?? null,
+      facialOverExposedFraction: facialClip,
+      globalOverExposedFraction: globalClip,
+      skinRegionCoverage: skinCoverage,
       headRotationAcceptable: false,
       smoothingSuspected: Boolean(input.smoothingSuspected),
       availability: 'UNAVAILABLE',
@@ -87,12 +116,16 @@ export function evaluateScanQuality(input: ScanQualityInput): ScanQualityAssessm
           guidance: 'Position one face clearly inside the frame.',
         },
       ],
+      rejectionReasonCodes,
+      warnings,
       guidance,
+      thresholds: QUALITY_THRESHOLDS,
     };
   }
 
   const singleFace = input.faceCount === 1;
   if (!singleFace) {
+    rejectionReasonCodes.push('MULTIPLE_FACES');
     guidance.push('Multiple faces detected. Ensure only one person is in frame.');
   }
   checks.push({
@@ -103,13 +136,26 @@ export function evaluateScanQuality(input: ScanQualityInput): ScanQualityAssessm
     guidance: singleFace ? undefined : 'Ensure only one face is visible.',
   });
 
-  const focusPassed = typeof input.sharpness === 'number' && input.sharpness >= 35;
-  if (!focusPassed) guidance.push('Image is out of focus or lacks measurable edge detail. Hold steady and wipe the lens.');
+  const focusCriticalPass = typeof input.sharpness === 'number' && input.sharpness >= QUALITY_THRESHOLDS.sharpnessRetakeMin;
+  const focusPassed = typeof input.sharpness === 'number' && input.sharpness >= QUALITY_THRESHOLDS.sharpnessPassMin;
+  if (!focusCriticalPass) {
+    rejectionReasonCodes.push('FACIAL_BLUR');
+    guidance.push('Face is insufficiently sharp; hold steady and wipe the lens.');
+  } else if (!focusPassed) {
+    warnings.push('Moderate focus softness detected; fine skin texture confidence reduced.');
+    guidance.push('Slight softness detected; skin detail confidence reduced.');
+  }
   checks.push({ id: 'focus', label: 'Focus', passed: focusPassed, value: input.sharpness ?? null });
 
   const motionVal = input.motionBlurScore ?? input.sharpness ?? null;
-  const motionPassed = typeof motionVal === 'number' && motionVal >= 35;
-  if (!motionPassed && focusPassed) guidance.push('Motion blur detected. Hold the camera steady for a moment.');
+  const motionCriticalPass = typeof motionVal === 'number' && motionVal >= QUALITY_THRESHOLDS.sharpnessRetakeMin;
+  const motionPassed = typeof motionVal === 'number' && motionVal >= QUALITY_THRESHOLDS.sharpnessPassMin;
+  if (!motionCriticalPass && focusCriticalPass) {
+    rejectionReasonCodes.push('MOTION_BLUR');
+    guidance.push('Motion blur detected. Hold the camera steady for a moment.');
+  } else if (!motionPassed && focusPassed) {
+    warnings.push('Slight motion detected; measurement confidence reduced.');
+  }
   checks.push({
     id: 'motion_blur',
     label: 'Motion Stability',
@@ -117,12 +163,23 @@ export function evaluateScanQuality(input: ScanQualityInput): ScanQualityAssessm
     value: motionVal,
   });
 
-  // Tone-fair clipping check: never penalise dark skin for low mean luminance
-  const overClip = input.overExposedFraction ?? 0;
+  // Tone-fair, face-isolated clipping check: global background/ceiling brightness never rejects.
+  const overClip = facialClip ?? 0;
   const darkClip = input.crushedShadowFraction ?? 0;
-  const clippingPassed = overClip <= 0.15 && darkClip <= 0.35;
-  if (!clippingPassed) {
-    guidance.push('Highlights or deep shadows are clipped. Step into soft, even daylight.');
+  const severeOverClip = overClip > QUALITY_THRESHOLDS.facialClipRetakeMin;
+  const moderateOverClip = overClip > QUALITY_THRESHOLDS.facialClipPassMax && !severeOverClip;
+  const severeDarkClip = darkClip > QUALITY_THRESHOLDS.facialShadowCrushMax;
+  const clippingPassed = !severeOverClip && !severeDarkClip && !moderateOverClip;
+
+  if (severeOverClip) {
+    rejectionReasonCodes.push('FACIAL_HIGHLIGHT_CLIPPING');
+    guidance.push('Facial highlights are clipped; move out of harsh direct glare.');
+  } else if (severeDarkClip) {
+    rejectionReasonCodes.push('FACIAL_SHADOW_DETAIL_LOSS');
+    guidance.push('Important facial details are lost in shadows; face a brighter light source.');
+  } else if (moderateOverClip) {
+    warnings.push('Moderate facial glare detected; skin surface observations marked less reliable.');
+    guidance.push('Moderate facial glare detected; skin observations may have reduced confidence.');
   }
   checks.push({
     id: 'exposure_clipping',
@@ -132,9 +189,10 @@ export function evaluateScanQuality(input: ScanQualityInput): ScanQualityAssessm
   });
 
   const illuminationVal = input.lightingBalance ?? input.exposure ?? null;
-  const illuminationPassed = typeof illuminationVal === 'number' && illuminationVal >= 45;
+  const illuminationPassed = typeof illuminationVal === 'number' && illuminationVal >= QUALITY_THRESHOLDS.lightingBalancePassMin;
   if (!illuminationPassed) {
-    guidance.push('Lighting is uneven or insufficient across the face. Face a soft front light source.');
+    warnings.push('Lighting is uneven across the face; symmetry readings marked lower confidence.');
+    guidance.push('Lighting is uneven across the face. Face a soft front light source for best accuracy.');
   }
   checks.push({
     id: 'illumination',
@@ -218,27 +276,64 @@ export function evaluateScanQuality(input: ScanQualityInput): ScanQualityAssessm
   const usable =
     singleFace &&
     headRotationAcceptable &&
-    focusPassed &&
-    motionPassed &&
-    clippingPassed &&
-    illuminationPassed &&
+    focusCriticalPass &&
+    motionCriticalPass &&
+    !severeOverClip &&
+    !severeDarkClip &&
     perspectivePassed;
 
+  if (!headRotationAcceptable) {
+    rejectionReasonCodes.push('HEAD_POSE_OUT_OF_RANGE');
+  }
+  if (!perspectivePassed) {
+    rejectionReasonCodes.push('FRAMING_OUT_OF_RANGE');
+  }
+
+  const hasLimitations =
+    !focusPassed ||
+    !motionPassed ||
+    moderateOverClip ||
+    !illuminationPassed ||
+    !occlusionPassed ||
+    !compressionPassed ||
+    !resolutionPassed ||
+    smoothingSuspected;
+
+  const qualityDecision: QualityDecision = !usable
+    ? 'RETAKE_REQUIRED'
+    : hasLimitations
+      ? 'PASS_WITH_LIMITATIONS'
+      : 'PASS';
+
   const reliableForSkinObservation =
-    usable && compressionPassed && resolutionPassed && !smoothingSuspected;
+    usable &&
+    !moderateOverClip &&
+    focusPassed &&
+    compressionPassed &&
+    resolutionPassed &&
+    !smoothingSuspected &&
+    (skinCoverage === null || skinCoverage >= QUALITY_THRESHOLDS.minSkinCoverage);
 
   return {
     usable,
+    qualityDecision,
+    algorithmVersion: PIXEL_QUALITY_VERSION,
     reliableForSkinObservation,
     faceDetected: true,
     faceCount: input.faceCount,
     framingScore: input.framing ?? null,
     exposureScore: input.exposure ?? null,
     sharpnessScore: input.sharpness ?? null,
+    facialOverExposedFraction: facialClip,
+    globalOverExposedFraction: globalClip,
+    skinRegionCoverage: skinCoverage,
     headRotationAcceptable,
     smoothingSuspected,
     availability: usable ? 'AVAILABLE' : 'UNAVAILABLE',
     checks,
+    rejectionReasonCodes,
+    warnings,
     guidance,
+    thresholds: QUALITY_THRESHOLDS,
   };
 }

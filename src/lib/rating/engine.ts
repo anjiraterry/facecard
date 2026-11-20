@@ -5,9 +5,12 @@ import { ClientFeatureVector } from '@/lib/spikes/spikes';
 
 export interface QualityGateResult {
   passed: boolean;
+  qualityDecision?: 'PASS' | 'PASS_WITH_LIMITATIONS' | 'RETAKE_REQUIRED';
   sharpness: number;  // 0 - 100
   exposure: number;   // 0 - 100
   framing: number;    // 0 - 100
+  warnings?: string[];
+  rejectionReasonCodes?: string[];
   rejectionReason?: string;
   checks?: Array<{ id: string; label: string; status: string; detail: string }>;
 }
@@ -379,19 +382,39 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
         ? (qg as unknown as { framing: number }).framing
         : qg.framingCoverage;
 
-    const noiseTooHigh = typeof qg.noiseLevel === 'number' && qg.noiseLevel > 60;
-    const shadowsCrushed = typeof qg.crushedShadowFraction === 'number' && qg.crushedShadowFraction > 0.35;
-    const sharpnessTooLow = qg.sharpness < 35;
+    const noiseTooHigh = typeof qg.noiseLevel === 'number' && qg.noiseLevel > 75;
+    const shadowsCrushed =
+      typeof qg.crushedShadowFraction === 'number' &&
+      qg.crushedShadowFraction > 0.38 &&
+      (typeof qg.lumaContrast !== 'number' || qg.lumaContrast < 14);
+    const facialClip = qg.facialOverExposedFraction ?? qg.overExposedFraction ?? 0;
+    const facialClipTooHigh = typeof facialClip === 'number' && facialClip > 0.30;
+    const sharpnessTooLow = qg.sharpness < 25;
     const faceMissing = qg.faceDetected === false;
-    const effectivePassed = Boolean(qg.passed) && !noiseTooHigh && !shadowsCrushed && !sharpnessTooLow && !faceMissing;
+    const effectivePassed =
+      Boolean(qg.passed) &&
+      !noiseTooHigh &&
+      !shadowsCrushed &&
+      !facialClipTooHigh &&
+      !sharpnessTooLow &&
+      !faceMissing;
+
+    const qualityDecision: QualityGateResult['qualityDecision'] = !effectivePassed
+      ? 'RETAKE_REQUIRED'
+      : qg.qualityDecision === 'PASS_WITH_LIMITATIONS' || (qg.warnings && qg.warnings.length > 0)
+        ? 'PASS_WITH_LIMITATIONS'
+        : 'PASS';
 
     const failedChecks: Array<{ id: string; label: string; status: string; detail: string }> = [];
     if (!effectivePassed) {
       if (shadowsCrushed || qg.exposure < 40) {
-        failedChecks.push({ id: 'lighting', label: 'Lighting', status: 'Insufficient', detail: 'Insufficient visible facial detail' });
+        failedChecks.push({ id: 'lighting', label: 'Lighting', status: 'Insufficient', detail: 'Important facial details are lost in shadows' });
+      }
+      if (facialClipTooHigh) {
+        failedChecks.push({ id: 'glare', label: 'Facial Highlights', status: 'Clipped', detail: 'Facial highlights are clipped' });
       }
       if (noiseTooHigh || sharpnessTooLow) {
-        failedChecks.push({ id: 'clarity', label: 'Image clarity', status: 'Low detail', detail: noiseTooHigh ? 'Considerable noise visible' : 'Motion blur or out of focus' });
+        failedChecks.push({ id: 'clarity', label: 'Image clarity', status: 'Low detail', detail: noiseTooHigh ? 'Considerable noise visible' : 'Face is insufficiently sharp' });
       }
       failedChecks.push({ id: 'skin', label: 'Skin appearance', status: 'Unavailable', detail: 'Not reliably measurable' });
       failedChecks.push({ id: 'harmony', label: 'Facial harmony', status: 'Unconfirmed', detail: 'Measurement reliability unconfirmed' });
@@ -399,9 +422,12 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
 
     quality = {
       passed: effectivePassed,
+      qualityDecision,
       sharpness: qg.sharpness,
       exposure: qg.exposure,
       framing: framingScore,
+      warnings: qg.warnings,
+      rejectionReasonCodes: qg.rejectionReasonCodes,
       rejectionReason: !effectivePassed
         ? (qg.failureReasons?.[0] ||
             (qg as unknown as { rejectionReason?: string }).rejectionReason ||

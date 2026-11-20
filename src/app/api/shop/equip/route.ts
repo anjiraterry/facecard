@@ -33,8 +33,32 @@ export async function POST(req: NextRequest) {
     });
 
     const itemKind = kind || item?.kind;
-    const card = user.cards[0];
+    if (itemKind === 'CONSUMABLE') {
+      return NextResponse.json(
+        { error: 'Consumable perks are activated rather than equipped.' },
+        { status: 400 }
+      );
+    }
 
+    const slot =
+      item?.slot ??
+      (itemKind === 'SKIN'
+        ? 'CARD_SKIN'
+        : itemKind === 'FRAME'
+        ? 'CARD_FRAME'
+        : itemKind === 'TITLE'
+        ? 'PROFILE_TITLE'
+        : itemKind === 'BADGE'
+        ? 'NAMEPLATE'
+        : itemKind === 'FEATURE'
+        ? 'PROFILE_BACKGROUND'
+        : null);
+
+    if (!slot) {
+      return NextResponse.json({ error: 'This item cannot be equipped.' }, { status: 400 });
+    }
+
+    const card = user.cards[0];
     if (!card) {
       return NextResponse.json(
         { error: 'Please claim your Face Card first before equipping cosmetics.', requiresClaim: true },
@@ -42,30 +66,57 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const existingEq = await db.userEquipment.findUnique({
+      where: { userId_slot: { userId: sessionUser.id, slot } },
+    });
+    const isUnequipping =
+      existingEq?.itemId === itemId ||
+      (slot === 'PROFILE_TITLE' && card.equippedTitleId === itemId) ||
+      (slot === 'CARD_SKIN' && card.equippedSkinId === itemId) ||
+      ((slot === 'CARD_FRAME' || slot === 'AVATAR_FRAME') && card.equippedFrameId === itemId);
+
     const updateData: {
       equippedTitleId?: string | null;
       equippedSkinId?: string | null;
       equippedFrameId?: string | null;
     } = {};
 
-    if (itemKind === 'TITLE') {
-      updateData.equippedTitleId = card.equippedTitleId === itemId ? null : itemId;
-    } else if (itemKind === 'SKIN') {
-      updateData.equippedSkinId = card.equippedSkinId === itemId ? null : itemId;
-    } else if (itemKind === 'FRAME') {
-      updateData.equippedFrameId = card.equippedFrameId === itemId ? null : itemId;
-    } else {
-      updateData.equippedTitleId = itemId;
+    if (slot === 'PROFILE_TITLE') {
+      updateData.equippedTitleId = isUnequipping ? null : itemId;
+    } else if (slot === 'CARD_SKIN') {
+      updateData.equippedSkinId = isUnequipping ? null : itemId;
+    } else if (slot === 'CARD_FRAME' || slot === 'AVATAR_FRAME') {
+      updateData.equippedFrameId = isUnequipping ? null : itemId;
     }
 
-    const updatedCard = await db.card.update({
-      where: { id: card.id },
-      data: updateData,
-    });
+    const updatedCard =
+      Object.keys(updateData).length > 0
+        ? await db.card.update({ where: { id: card.id }, data: updateData })
+        : card;
+
+    const ownedEntry = user.items.find((ui) => ui.itemId === itemId);
+    if (!isUnequipping && ownedEntry) {
+      await db.userEquipment.upsert({
+        where: { userId_slot: { userId: sessionUser.id, slot } },
+        update: { userItemId: ownedEntry.id, itemId, equippedAt: new Date() },
+        create: {
+          userId: sessionUser.id,
+          slot,
+          userItemId: ownedEntry.id,
+          itemId,
+        },
+      });
+    } else {
+      await db.userEquipment.deleteMany({
+        where: { userId: sessionUser.id, slot },
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Equipped item ${itemId} successfully`,
+      equippedNow: !isUnequipping,
+      slot,
+      message: isUnequipping ? 'Unequipped item' : `Equipped item ${itemId} successfully`,
       equipped: {
         skin: updatedCard.equippedSkinId,
         title: updatedCard.equippedTitleId,

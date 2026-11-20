@@ -315,11 +315,20 @@ export function resolveCardMaterial(
     }
   }
 
-  if (frameId && (frameId.includes('solar') || frameId.includes('flare') || frameId.includes('gold'))) {
-    result = {
-      ...result,
-      borderColor: 'rgba(220, 198, 155, 0.82)',
-    };
+  if (frameId) {
+    if (frameId.includes('solar') || frameId.includes('flare') || frameId.includes('gold')) {
+      result = {
+        ...result,
+        borderColor: 'rgba(220, 198, 155, 0.88)',
+        insetBevel: 'inset 0 1px 0 rgba(255, 245, 217, 0.9), inset 0 -1px 0 rgba(174, 139, 73, 0.35)',
+      };
+    } else if (frameId.includes('pearl') || frameId.includes('halo')) {
+      result = {
+        ...result,
+        borderColor: 'rgba(248, 240, 246, 0.92)',
+        insetBevel: 'inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(210, 184, 201, 0.4)',
+      };
+    }
   }
 
   return result;

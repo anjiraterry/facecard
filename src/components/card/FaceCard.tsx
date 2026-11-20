@@ -68,16 +68,16 @@ const ProceduralEngraving = React.memo(function ProceduralEngraving({
             <path
               d={curve.d}
               stroke={material.engravingDarkColor}
-              strokeWidth={curve.weight}
-              strokeOpacity={material.engravingDarkOpacity * curve.opacityFactor}
+              strokeWidth={Number(curve.weight.toFixed(4))}
+              strokeOpacity={Number((material.engravingDarkOpacity * curve.opacityFactor).toFixed(4))}
             />
             {!compact && (
               <path
                 d={curve.d}
                 transform="translate(0.65 0.65)"
                 stroke={material.engravingLightColor}
-                strokeWidth={curve.weight * 0.85}
-                strokeOpacity={material.engravingLightOpacity * curve.opacityFactor * 0.78}
+                strokeWidth={Number((curve.weight * 0.85).toFixed(4))}
+                strokeOpacity={Number((material.engravingLightOpacity * curve.opacityFactor * 0.78).toFixed(4))}
               />
             )}
           </g>

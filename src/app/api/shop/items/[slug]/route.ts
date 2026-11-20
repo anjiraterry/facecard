@@ -22,10 +22,9 @@ export async function GET(
 
     await expireStaleActiveEffects(sessionUser.id);
 
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
     const item = await db.shopItem.findFirst({
-      where: {
-        OR: [{ slug }, { id: slug }],
-      },
+      where: isUuid ? { OR: [{ slug }, { id: slug }] } : { slug },
     });
 
     if (!item) {

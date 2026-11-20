@@ -177,8 +177,22 @@ export default function ShopPage() {
     try {
       await equipItem(id, item.kind);
       showToast(item.equipped ? `Unequipped ${item.name}` : `Equipped ${item.name}`);
-    } catch {
-      showToast('Failed to equip item');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to equip item');
+    }
+  };
+
+  const handleActivate = async (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item || !item.owned) return;
+
+    try {
+      const res = await fetch(`/api/inventory/${id}/activate`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to activate');
+      showToast(`Activated ${item.name}!`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to activate perk');
     }
   };
 
@@ -292,8 +306,9 @@ export default function ShopPage() {
                   padding="none"
                   className="p-3.5 flex flex-col justify-between overflow-hidden"
                 >
-                  <div
-                    className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden p-3 flex flex-col justify-between"
+                  <Link
+                    href={`/shop/items/${item.slug || item.id}`}
+                    className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden p-3 flex flex-col justify-between group"
                     style={{
                       backgroundColor: palette.surface,
                       color: palette.text,
@@ -352,7 +367,7 @@ export default function ShopPage() {
                         </span>
                       )}
                     </div>
-                  </div>
+                  </Link>
 
                   <div className="pt-3 pb-2 space-y-1">
                     <div className="flex items-center justify-between gap-1">
@@ -394,17 +409,33 @@ export default function ShopPage() {
                         <span>{item.minTier}</span>
                       </button>
                     ) : item.owned ? (
-                      <button
-                        type="button"
-                        onClick={() => handleEquip(item.id)}
-                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-semibold text-[#FAF7F4] transition-colors cursor-pointer ${
-                          item.equipped
-                            ? 'bg-[#96788D]'
-                            : 'bg-[#65475D] hover:bg-[#7A5770]'
-                        }`}
-                      >
-                        {item.equipped ? 'Equipped' : 'Equip'}
-                      </button>
+                      item.kind === 'CONSUMABLE' ? (
+                        (item.slug || item.id).toLowerCase().includes('freeze') ? (
+                          <span className="px-3.5 py-1.5 rounded-full text-[10px] font-semibold bg-[#96788D] text-[#FAF7F4]">
+                            Auto-Active
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleActivate(item.id)}
+                            className="px-3.5 py-1.5 rounded-full text-[10px] font-semibold bg-[#65475D] hover:bg-[#7A5770] text-[#FAF7F4] transition-colors cursor-pointer"
+                          >
+                            Activate
+                          </button>
+                        )
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleEquip(item.id)}
+                          className={`px-3.5 py-1.5 rounded-full text-[10px] font-semibold text-[#FAF7F4] transition-colors cursor-pointer ${
+                            item.equipped
+                              ? 'bg-[#96788D]'
+                              : 'bg-[#65475D] hover:bg-[#7A5770]'
+                          }`}
+                        >
+                          {item.equipped ? 'Equipped' : 'Equip'}
+                        </button>
+                      )
                     ) : (
                       <button
                         type="button"

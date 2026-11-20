@@ -235,23 +235,31 @@ export async function revokeAllUserSessions(userId: string): Promise<void> {
   ).catch(() => undefined);
 }
 
-const baseCookie = () => ({
+const isLocalHttpAppUrl = (process.env.NEXT_PUBLIC_APP_URL || '').startsWith('http://');
+
+const baseCookie = (secureOverride?: boolean) => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: secureOverride ?? (process.env.NODE_ENV === 'production' && !isLocalHttpAppUrl),
   sameSite: 'lax' as const,
   path: '/',
 });
 
-export function applySessionCookie<T>(response: NextResponse<T>, token: string): NextResponse<T> {
-  response.cookies.set(SESSION_COOKIE, token, { ...baseCookie(), maxAge: SESSION_TTL_SECONDS });
+export function applySessionCookie<T>(
+  response: NextResponse<T>,
+  token: string,
+  secureOverride?: boolean
+): NextResponse<T> {
+  const opts = baseCookie(secureOverride);
+  response.cookies.set(SESSION_COOKIE, token, { ...opts, maxAge: SESSION_TTL_SECONDS });
   // Drop the legacy identity cookie from older clients.
-  response.cookies.set(LEGACY_USER_COOKIE, '', { ...baseCookie(), maxAge: 0, expires: new Date(0) });
+  response.cookies.set(LEGACY_USER_COOKIE, '', { ...opts, maxAge: 0, expires: new Date(0) });
   return response;
 }
 
 export function clearSessionCookies<T>(response: NextResponse<T>): NextResponse<T> {
+  const opts = baseCookie();
   for (const name of [SESSION_COOKIE, LEGACY_USER_COOKIE]) {
-    response.cookies.set(name, '', { ...baseCookie(), maxAge: 0, expires: new Date(0) });
+    response.cookies.set(name, '', { ...opts, maxAge: 0, expires: new Date(0) });
   }
   return response;
 }

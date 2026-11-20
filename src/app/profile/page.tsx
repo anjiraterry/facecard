@@ -385,7 +385,12 @@ export default function ProfilePage() {
                   <p className="text-xs font-medium text-[var(--text-muted)] mt-0.5">
                     {userInfo.handle || '@user'}
                   </p>
-                  <div className="flex items-center gap-1.5 mt-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    {activeCard?.title && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--primary)] text-[var(--primary-foreground)]">
+                        {activeCard.title}
+                      </span>
+                    )}
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--surface-secondary)] text-[var(--foreground)] border border-[var(--border)]">
                       {activeCard?.tier ? `${activeCard.tier} Tier` : (user ? 'Member' : 'Guest')}
                     </span>

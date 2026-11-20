@@ -123,6 +123,34 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleMarkOneRead = async (item: NotificationItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (item.readAt) return;
+    const now = new Date().toISOString();
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === item.id ? { ...n, readAt: now } : n))
+    );
+    setUnreadCount((c) => Math.max(0, c - 1));
+    try {
+      const res = await fetch('/api/notifications/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.unreadCount === 'number') {
+          setUnreadCount(data.unreadCount);
+          queryClient.setQueryData(['notifications-unread'], data.unreadCount);
+        } else {
+          void queryClient.invalidateQueries({ queryKey: ['notifications-unread'] });
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const handleOpenNotification = async (item: NotificationItem) => {
     if (!item.readAt) {
       const now = new Date().toISOString();
@@ -153,39 +181,40 @@ export default function NotificationsPage() {
           title="Notifications"
           backHref="/home"
           backLabel="Back to home"
-          rightSlot={
-            unreadCount > 0 ? (
-              <button
-                type="button"
-                disabled={markingAll}
-                onClick={handleMarkAllRead}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-[var(--surface-secondary)] hover:bg-[var(--accent)] text-[var(--foreground)] border border-[var(--border)] text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-60"
-              >
-                <CheckCheck className="w-3.5 h-3.5" />
-                <span>Mark all read</span>
-              </button>
-            ) : null
-          }
         />
 
-        {/* Filter Tabs */}
-        <div className="flex items-center p-1 rounded-full bg-[var(--surface)] border border-[var(--border)] max-w-xs">
-          {(['ALL', 'UNREAD'] as const).map((tab) => (
+        {/* Filter Tabs & Mark All as Read */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center p-1 rounded-full bg-[var(--surface)] border border-[var(--border)] w-full max-w-xs">
+            {(['ALL', 'UNREAD'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setFilter(tab)}
+                className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-full transition-colors cursor-pointer ${
+                  filter === tab
+                    ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
+                    : 'text-[var(--foreground-muted)] hover:text-[var(--foreground)]'
+                }`}
+              >
+                {tab === 'ALL'
+                  ? `All (${notifications.length})`
+                  : `Unread (${unreadCount})`}
+              </button>
+            ))}
+          </div>
+
+          {unreadCount > 0 && (
             <button
-              key={tab}
               type="button"
-              onClick={() => setFilter(tab)}
-              className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-full transition-colors cursor-pointer ${
-                filter === tab
-                  ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
-                  : 'text-[var(--foreground-muted)] hover:text-[var(--foreground)]'
-              }`}
+              disabled={markingAll}
+              onClick={handleMarkAllRead}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 text-xs font-semibold transition-opacity cursor-pointer disabled:opacity-60"
             >
-              {tab === 'ALL'
-                ? `All (${notifications.length})`
-                : `Unread (${unreadCount})`}
+              <CheckCheck className="w-3.5 h-3.5" />
+              <span>{markingAll ? 'Marking...' : 'Mark all as read'}</span>
             </button>
-          ))}
+          )}
         </div>
 
         {loading ? (
@@ -209,10 +238,17 @@ export default function NotificationsPage() {
               const isUnread = !item.readAt;
 
               return (
-                <button
+                <div
                   key={item.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleOpenNotification(item)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      void handleOpenNotification(item);
+                    }
+                  }}
                   className="w-full text-left cursor-pointer"
                 >
                   <SurfaceCard
@@ -256,9 +292,22 @@ export default function NotificationsPage() {
                       <p className="text-[11px] text-[var(--foreground-secondary)] leading-relaxed">
                         {item.body}
                       </p>
+
+                      {isUnread && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={(e) => handleMarkOneRead(item, e)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--surface-secondary)] hover:bg-[var(--accent)] border border-[var(--border)] text-[10px] font-semibold text-[var(--foreground)] transition-colors cursor-pointer"
+                          >
+                            <CheckCheck className="w-3 h-3" />
+                            <span>Mark as read</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </SurfaceCard>
-                </button>
+                </div>
               );
             })}
           </div>

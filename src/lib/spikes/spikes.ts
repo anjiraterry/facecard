@@ -22,14 +22,21 @@ export interface ClientFeatureVector {
   jawlineDefinition: number; // 0-100
   qualityGate: {
     passed: boolean;
+    qualityDecision?: 'PASS' | 'PASS_WITH_LIMITATIONS' | 'RETAKE_REQUIRED';
     sharpness: number;
     exposure: number;
     framingCoverage: number;
     noiseLevel?: number;
     overExposedFraction?: number;
+    facialOverExposedFraction?: number;
+    globalOverExposedFraction?: number;
     crushedShadowFraction?: number;
     lumaContrast?: number;
+    skinRegionCoverage?: number;
+    maskMode?: 'MEDIAPIPE_POLYGON' | 'CENTRAL_PORTRAIT_ELLIPSE';
     faceDetected?: boolean;
+    warnings?: string[];
+    rejectionReasonCodes?: string[];
     failureReasons?: string[];
   };
   clientEngine: 'MEDIAPIPE_WASM' | 'SERVERLESS_FALLBACK';

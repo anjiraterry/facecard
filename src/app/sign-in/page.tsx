@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Mail, ArrowRight, Lock, AlertCircle, KeyRound, AtSign } from 'lucide-react';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { Button } from '@/components/ui/Button';
@@ -10,9 +10,17 @@ import { Input } from '@/components/ui/Input';
 import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { useAuth } from '@/hooks/useAuth';
 
-export default function SignInPage() {
+function SignInContent() {
   const router = useRouter();
-  const { sendOtp, loginWithPin } = useAuth();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/home';
+  const { user, isLoading: authLoading, sendOtp, loginWithPin } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace(redirectTo.startsWith('/') ? redirectTo : '/home');
+    }
+  }, [authLoading, user, router, redirectTo]);
 
   const [authMethod, setAuthMethod] = useState<'pin' | 'email'>('pin');
   const [identifier, setIdentifier] = useState('');
@@ -38,7 +46,7 @@ export default function SignInPage() {
 
     try {
       await loginWithPin(cleanId, pin.trim());
-      router.push('/home');
+      router.push(redirectTo.startsWith('/') ? redirectTo : '/home');
       router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Invalid credentials. Please try again.');
@@ -208,5 +216,13 @@ export default function SignInPage() {
         </SurfaceCard>
       </main>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--bg-page)]" />}>
+      <SignInContent />
+    </Suspense>
   );
 }
