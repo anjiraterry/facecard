@@ -23,6 +23,8 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
   const { toast } = useToast();
 
   const [mode, setMode] = useState<'claim' | 'login'>(defaultMode);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -47,9 +49,6 @@ export function ClaimFaceCardModal({ isOpen, onClose, defaultMode = 'claim' }: C
   // Login fields
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPin, setLoginPin] = useState('');
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const cleanHandle = handle.replace(/^@/, '').toLowerCase().trim();
   const previewCard: FaceCardData = {

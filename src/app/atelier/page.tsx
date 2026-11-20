@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Search, ArrowLeft, ArrowRight, CheckCircle2, X } from 'lucide-react';
 import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +22,7 @@ const CATEGORIES = [
 ];
 
 export default function PublicAtelierPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,7 +68,7 @@ export default function PublicAtelierPage() {
 
   const handleAddClick = (variantId: string, product: AtelierProductDTO) => {
     if (user) {
-      window.location.href = '/skincare';
+      router.push('/skincare');
       return;
     }
     setSignInPromptTarget({ variantId, product });
