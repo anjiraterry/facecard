@@ -64,6 +64,23 @@ export interface FaceCardData {
   title?: string; // e.g. "Island Boy", "Certified Pressure"
   skinId?: string;
   frameId?: string;
+  themeId?: string;
+  theme?: {
+    themeId: string;
+    name: string;
+    material: string;
+    textColor: string;
+    mutedTextColor?: string | null;
+    accentColor: string;
+    paletteFrom: string;
+    paletteTo: string;
+    backgroundImageUrl?: string | null;
+    reflectionIntensity: number;
+    maximumTiltDegrees: number;
+    engravingOpacity: number;
+    grainOpacity: number;
+  };
+  issuedAt?: string;
   avatarUrl?: string;
   streakDays?: number;
   multiplier?: number;

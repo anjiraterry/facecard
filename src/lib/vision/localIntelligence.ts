@@ -1,5 +1,6 @@
 import type { ClientFeatureVector } from '@/lib/spikes/spikes';
 import { initFaceLandmarker } from './liveness';
+import { analyzeDecodedPixels, type PixelQualityMetrics } from './pixelQuality';
 
 export const LOCAL_MODEL_VERSION = 'mediapipe-face-landmarker-float16-v1';
 
@@ -93,12 +94,28 @@ function dist2D(a: { x: number; y: number }, b: { x: number; y: number }): numbe
  */
 export function computeFeatureVectorFromLandmarks(
   landmarks: Array<{ x: number; y: number; z?: number }>,
-  exposureScore: number = 82,
-  sharpnessScore: number = 84
+  pixelMetricsOrExposure?: PixelQualityMetrics | number | null,
+  legacySharpness?: number
 ): {
   featureVector: ClientFeatureVector;
   headPose: { yaw: number; pitch: number };
 } {
+  const pixelMetrics =
+    typeof pixelMetricsOrExposure === 'object' && pixelMetricsOrExposure !== null
+      ? pixelMetricsOrExposure
+      : null;
+  const exposureScore = pixelMetrics
+    ? pixelMetrics.exposureScore
+    : typeof pixelMetricsOrExposure === 'number'
+      ? pixelMetricsOrExposure
+      : 0;
+  const sharpnessScore = pixelMetrics
+    ? pixelMetrics.sharpnessScore
+    : typeof legacySharpness === 'number'
+      ? legacySharpness
+      : 0;
+  const lightingBal = pixelMetrics ? pixelMetrics.lightingBalance : exposureScore;
+  const noiseLevel = pixelMetrics ? pixelMetrics.noiseLevel : 0;
   const nose = landmarks[1];
   const leftCheek = landmarks[234];
   const rightCheek = landmarks[454];
@@ -143,16 +160,29 @@ export function computeFeatureVectorFromLandmarks(
   const featureVector: ClientFeatureVector = {
     symmetry,
     jawlineDefinition,
-    skinTextureUniformity: Math.round(Math.max(72, Math.min(94, (exposureScore + sharpnessScore) / 2))),
-    lightingBalance: Math.round(exposureScore),
+    skinTextureUniformity: Math.round(
+      Math.max(0, Math.min(100, (exposureScore + sharpnessScore) / 2 - Math.max(0, noiseLevel - 35) * 0.5))
+    ),
+    lightingBalance: Math.round(lightingBal),
     goldenRatioDeviation: deviation,
     eyeCanthalTiltAngle,
     clientEngine: 'MEDIAPIPE_WASM',
     qualityGate: {
-      passed: poseAcceptable && framingCoverage >= 50,
+      passed:
+        (pixelMetrics ? pixelMetrics.usable : exposureScore >= 40 && sharpnessScore >= 35) &&
+        poseAcceptable &&
+        framingCoverage >= 50 &&
+        sharpnessScore >= 35 &&
+        noiseLevel <= 60,
       sharpness: Math.round(sharpnessScore),
       exposure: Math.round(exposureScore),
       framingCoverage,
+      noiseLevel,
+      overExposedFraction: pixelMetrics?.overExposedFraction,
+      crushedShadowFraction: pixelMetrics?.crushedShadowFraction,
+      lumaContrast: pixelMetrics?.lumaContrast,
+      faceDetected: true,
+      failureReasons: pixelMetrics?.failureReasons ?? ['Pixel quality metrics unavailable.'],
     },
   };
 
@@ -196,7 +226,24 @@ export async function analyzeVideoFrame(video: HTMLVideoElement): Promise<LocalA
       };
     }
 
-    const { featureVector, headPose } = computeFeatureVectorFromLandmarks(faces[0]);
+    let pixelMetrics: PixelQualityMetrics | null = null;
+    try {
+      const w = Math.min(320, video.videoWidth || 320);
+      const h = Math.min(320, video.videoHeight || 240);
+      const offscreen = document.createElement('canvas');
+      offscreen.width = w;
+      offscreen.height = h;
+      const octx = offscreen.getContext('2d');
+      if (octx) {
+        octx.drawImage(video, 0, 0, w, h);
+        const imgData = octx.getImageData(0, 0, w, h);
+        pixelMetrics = analyzeDecodedPixels(imgData.data, w, h);
+      }
+    } catch {
+      pixelMetrics = null;
+    }
+
+    const { featureVector, headPose } = computeFeatureVectorFromLandmarks(faces[0], pixelMetrics);
     const duration = Math.round(performance.now() - start);
     lastDurationMs = duration;
     totalAnalyses += 1;

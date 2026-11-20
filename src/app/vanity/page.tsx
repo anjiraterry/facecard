@@ -16,8 +16,9 @@ import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { EmptyState } from '@/components/ui/StateViews';
 import { resolveItemAppearance, BOUTIQUE_CATEGORY_PALETTES } from '@/lib/boutique/palette';
 import { CollectibleArtwork } from '@/components/boutique/CollectibleArtwork';
+import { CardThemeSelector } from '@/components/card/CardThemeSelector';
 
-type VanityTab = 'OWNED' | 'EFFECTS' | 'GIFTS' | 'COLLECTIONS' | 'HISTORY';
+type VanityTab = 'OWNED' | 'THEMES' | 'EFFECTS' | 'GIFTS' | 'COLLECTIONS' | 'HISTORY';
 
 export default function VanityPage() {
   const [tab, setTab] = useState<VanityTab>('OWNED');
@@ -126,6 +127,7 @@ export default function VanityPage() {
           {(
             [
               { id: 'OWNED', label: `Owned (${ownedItems.length})` },
+              { id: 'THEMES', label: 'Card Themes' },
               { id: 'EFFECTS', label: `Active Effects (${activeEffects.filter((e: any) => e.status === 'ACTIVE').length})` },
               { id: 'GIFTS', label: `Gifts${pendingGiftsCount > 0 ? ` (${pendingGiftsCount} new)` : ''}` },
               { id: 'COLLECTIONS', label: 'Collections' },
@@ -153,6 +155,8 @@ export default function VanityPage() {
           </SurfaceCard>
         ) : (
           <>
+            {tab === 'THEMES' && <CardThemeSelector onNotify={notify} />}
+
             {tab === 'OWNED' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {ownedItems.length === 0 ? (

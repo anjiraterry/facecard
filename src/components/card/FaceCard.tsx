@@ -110,8 +110,8 @@ export function FaceCard({
     !isArena;
 
   const material = useMemo(
-    () => resolveCardMaterial(card.tier, card.skinId, card.frameId),
-    [card.tier, card.skinId, card.frameId]
+    () => resolveCardMaterial(card.tier, card.skinId, card.frameId, card.theme),
+    [card.tier, card.skinId, card.frameId, card.theme]
   );
 
   const engravingSeed = useMemo(
@@ -235,7 +235,9 @@ export function FaceCard({
             rotateY: isInteractive ? rotateY : 0,
             x: isInteractive ? translateX : 0,
             y: isInteractive ? translateY : 0,
-            background: material.baseGradient,
+            background: material.backgroundImageUrl
+              ? `url(${material.backgroundImageUrl}) center / cover no-repeat, ${material.baseGradient}`
+              : material.baseGradient,
             color: material.typography,
             border: `1px solid ${material.borderColor}`,
             boxShadow: isExport

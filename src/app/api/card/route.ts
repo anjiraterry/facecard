@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
 import { getStreakMultiplier, getVerdictBand } from '@/lib/scoring';
+import { formatRubricFormula } from '@/lib/rating/lethalityEngine';
 import { getInitialsAvatarSvg, getCardCoverArtSvg } from '@/lib/avatar';
+import { resolveCardThemeForUser, serializeCardTheme } from '@/lib/card/themes';
 import { Tier, Band } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -72,6 +74,12 @@ export async function GET(req: NextRequest) {
     const handleClean = user.handle ? user.handle.replace(/^@/, '') : `user_${user.id.slice(0, 6)}`;
     const userAvatar = (user as { avatarUrl?: string | null }).avatarUrl ?? undefined;
 
+    const resolvedTheme = await resolveCardThemeForUser({
+      actualTier: user.tier as Tier,
+      equippedThemeId: cardRecord?.equippedThemeId,
+      equippedSkinSlug: cardRecord?.equippedSkin?.slug,
+    });
+
     const activeCard = {
       id: user.id,
       tier: user.tier as Tier,
@@ -85,6 +93,8 @@ export async function GET(req: NextRequest) {
       avatarUrl: userAvatar,
       skinId: cardRecord?.equippedSkin?.slug ?? cardRecord?.equippedSkinId ?? undefined,
       frameId: cardRecord?.equippedFrame?.slug ?? cardRecord?.equippedFrameId ?? undefined,
+      themeId: resolvedTheme?.themeId ?? undefined,
+      theme: resolvedTheme ? serializeCardTheme(resolvedTheme) : undefined,
     };
 
     const nextTierTarget = user.tier === 'CLASSIC' ? 1000 : user.tier === 'GOLD' ? 5000 : 20000;
@@ -223,32 +233,7 @@ export async function GET(req: NextRequest) {
       },
     ];
 
-    const formula = [
-      {
-        name: 'Photo Craft',
-        weight: '30%',
-        score: categoryScores?.photoCraft ?? 0,
-        tip: 'Balanced studio lighting & sharp focal alignment',
-      },
-      {
-        name: 'Harmony & Proportion',
-        weight: '25%',
-        score: categoryScores?.harmony ?? 0,
-        tip: 'Golden ratio feature balance & eye-to-jawline spacing',
-      },
-      {
-        name: 'Skin Clarity',
-        weight: '20%',
-        score: categoryScores?.skinClarity ?? 0,
-        tip: 'Smooth texture, subtle natural glow without heavy filtering',
-      },
-      {
-        name: 'Expression & Aura',
-        weight: '25%',
-        score: categoryScores?.aura ?? 0,
-        tip: 'High-status confidence, poised chin & commanding focal gaze',
-      },
-    ];
+    const formula = formatRubricFormula(undefined, categoryScores);
 
     return NextResponse.json({
       success: true,

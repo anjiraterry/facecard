@@ -25,6 +25,12 @@ export interface ClientFeatureVector {
     sharpness: number;
     exposure: number;
     framingCoverage: number;
+    noiseLevel?: number;
+    overExposedFraction?: number;
+    crushedShadowFraction?: number;
+    lumaContrast?: number;
+    faceDetected?: boolean;
+    failureReasons?: string[];
   };
   clientEngine: 'MEDIAPIPE_WASM' | 'SERVERLESS_FALLBACK';
 }

@@ -67,11 +67,11 @@ export default function HomePage() {
     formula && formula.length > 0
       ? formula
       : [
-          { name: 'Photo Craft', weight: '30%', score: 94, tip: 'Balanced studio lighting & sharp focal alignment' },
-          { name: 'Harmony & Proportion', weight: '25%', score: 88, tip: 'Facial balance & geometric structure' },
-          { name: 'Skin Clarity & Glow', weight: '20%', score: 91, tip: 'Natural radiance & even illumination' },
-          { name: 'Expression & Eyes', weight: '15%', score: 95, tip: 'Engaged gaze & confident micro-expression' },
-          { name: 'Aura & Presence', weight: '10%', score: 98, tip: 'Charismatic framing & distinct silhouette impact' },
+          { name: 'Visual Presentation', weight: '30%', score: 0, tip: 'Balanced lighting, clean framing & clear facial presentation' },
+          { name: 'Pose & Composition', weight: '25%', score: 0, tip: 'Head alignment & centered portrait composition inside the frame' },
+          { name: 'Expression & Engagement', weight: '20%', score: 0, tip: 'Natural facial expression & direct camera engagement' },
+          { name: 'Lighting Balance', weight: '15%', score: 0, tip: 'Even front illumination without harsh shadows or clipping' },
+          { name: 'Image Detail', weight: '10%', score: 0, tip: 'Sharp focus & unsmoothed natural image detail' },
         ];
 
   return (

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { scoreFace } from '@/lib/rating/engine';
+import { QualityGateError, scoreFace } from '@/lib/rating/engine';
 import {
   calculateScanPoints,
   getStreakMultiplier,
@@ -23,6 +23,7 @@ import {
   lethalityInputsFromPresentation,
 } from '@/lib/rating/lethalityEngine';
 import { calculateScanReward } from '@/lib/rewards/rewardPolicy';
+import { diffLagosDayKeys, expireStaleActiveEffects } from '@/lib/boutique/effects';
 import { getActiveLethalityWeights, getActiveRewardPolicy } from '@/lib/rewards/activeConfig';
 import { getVerdictBand } from '@/lib/scoring';
 import { createNotification } from '@/lib/notifications';
@@ -199,7 +200,7 @@ async function performScan(
           userId: user.id,
           score: scoredResult.score,
           band: scoredResult.band as Band,
-          categoryScores: flatBreakdown,
+          categoryScores: JSON.parse(JSON.stringify(flatBreakdown)),
           modelVersion: 'v1.2-neon',
           promptVersion: 'p2.0',
           scanIndexOfDay: 1,
@@ -329,9 +330,20 @@ async function performScan(
   try {
     scoredResult = await scoreFace({ imageBuffer: imageBase64, featureVector, toneMode });
   } catch (error) {
+    if (error instanceof QualityGateError) {
+      return {
+        status: 422,
+        body: {
+          error: error.message,
+          qualityGateFailed: true,
+          retakeRequired: true,
+          checks: error.checks,
+        },
+      };
+    }
     return {
       status: 422,
-      body: { error: error instanceof Error ? error.message : 'Selfie failed the quality check.', qualityGateFailed: true },
+      body: { error: error instanceof Error ? error.message : 'Selfie failed the quality check.', qualityGateFailed: true, retakeRequired: true },
     };
   }
   // Zero-data-retention: drop our only reference to the raw image as soon as scoring is done.
@@ -362,18 +374,22 @@ async function performScan(
   let streakDays = user.streak?.currentCount ?? 1;
   let freezesHeld = user.streak?.freezesHeld ?? 0;
   const lastScanDate = user.streak?.lastScanDayKey;
-  let freezeConsumed = false;
+  let freezeConsumedCount = 0;
 
   if (!lastScanDate || lastScanDate === yesterdayKey) {
     streakDays = lastScanDate ? streakDays + 1 : 1;
   } else if (lastScanDate === todayKey) {
     // Already scanned today, keep current streak
-  } else if (freezesHeld > 0) {
-    freezesHeld -= 1; // Streak freeze consumed
-    freezeConsumed = true;
   } else {
-    streakDays = 1; // Streak reset
+    const daysMissed = Math.max(0, diffLagosDayKeys(todayKey, lastScanDate) - 1);
+    if (daysMissed > 0 && freezesHeld >= daysMissed) {
+      freezesHeld -= daysMissed;
+      freezeConsumedCount = daysMissed;
+    } else {
+      streakDays = 1; // Streak reset
+    }
   }
+  const freezeConsumed = freezeConsumedCount > 0;
 
   const rewardCalc = calculateScanReward(rewardPolicy, {
     score: finalScore,
@@ -383,8 +399,9 @@ async function performScan(
   const multiplier = rewardCalc.streakMultiplier;
   const basePointsEarned = rewardCalc.points;
 
+  await expireStaleActiveEffects(user.id);
   const now = new Date();
-  // 1. Check active REWARD_MULTIPLIER effect (new Effect Engine)
+  // Check active REWARD_MULTIPLIER effect (Effect Engine)
   const activeBoostEffect = await db.activeEffect.findFirst({
     where: {
       userId: user.id,
@@ -407,21 +424,6 @@ async function performScan(
     bonusPoints = Math.min(rawBonus, cap);
   }
 
-  // 2. Legacy fallback for unactivated `boost-aura-2x` UserItem
-  const boostItem = !activeBoostEffect
-    ? await db.userItem.findFirst({
-        where: {
-          userId: user.id,
-          quantity: { gt: 0 },
-          item: { slug: 'boost-aura-2x' },
-        },
-        select: { id: true, quantity: true },
-      })
-    : null;
-  if (boostItem) {
-    bonusPoints = basePointsEarned;
-  }
-
   const boostApplied = bonusPoints > 0;
   const pointsEarned = basePointsEarned + bonusPoints;
 
@@ -437,6 +439,8 @@ async function performScan(
     symmetry: scoredResult.breakdown.face.symmetry,
     expression: scoredResult.breakdown.expression,
     aura: scoredResult.breakdown.aura,
+    scoringVersion: lethalityEval.scoringVersion,
+    components: lethalityEval.components,
   };
 
   // 4. One ACID transaction. The ScanSlot unique (user, day, slot) is the real concurrency guard for
@@ -450,7 +454,7 @@ async function performScan(
           userId: user.id,
           score: finalScore,
           band: finalBand as Band,
-          categoryScores: flatBreakdown,
+          categoryScores: JSON.parse(JSON.stringify(flatBreakdown)),
           modelVersion: activeWeights.version,
           promptVersion: rewardPolicy.version,
           scanIndexOfDay,
@@ -520,11 +524,30 @@ async function performScan(
             bonusPointsAwarded: bonusPoints,
           },
         });
-      } else if (boostItem) {
-        await tx.userItem.updateMany({
-          where: { id: boostItem.id, quantity: { gt: 0 } },
-          data: { quantity: { decrement: 1 } },
+      }
+
+      if (freezeConsumedCount > 0) {
+        const freezeUserItem = await tx.userItem.findFirst({
+          where: { userId: user.id, item: { slug: 'streak-freeze' }, quantity: { gt: 0 } },
+          select: { id: true, itemId: true, quantity: true },
         });
+        if (freezeUserItem) {
+          const decQty = Math.min(freezeConsumedCount, freezeUserItem.quantity);
+          await tx.userItem.update({
+            where: { id: freezeUserItem.id },
+            data: { quantity: { decrement: decQty } },
+          });
+          await tx.userItemMovement.create({
+            data: {
+              userId: user.id,
+              userItemId: freezeUserItem.id,
+              itemId: freezeUserItem.itemId,
+              quantityDelta: -decQty,
+              reason: 'STREAK_FREEZE_CONSUMED',
+              referenceId: scanId,
+            },
+          });
+        }
       }
 
       await tx.streak.upsert({

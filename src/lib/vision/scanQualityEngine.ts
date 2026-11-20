@@ -103,23 +103,24 @@ export function evaluateScanQuality(input: ScanQualityInput): ScanQualityAssessm
     guidance: singleFace ? undefined : 'Ensure only one face is visible.',
   });
 
-  const focusPassed = (input.sharpness ?? 80) >= 45;
-  if (!focusPassed) guidance.push('Image is out of focus. Hold steady and wipe the lens.');
+  const focusPassed = typeof input.sharpness === 'number' && input.sharpness >= 35;
+  if (!focusPassed) guidance.push('Image is out of focus or lacks measurable edge detail. Hold steady and wipe the lens.');
   checks.push({ id: 'focus', label: 'Focus', passed: focusPassed, value: input.sharpness ?? null });
 
-  const motionPassed = (input.motionBlurScore ?? input.sharpness ?? 80) >= 45;
+  const motionVal = input.motionBlurScore ?? input.sharpness ?? null;
+  const motionPassed = typeof motionVal === 'number' && motionVal >= 35;
   if (!motionPassed && focusPassed) guidance.push('Motion blur detected. Hold the camera steady for a moment.');
   checks.push({
     id: 'motion_blur',
     label: 'Motion Stability',
     passed: motionPassed,
-    value: input.motionBlurScore ?? input.sharpness ?? null,
+    value: motionVal,
   });
 
   // Tone-fair clipping check: never penalise dark skin for low mean luminance
   const overClip = input.overExposedFraction ?? 0;
   const darkClip = input.crushedShadowFraction ?? 0;
-  const clippingPassed = overClip <= 0.12 && darkClip <= 0.22;
+  const clippingPassed = overClip <= 0.15 && darkClip <= 0.35;
   if (!clippingPassed) {
     guidance.push('Highlights or deep shadows are clipped. Step into soft, even daylight.');
   }
@@ -130,10 +131,10 @@ export function evaluateScanQuality(input: ScanQualityInput): ScanQualityAssessm
     value: Number(Math.max(overClip, darkClip).toFixed(3)),
   });
 
-  const illuminationVal = input.lightingBalance ?? input.exposure ?? 80;
-  const illuminationPassed = illuminationVal >= 40;
+  const illuminationVal = input.lightingBalance ?? input.exposure ?? null;
+  const illuminationPassed = typeof illuminationVal === 'number' && illuminationVal >= 45;
   if (!illuminationPassed) {
-    guidance.push('Lighting is uneven across the face. Face a soft front light source.');
+    guidance.push('Lighting is uneven or insufficient across the face. Face a soft front light source.');
   }
   checks.push({
     id: 'illumination',

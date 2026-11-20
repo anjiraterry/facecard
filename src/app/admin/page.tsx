@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { BeautyIntelligenceAdminPanel } from '@/components/admin/BeautyIntelligenceAdminPanel';
+import { AtelierRewardsAdminPanel } from '@/components/admin/AtelierRewardsAdminPanel';
+import { CardThemeStudioPanel } from '@/components/admin/CardThemeStudioPanel';
 import {
   LayoutDashboard,
   Users,
@@ -46,7 +48,9 @@ type NavSection =
   | 'users'
   | 'atelier_orders'
   | 'atelier_inventory'
+  | 'atelier_rewards'
   | 'boutique'
+  | 'card_themes'
   | 'economy'
   | 'approvals'
   | 'support'
@@ -542,12 +546,14 @@ export default function ControlCentrePage() {
       items: [
         { id: 'atelier_orders', label: 'Orders & Fulfilment', icon: <ShoppingBag className="w-4 h-4" />, perm: 'atelier.read' },
         { id: 'atelier_inventory', label: 'Catalogue & Stock', icon: <ShoppingBag className="w-4 h-4" />, perm: 'atelier.read' },
+        { id: 'atelier_rewards', label: 'Atelier Rewards', icon: <Coins className="w-4 h-4" />, perm: 'atelier.read' },
       ],
     },
     {
       group: 'Economy & Governance',
       items: [
         { id: 'boutique', label: 'Boutique & Effect Lab', icon: <Coins className="w-4 h-4" />, perm: 'boutique.items.read' },
+        { id: 'card_themes', label: 'Card Theme Studio', icon: <Coins className="w-4 h-4" />, perm: 'boutique.items.read' },
         { id: 'economy', label: 'Points & Ledger', icon: <Coins className="w-4 h-4" />, perm: 'economy.reconcile' },
         { id: 'approvals', label: 'Approvals', icon: <CheckSquare className="w-4 h-4" /> },
       ],
@@ -1103,6 +1109,14 @@ export default function ControlCentrePage() {
           )}
 
           {/* 4B. BOUTIQUE & EFFECT LAB */}
+          {activeNav === 'atelier_rewards' && (
+            <AtelierRewardsAdminPanel onToast={(type, text) => notify(type, text)} />
+          )}
+
+          {activeNav === 'card_themes' && (
+            <CardThemeStudioPanel onToast={(type, text) => notify(type, text)} />
+          )}
+
           {activeNav === 'boutique' && (
             <div className="space-y-5">
               {boutiqueAnalytics?.metrics && (

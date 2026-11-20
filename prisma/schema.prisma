@@ -48,6 +48,8 @@ enum LedgerType {
   FACEOFF_WIN_BONUS
   SHOP_PURCHASE
   BOUTIQUE_REFUND
+  ATELIER_REDEMPTION
+  ATELIER_REDEMPTION_REFUND
   ACTIVITY_BONUS
   REVERSAL
   ADJUSTMENT
@@ -326,6 +328,7 @@ model Card {
   equippedSkinId  String?   @db.Uuid
   equippedTitleId String?   @db.Uuid
   equippedFrameId String?   @db.Uuid
+  equippedThemeId String?
   slot            Int       @default(1)
   createdAt       DateTime  @default(now())
 
@@ -359,6 +362,9 @@ model ShopItem {
   maxOwned         Int                @default(1)
   active           Boolean            @default(true)
   assetRef         String?
+  usageInstructions String?
+  endingBehavior   String?
+  refundPolicy     String?
   createdAt        DateTime           @default(now())
 
   userItems        UserItem[]
@@ -914,6 +920,7 @@ model ShoppingBag {
   status    BagStatus @default(ACTIVE)
   currency  String    @default("NGN")
   version   Int       @default(1)
+  pendingPointsToRedeem Int @default(0)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -1000,6 +1007,7 @@ model CheckoutSession {
   currency       String                 @default("NGN")
   subtotalMinor  BigInt
   discountMinor  BigInt                 @default(0)
+  pointsRedeemed Int                    @default(0)
   shippingMinor  BigInt                 @default(0)
   taxMinor       BigInt                 @default(0)
   totalMinor     BigInt
@@ -1024,6 +1032,7 @@ model Order {
   currency          String             @default("NGN")
   subtotalMinor     BigInt
   discountMinor     BigInt             @default(0)
+  pointsRedeemed    Int                @default(0)
   shippingMinor     BigInt             @default(0)
   taxMinor          BigInt             @default(0)
   totalMinor        BigInt
@@ -1286,6 +1295,9 @@ model CardSnapshot {
   title           String
   skinSlug        String
   frameSlug       String
+  themeId         String?
+  themeVersion    Int?
+  themeSnapshot   Json?
   streakDays      Int         @default(0)
   multiplier      Float       @default(1.0)
   templateVersion String      @default("1.0")
@@ -1999,4 +2011,237 @@ model RecommendationInteraction {
 
   @@index([eventType, createdAt])
   @@index([userId, createdAt])
+}
+
+// === Workstream 2: Atelier Points Redemption ===
+
+enum RedemptionPolicyStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PointsReservationStatus {
+  ACTIVE
+  COMMITTED
+  RELEASED
+  EXPIRED
+}
+
+model RedemptionPolicyVersion {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  version             Int                    @unique
+  status              RedemptionPolicyStatus @default(DRAFT)
+  minimumTier         Tier                   @default(GOLD)
+  pointsPerUnit       Int                    @default(100)
+  valuePerUnitMinor   BigInt                 @default(5000)
+  minimumSubtotalMinor BigInt                @default(1000000)
+  marginFloorBps      Int                    @default(1500)
+  processingFeeBps    Int                    @default(150)
+  processingFeeFlatMinor BigInt              @default(10000)
+  allowPromoStacking  Boolean                @default(false)
+  programmeBudgetMinor BigInt?
+  programmeSpentMinor BigInt                 @default(0)
+  emergencyPaused     Boolean                @default(false)
+  notes               String?
+  createdById         String?                @db.Uuid
+  publishedById       String?                @db.Uuid
+  publishedAt         DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  tierRules           TierRedemptionRule[]
+  reservations        PointsReservation[]
+  redemptions         PointsRedemption[]
+
+  @@index([status, version])
+}
+
+model TierRedemptionRule {
+  id               String                  @id @default(uuid()) @db.Uuid
+  policyVersionId  String                  @db.Uuid
+  tier             Tier
+  enabled          Boolean                 @default(false)
+  maxDiscountBps   Int                     @default(0)
+  minimumSubtotalMinor BigInt              @default(1500000)
+  perOrderCapMinor BigInt                  @default(0)
+  monthlyCapMinor  BigInt                  @default(0)
+  frequencyLimit   Int                     @default(0)
+
+  policyVersion    RedemptionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([policyVersionId, tier])
+}
+
+model ProductRedemptionRule {
+  id                 String   @id @default(uuid()) @db.Uuid
+  variantId          String   @unique @db.Uuid
+  enabled            Boolean  @default(true)
+  maxDiscountBps     Int?
+  marginFloorBps     Int?
+  allowPromoStacking Boolean  @default(false)
+  excludedReason     String?
+  updatedAt          DateTime @updatedAt
+}
+
+model PointsReservation {
+  id                String                  @id @default(uuid()) @db.Uuid
+  userId            String                  @db.Uuid
+  orderId           String                  @unique @db.Uuid
+  checkoutSessionId String?                 @db.Uuid
+  policyVersionId   String                  @db.Uuid
+  points            Int
+  discountMinor     BigInt
+  periodKey         String
+  status            PointsReservationStatus @default(ACTIVE)
+  expiresAt         DateTime
+  committedAt       DateTime?
+  releasedAt        DateTime?
+  createdAt         DateTime                @default(now())
+
+  policyVersion     RedemptionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  redemption        PointsRedemption?
+
+  @@index([userId, status])
+  @@index([expiresAt])
+}
+
+model PointsRedemption {
+  id              String                  @id @default(uuid()) @db.Uuid
+  userId          String                  @db.Uuid
+  orderId         String                  @unique @db.Uuid
+  reservationId   String                  @unique @db.Uuid
+  policyVersionId String                  @db.Uuid
+  points          Int
+  discountMinor   BigInt
+  periodKey       String
+  createdAt       DateTime                @default(now())
+
+  policyVersion   RedemptionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  reservation     PointsReservation       @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  allocations     RedemptionAllocation[]
+  refunds         RedemptionRefund[]
+
+  @@index([userId, periodKey])
+}
+
+model RedemptionAllocation {
+  id            String           @id @default(uuid()) @db.Uuid
+  redemptionId  String           @db.Uuid
+  orderItemId   String           @db.Uuid
+  variantId     String           @db.Uuid
+  points        Int
+  discountMinor BigInt
+  createdAt     DateTime         @default(now())
+
+  redemption    PointsRedemption @relation(fields: [redemptionId], references: [id], onDelete: Cascade)
+
+  @@index([redemptionId])
+}
+
+model RedemptionRefund {
+  id                    String           @id @default(uuid()) @db.Uuid
+  redemptionId          String           @db.Uuid
+  orderId               String           @db.Uuid
+  refundReference       String           @unique
+  restoredPoints        Int
+  restoredDiscountMinor BigInt
+  restoredCashMinor     BigInt
+  reason                String
+  createdById           String?          @db.Uuid
+  createdAt             DateTime         @default(now())
+
+  redemption            PointsRedemption @relation(fields: [redemptionId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
+model RedemptionAllowance {
+  id                   String   @id @default(uuid()) @db.Uuid
+  userId               String   @db.Uuid
+  periodKey            String
+  committedAmountMinor BigInt   @default(0)
+  reservedAmountMinor  BigInt   @default(0)
+  committedCount       Int      @default(0)
+  reservedCount        Int      @default(0)
+  updatedAt            DateTime @updatedAt
+
+  @@unique([userId, periodKey])
+}
+
+// === Workstream 3: Tier-Based Card Themes ===
+
+enum ThemeAcquisition {
+  TIER_UNLOCK
+  POINTS_PURCHASE
+  ACHIEVEMENT
+  STAFF_GRANT
+}
+
+enum ThemeMaterial {
+  SATIN
+  BRUSHED_METAL
+  PEARLESCENT
+  CERAMIC
+  GLASS
+  STONE
+}
+
+enum CardThemeStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+model CardTheme {
+  id                       String           @id @default(uuid()) @db.Uuid
+  themeId                  String           @unique
+  slug                     String           @unique
+  name                     String
+  description              String
+  collectionName           String
+  minimumTier              Tier             @default(CLASSIC)
+  acquisition              ThemeAcquisition @default(POINTS_PURCHASE)
+  pricePoints              Int              @default(0)
+  achievementKey           String?
+  achievementLabel         String?
+  status                   CardThemeStatus  @default(PUBLISHED)
+  shopItemId               String?          @unique @db.Uuid
+  backgroundAssetVersionId String
+  previewAssetVersionId    String
+  backgroundImageUrl       String?
+  previewImageUrl          String?
+  textColor                String
+  mutedTextColor           String?
+  accentColor              String
+  material                 ThemeMaterial    @default(SATIN)
+  reflectionIntensity      Float            @default(0.1)
+  maximumTiltDegrees       Float            @default(6)
+  engravingOpacity         Float            @default(0.2)
+  grainOpacity             Float            @default(0.03)
+  paletteFrom              String
+  paletteTo                String
+  compatibleFrameIds       String[]         @default([])
+  version                  Int              @default(1)
+  startsAt                 DateTime?
+  endsAt                   DateTime?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  versions                 CardThemeVersion[]
+
+  @@index([minimumTier, status])
+}
+
+model CardThemeVersion {
+  id          String    @id @default(uuid()) @db.Uuid
+  themeId     String    @db.Uuid
+  version     Int
+  config      Json
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+
+  theme       CardTheme @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@unique([themeId, version])
 }

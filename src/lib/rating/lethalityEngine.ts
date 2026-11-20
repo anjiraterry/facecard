@@ -33,6 +33,46 @@ const METRIC_LABELS: Record<LethalityMetricId, string> = {
   image_detail: 'Image Detail',
 };
 
+export const LETHALITY_RUBRIC_TIPS: Record<LethalityMetricId, string> = {
+  visual_presentation: 'Balanced lighting, clean framing & clear facial presentation',
+  pose_composition: 'Head alignment & centered portrait composition inside the frame',
+  expression_engagement: 'Natural facial expression & direct camera engagement',
+  lighting_balance: 'Even front illumination without harsh shadows or clipping',
+  image_detail: 'Sharp focus & unsmoothed natural image detail',
+};
+
+export function formatRubricFormula(
+  weights: LethalityWeights = DEFAULT_LETHALITY_WEIGHTS,
+  storedCategoryScores?: Record<string, unknown> | null
+) {
+  const storedComponents = Array.isArray(storedCategoryScores?.components)
+    ? (storedCategoryScores.components as Array<{ id: string; score: number; weight?: number }>)
+    : null;
+
+  return (Object.keys(DEFAULT_LETHALITY_WEIGHTS) as LethalityMetricId[]).map((id) => {
+    const matched = storedComponents?.find((c) => c.id === id);
+    const weightVal = matched?.weight ?? weights[id];
+    const fallbackLegacy =
+      id === 'visual_presentation'
+        ? Number(storedCategoryScores?.photoCraft ?? 0)
+        : id === 'pose_composition'
+          ? Number(storedCategoryScores?.harmony ?? 0)
+          : id === 'expression_engagement'
+            ? Number(storedCategoryScores?.expression ?? 0)
+            : id === 'lighting_balance'
+              ? Number(storedCategoryScores?.skinClarity ?? 0)
+              : Number(storedCategoryScores?.aura ?? 0);
+
+    return {
+      id,
+      name: METRIC_LABELS[id],
+      weight: `${Math.round(weightVal * 100)}%`,
+      score: matched ? matched.score : fallbackLegacy,
+      tip: LETHALITY_RUBRIC_TIPS[id],
+    };
+  });
+}
+
 export interface LethalityEvaluation {
   scoringVersion: string;
   lethalityScore: number; // 1 - 100

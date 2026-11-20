@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ShoppingBag, CreditCard, Truck, Trash2, Plus, Minus, CheckCircle2 } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ShoppingBag, CreditCard, Truck, Trash2, Plus, Minus, CheckCircle2, Lock, Sparkles } from 'lucide-react';
 import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -22,6 +22,66 @@ export function ShoppingBagLayout({
 }) {
   const items = bag?.items || [];
   const subtotalLabel = bag ? formatNgnMinor(Number(bag.subtotalMinor)) : '₦0';
+
+  const [quoteData, setQuoteData] = useState<{
+    pendingPointsToRedeem: number;
+    quote: {
+      eligible: boolean;
+      reason?: string;
+      tier: string;
+      minimumTier: string;
+      eligibleSubtotalMinor: string;
+      minimumSubtotalMinor: string;
+      shortfallMinor: string;
+      availableSpendablePoints: number;
+      maxPermittedDiscountMinor: string;
+      appliedPoints: number;
+      appliedDiscountMinor: string;
+      remainingMonthlyAllowanceMinor: string;
+    };
+  } | null>(null);
+  const [redeemBusy, setRedeemBusy] = useState(false);
+
+  const loadQuote = useCallback(async () => {
+    if (items.length === 0) {
+      setQuoteData(null);
+      return;
+    }
+    const res = await fetch('/api/atelier/rewards/quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (res.ok) {
+      setQuoteData(await res.json());
+    }
+  }, [items.length]);
+
+  useEffect(() => {
+    void loadQuote();
+  }, [loadQuote, bag?.subtotalMinor]);
+
+  const handleToggleRedemption = async () => {
+    setRedeemBusy(true);
+    try {
+      const applied = (quoteData?.pendingPointsToRedeem ?? 0) > 0;
+      const res = await fetch('/api/atelier/bag/redemption', {
+        method: applied ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: applied ? undefined : JSON.stringify({}),
+      });
+      if (res.ok) {
+        await loadQuote();
+      }
+    } finally {
+      setRedeemBusy(false);
+    }
+  };
+
+  const appliedDiscountMinor =
+    quoteData && quoteData.pendingPointsToRedeem > 0
+      ? Number(quoteData.quote.appliedDiscountMinor || 0)
+      : 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
@@ -88,11 +148,87 @@ export function ShoppingBagLayout({
 
       <SurfaceCard variant="warm" padding="md" className="space-y-4">
         <h3 className="font-display text-xl font-semibold text-[var(--text-main)]">Order Summary</h3>
+
+        {quoteData && items.length > 0 && (
+          <div className="p-3 rounded-2xl bg-[var(--surface)] border border-[var(--border)] space-y-2 text-xs">
+            {!quoteData.quote.eligible ? (
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 text-[var(--text-muted)]">
+                  <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[var(--accent-brand)]" />
+                  <div>
+                    <p className="font-semibold text-[var(--text-main)]">
+                      Atelier Points Redemption ({quoteData.quote.minimumTier}+)
+                    </p>
+                    <p className="text-[11px]">{quoteData.quote.reason}</p>
+                  </div>
+                </div>
+                {Number(quoteData.quote.minimumSubtotalMinor || 0) > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] text-[var(--text-muted)] tabular-nums">
+                      <span>Eligible: {formatNgnMinor(Number(quoteData.quote.eligibleSubtotalMinor || 0))}</span>
+                      <span>Min: {formatNgnMinor(Number(quoteData.quote.minimumSubtotalMinor))}</span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-[var(--muted)] overflow-hidden">
+                      <div
+                        className="h-full bg-[var(--accent-brand)] transition-all"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.round(
+                              (Number(quoteData.quote.eligibleSubtotalMinor || 0) /
+                                Math.max(1, Number(quoteData.quote.minimumSubtotalMinor))) *
+                                100
+                            )
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[var(--text-main)] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[var(--accent-brand)]" />
+                    {quoteData.quote.tier} member benefit
+                  </span>
+                  <span className="text-[11px] text-[var(--text-muted)] tabular-nums">
+                    {quoteData.quote.availableSpendablePoints.toLocaleString()} PTS avail
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  Save up to {formatNgnMinor(Number(quoteData.quote.maxPermittedDiscountMinor))} using{' '}
+                  {quoteData.quote.appliedPoints.toLocaleString()} PTS.
+                </p>
+                <Button
+                  type="button"
+                  variant={quoteData.pendingPointsToRedeem > 0 ? 'secondary' : 'primary'}
+                  size="sm"
+                  fullWidth
+                  isLoading={redeemBusy}
+                  onClick={() => void handleToggleRedemption()}
+                >
+                  {quoteData.pendingPointsToRedeem > 0
+                    ? `Remove Points (−${formatNgnMinor(appliedDiscountMinor)})`
+                    : `Apply ${quoteData.quote.appliedPoints.toLocaleString()} PTS (−${formatNgnMinor(Number(quoteData.quote.appliedDiscountMinor))})`}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="space-y-2 text-xs border-y border-[var(--border-subtle)] py-3">
           <div className="flex justify-between text-[var(--text-muted)]">
             <span>Subtotal ({bag?.itemCount ?? 0} items)</span>
             <span className="tabular-nums font-semibold text-[var(--text-main)]">{subtotalLabel}</span>
           </div>
+          {appliedDiscountMinor > 0 && (
+            <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
+              <span>Points redemption ({quoteData?.pendingPointsToRedeem.toLocaleString()} PTS)</span>
+              <span className="tabular-nums font-semibold">−{formatNgnMinor(appliedDiscountMinor)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-[var(--text-muted)]">
             <span>Estimated Delivery</span>
             <span className="tabular-nums font-semibold text-[var(--text-main)]">Calculated at checkout</span>
@@ -138,9 +274,31 @@ export function CheckoutLayout({
   const [state, setState] = useState('Lagos');
   const [savingAddr, setSavingAddr] = useState(false);
 
+  const [checkoutQuote, setCheckoutQuote] = useState<{
+    pendingPointsToRedeem: number;
+    quote: { appliedDiscountMinor: string; appliedPoints: number };
+  } | null>(null);
+
+  useEffect(() => {
+    if (!bag || bag.items.length === 0) return;
+    void fetch('/api/atelier/rewards/quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setCheckoutQuote(d);
+      });
+  }, [bag]);
+
   const subtotalMinor = Number(bag?.subtotalMinor ?? 0);
+  const pointsDiscountMinor =
+    checkoutQuote && checkoutQuote.pendingPointsToRedeem > 0
+      ? Number(checkoutQuote.quote.appliedDiscountMinor || 0)
+      : 0;
   const shippingMinor = Number(shippingQuote?.amountMinor ?? 0);
-  const totalMinor = subtotalMinor + shippingMinor;
+  const totalMinor = Math.max(0, subtotalMinor - pointsDiscountMinor) + shippingMinor;
 
   const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,6 +401,12 @@ export function CheckoutLayout({
             <span>Subtotal</span>
             <span className="font-semibold text-[var(--text-main)]">{formatNgnMinor(subtotalMinor)}</span>
           </div>
+          {pointsDiscountMinor > 0 && (
+            <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
+              <span>Points redemption ({checkoutQuote?.pendingPointsToRedeem.toLocaleString()} PTS)</span>
+              <span className="font-semibold">−{formatNgnMinor(pointsDiscountMinor)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-[var(--text-muted)]">
             <span>Delivery</span>
             <span className="font-semibold text-[var(--text-main)]">

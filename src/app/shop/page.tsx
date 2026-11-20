@@ -356,7 +356,12 @@ export default function ShopPage() {
 
                   <div className="pt-3 pb-2 space-y-1">
                     <div className="flex items-center justify-between gap-1">
-                      <h3 className="text-xs font-semibold text-[var(--text-main)] truncate">{item.name}</h3>
+                      <Link
+                        href={`/shop/items/${item.slug || item.id}`}
+                        className="text-xs font-semibold text-[var(--text-main)] truncate hover:text-[var(--accent-brand)] transition-colors"
+                      >
+                        {item.name}
+                      </Link>
                       {item.isGiftable && (
                         <button
                           type="button"

@@ -6,9 +6,19 @@ import {
   InventoryMovementType,
   OrderStatus,
   PaymentStatus,
+  PointsReservationStatus,
   Prisma,
   ReservationStatus,
 } from '@prisma/client';
+import {
+  calculateRedemptionQuote,
+  commitPointsRedemptionInTx,
+  getActiveRedemptionPolicy,
+  getAvailablePointsForRedemption,
+  getLagosPeriodKey,
+  releaseExpiredPointsReservations,
+  releasePointsReservationInTx,
+} from './redemption';
 
 const CHECKOUT_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -134,19 +144,30 @@ export async function releaseExpiredReservations(): Promise<number> {
         data: { status: CheckoutStatus.EXPIRED },
       });
 
+      const orderForSession = await tx.order.findFirst({
+        where: { checkoutSessionId: res.checkoutSessionId },
+        select: { id: true },
+      });
+      if (orderForSession) {
+        await releasePointsReservationInTx(tx, orderForSession.id, 'EXPIRED');
+      }
+
       releasedCount++;
     });
   }
+
+  await releaseExpiredPointsReservations().catch(() => 0);
 
   return releasedCount;
 }
 
 /**
- * Creates a CheckoutSession, atomically reserves inventory, and creates a PENDING_PAYMENT Order.
+ * Creates a CheckoutSession, atomically reserves inventory (and points if redeeming), and creates a PENDING_PAYMENT Order.
  */
 export async function createCheckoutAndOrder(params: {
   userId: string;
   addressId: string;
+  redeemPoints?: number;
 }) {
   await releaseExpiredReservations().catch(() => undefined);
 
@@ -182,6 +203,7 @@ export async function createCheckoutAndOrder(params: {
     imageKeySnapshot: string | null;
     quantity: number;
     unitPriceMinor: bigint;
+    discountMinor: bigint;
     lineTotalMinor: bigint;
   }> = [];
 
@@ -200,12 +222,73 @@ export async function createCheckoutAndOrder(params: {
       imageKeySnapshot: item.variant.product.images[0]?.objectKey ?? null,
       quantity: item.quantity,
       unitPriceMinor: item.variant.priceMinor,
+      discountMinor: BigInt(0),
       lineTotalMinor: lineTotal,
     });
   }
 
+  const requestedPoints =
+    typeof params.redeemPoints === 'number' ? params.redeemPoints : bag.pendingPointsToRedeem ?? 0;
+
+  let discountMinor = BigInt(0);
+  let pointsRedeemed = 0;
+  let redemptionPolicyId: string | null = null;
+  const periodKey = getLagosPeriodKey();
+
+  if (requestedPoints > 0) {
+    const [user, policy, allowance, productRules, pointsAvail] = await Promise.all([
+      db.user.findUnique({ where: { id: params.userId }, select: { tier: true } }),
+      getActiveRedemptionPolicy(),
+      db.redemptionAllowance.findUnique({
+        where: { userId_periodKey: { userId: params.userId, periodKey } },
+      }),
+      db.productRedemptionRule.findMany({
+        where: { variantId: { in: bag.items.map((i) => i.variantId) } },
+      }),
+      getAvailablePointsForRedemption(db, params.userId),
+    ]);
+
+    if (!user) throw new AtelierOrderError('User not found', 404);
+    const ruleByVariant = new Map(productRules.map((r) => [r.variantId, r]));
+
+    const quote = calculateRedemptionQuote({
+      policy,
+      tier: user.tier,
+      availableSpendablePoints: pointsAvail.availablePoints,
+      alreadyCommittedMinor: allowance?.committedAmountMinor ?? BigInt(0),
+      alreadyReservedMinor: allowance?.reservedAmountMinor ?? BigInt(0),
+      alreadyCommittedCount: allowance?.committedCount ?? 0,
+      alreadyReservedCount: allowance?.reservedCount ?? 0,
+      items: bag.items.map((i) => ({
+        variantId: i.variantId,
+        quantity: i.quantity,
+        unitPriceMinor: i.variant.priceMinor,
+        costPriceMinor: i.variant.costPriceMinor,
+        hasActivePromotion:
+          i.variant.compareAtPriceMinor != null && i.variant.compareAtPriceMinor > i.variant.priceMinor,
+        rule: ruleByVariant.get(i.variantId) ?? null,
+      })),
+      requestedPoints,
+      periodKey,
+    });
+
+    if (!quote.eligible || quote.appliedPoints <= 0) {
+      throw new AtelierOrderError(quote.reason || 'Points redemption is not eligible for this basket', 400);
+    }
+
+    discountMinor = quote.appliedDiscountMinor;
+    pointsRedeemed = quote.appliedPoints;
+    redemptionPolicyId = quote.policyVersionId;
+
+    const allocByVariant = new Map(quote.allocations.map((a) => [a.variantId, a.allocatedDiscountMinor]));
+    for (const snap of lineSnapshots) {
+      const alloc = allocByVariant.get(snap.variantId) ?? BigInt(0);
+      snap.discountMinor = alloc;
+      snap.lineTotalMinor = snap.lineTotalMinor - alloc;
+    }
+  }
+
   const shippingMinor = shipping.amountMinor;
-  const discountMinor = BigInt(0);
   const taxMinor = BigInt(0);
   const totalMinor = subtotalMinor - discountMinor + shippingMinor + taxMinor;
   const expiresAt = new Date(Date.now() + CHECKOUT_TTL_MS);
@@ -220,6 +303,7 @@ export async function createCheckoutAndOrder(params: {
         currency: 'NGN',
         subtotalMinor,
         discountMinor,
+        pointsRedeemed,
         shippingMinor,
         taxMinor,
         totalMinor,
@@ -287,6 +371,7 @@ export async function createCheckoutAndOrder(params: {
         currency: 'NGN',
         subtotalMinor,
         discountMinor,
+        pointsRedeemed,
         shippingMinor,
         taxMinor,
         totalMinor,
@@ -322,8 +407,64 @@ export async function createCheckoutAndOrder(params: {
 
     await tx.shoppingBag.update({
       where: { id: bag.id },
-      data: { status: 'CONVERTED', version: { increment: 1 } },
+      data: { status: 'CONVERTED', pendingPointsToRedeem: 0, version: { increment: 1 } },
     });
+
+    if (pointsRedeemed > 0 && redemptionPolicyId) {
+      // Concurrency-safe re-check inside transaction
+      const avail = await getAvailablePointsForRedemption(tx, params.userId);
+      if (avail.availablePoints < pointsRedeemed) {
+        throw new AtelierOrderError('Insufficient available points (active checkout reservation in progress).', 409);
+      }
+
+      const policy = await tx.redemptionPolicyVersion.findUnique({
+        where: { id: redemptionPolicyId },
+        include: { tierRules: true },
+      });
+      const userTierRow = await tx.user.findUnique({ where: { id: params.userId }, select: { tier: true } });
+      const tierRule = policy?.tierRules.find((r) => r.tier === userTierRow?.tier);
+      const allowance = await tx.redemptionAllowance.findUnique({
+        where: { userId_periodKey: { userId: params.userId, periodKey } },
+      });
+
+      if (tierRule) {
+        const usedAmt = (allowance?.committedAmountMinor ?? BigInt(0)) + (allowance?.reservedAmountMinor ?? BigInt(0));
+        const usedCnt = (allowance?.committedCount ?? 0) + (allowance?.reservedCount ?? 0);
+        if (usedAmt + discountMinor > tierRule.monthlyCapMinor || usedCnt + 1 > tierRule.frequencyLimit) {
+          throw new AtelierOrderError('Monthly Atelier redemption allowance exceeded by a concurrent checkout.', 409);
+        }
+      }
+
+      await tx.pointsReservation.create({
+        data: {
+          userId: params.userId,
+          orderId: order.id,
+          checkoutSessionId: checkout.id,
+          policyVersionId: redemptionPolicyId,
+          points: pointsRedeemed,
+          discountMinor,
+          periodKey,
+          status: PointsReservationStatus.ACTIVE,
+          expiresAt,
+        },
+      });
+
+      await tx.redemptionAllowance.upsert({
+        where: { userId_periodKey: { userId: params.userId, periodKey } },
+        update: {
+          reservedAmountMinor: { increment: discountMinor },
+          reservedCount: { increment: 1 },
+        },
+        create: {
+          userId: params.userId,
+          periodKey,
+          committedAmountMinor: BigInt(0),
+          reservedAmountMinor: discountMinor,
+          committedCount: 0,
+          reservedCount: 1,
+        },
+      });
+    }
 
     return { checkout, order };
   });
@@ -440,19 +581,38 @@ export async function finalizePaidOrder(params: {
       }
     }
 
+    let pointsCommitted = true;
+    if (txRecord.order.pointsRedeemed > 0) {
+      const ptsRes = await tx.pointsReservation.findUnique({
+        where: { orderId: txRecord.orderId },
+      });
+      if (!ptsRes || ptsRes.status !== PointsReservationStatus.ACTIVE || ptsRes.expiresAt <= new Date()) {
+        pointsCommitted = false;
+      } else if (stockReacquired) {
+        await commitPointsRedemptionInTx(tx, txRecord.orderId);
+      }
+    }
+
+    const canConfirm = stockReacquired && pointsCommitted;
     const updatedOrder = await tx.order.update({
       where: { id: txRecord.orderId },
       data: {
         paymentStatus: PaymentStatus.PAID,
-        orderStatus: stockReacquired ? OrderStatus.CONFIRMED : OrderStatus.PENDING_PAYMENT,
+        orderStatus: canConfirm ? OrderStatus.CONFIRMED : OrderStatus.PENDING_PAYMENT,
         paidAt: new Date(),
         statusEvents: {
           create: {
             fromStatus: txRecord.order.orderStatus,
-            toStatus: stockReacquired ? OrderStatus.CONFIRMED : 'NEEDS_STOCK_RESOLUTION',
-            note: stockReacquired
-              ? 'Payment verified and inventory consumed'
-              : 'Late payment received after reservation expiry; insufficient stock for automatic confirmation',
+            toStatus: canConfirm
+              ? OrderStatus.CONFIRMED
+              : !pointsCommitted
+                ? 'NEEDS_POINTS_RECONCILIATION'
+                : 'NEEDS_STOCK_RESOLUTION',
+            note: canConfirm
+              ? 'Payment verified, inventory consumed, and points redemption committed'
+              : !pointsCommitted
+                ? 'Late payment received after points reservation expiry; requires reconciliation'
+                : 'Late payment received after reservation expiry; insufficient stock for automatic confirmation',
           },
         },
       },

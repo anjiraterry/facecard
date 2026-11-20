@@ -6,6 +6,7 @@ import { EconomyConfig } from '@/lib/economy';
 import { postLedger, InsufficientBalanceError } from '@/lib/ledger';
 import { hashRequest, parseIdempotencyKey, runIdempotent } from '@/lib/idempotency';
 import { getLagosDayKey } from '@/lib/scoring';
+import { validateEffectDefinition } from '@/lib/boutique/effectRegistry';
 import { Tier } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -76,6 +77,20 @@ async function performPurchase(
 
   if (!item || !item.active || item.status !== 'PUBLISHED') {
     return { status: 404, body: { error: 'Item not found in database catalog or inactive' } };
+  }
+
+  // Enforce registered effect handler integrity before purchase
+  const effectCheck = item.effectKind
+    ? validateEffectDefinition(item.effectKind, item.effectConfig)
+    : { valid: false, errors: ['No effect handler registered'] };
+  if (!effectCheck.valid) {
+    return {
+      status: 400,
+      body: {
+        error: 'This item is not purchasable until its effect integration is verified.',
+        details: effectCheck.errors,
+      },
+    };
   }
 
   const now = new Date();

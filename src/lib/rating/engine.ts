@@ -9,6 +9,17 @@ export interface QualityGateResult {
   exposure: number;   // 0 - 100
   framing: number;    // 0 - 100
   rejectionReason?: string;
+  checks?: Array<{ id: string; label: string; status: string; detail: string }>;
+}
+
+export class QualityGateError extends Error {
+  constructor(
+    message: string,
+    public readonly checks: Array<{ id: string; label: string; status: string; detail: string }>
+  ) {
+    super(message);
+    this.name = 'QualityGateError';
+  }
 }
 
 export interface ScoreFaceInput {
@@ -362,33 +373,56 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
   if (input.featureVector && input.featureVector.qualityGate && typeof input.featureVector.qualityGate === 'object') {
     scoringSource = 'FEATURE_VECTOR';
     const fv = input.featureVector;
+    const qg = fv.qualityGate;
     const framingScore =
-      'framing' in fv.qualityGate
-        ? (fv.qualityGate as unknown as { framing: number }).framing
-        : fv.qualityGate.framingCoverage;
+      'framing' in qg
+        ? (qg as unknown as { framing: number }).framing
+        : qg.framingCoverage;
+
+    const noiseTooHigh = typeof qg.noiseLevel === 'number' && qg.noiseLevel > 60;
+    const shadowsCrushed = typeof qg.crushedShadowFraction === 'number' && qg.crushedShadowFraction > 0.35;
+    const sharpnessTooLow = qg.sharpness < 35;
+    const faceMissing = qg.faceDetected === false;
+    const effectivePassed = Boolean(qg.passed) && !noiseTooHigh && !shadowsCrushed && !sharpnessTooLow && !faceMissing;
+
+    const failedChecks: Array<{ id: string; label: string; status: string; detail: string }> = [];
+    if (!effectivePassed) {
+      if (shadowsCrushed || qg.exposure < 40) {
+        failedChecks.push({ id: 'lighting', label: 'Lighting', status: 'Insufficient', detail: 'Insufficient visible facial detail' });
+      }
+      if (noiseTooHigh || sharpnessTooLow) {
+        failedChecks.push({ id: 'clarity', label: 'Image clarity', status: 'Low detail', detail: noiseTooHigh ? 'Considerable noise visible' : 'Motion blur or out of focus' });
+      }
+      failedChecks.push({ id: 'skin', label: 'Skin appearance', status: 'Unavailable', detail: 'Not reliably measurable' });
+      failedChecks.push({ id: 'harmony', label: 'Facial harmony', status: 'Unconfirmed', detail: 'Measurement reliability unconfirmed' });
+    }
 
     quality = {
-      passed: fv.qualityGate.passed,
-      sharpness: fv.qualityGate.sharpness,
-      exposure: fv.qualityGate.exposure,
+      passed: effectivePassed,
+      sharpness: qg.sharpness,
+      exposure: qg.exposure,
       framing: framingScore,
-      rejectionReason: (fv.qualityGate as unknown as { rejectionReason?: string }).rejectionReason,
+      rejectionReason: !effectivePassed
+        ? (qg.failureReasons?.[0] ||
+            (qg as unknown as { rejectionReason?: string }).rejectionReason ||
+            'Selfie failed quality gate check. There is not enough visible facial detail for a reliable analysis.')
+        : undefined,
+      checks: failedChecks,
     };
 
-    photoCraftSharpness = fv.qualityGate.sharpness;
+    photoCraftSharpness = qg.sharpness;
     photoCraftFraming = framingScore;
     photoCraftLighting = Math.min(100, Math.max(0, fv.lightingBalance));
     faceHarmony = Math.min(100, Math.max(0, 100 - fv.goldenRatioDeviation));
     faceSymmetry = Math.min(100, Math.max(0, fv.symmetry));
     faceSkinClarity = Math.min(100, Math.max(0, fv.skinTextureUniformity));
     faceFeatureDefinition = Math.min(100, Math.max(0, fv.jawlineDefinition));
-    expressionScoreVal = 88;
-    auraScoreVal = Math.round((faceHarmony + faceFeatureDefinition) / 2);
+    expressionScoreVal = Math.round((photoCraftLighting + photoCraftFraming) / 2);
+    auraScoreVal = Math.round((photoCraftSharpness + photoCraftFraming) / 2);
   } else if (input.imageBuffer) {
     quality = evaluateQualityGate(input.imageBuffer);
 
     if (quality.passed) {
-      // 1. Cloud AI Vision is optional & disabled by default (ENABLE_CLOUD_AI === 'true')
       const cloudEnabled = process.env.ENABLE_CLOUD_AI === 'true';
       const imageStr = typeof input.imageBuffer === 'string' ? input.imageBuffer : input.imageBuffer.toString('base64');
       const aiScores = cloudEnabled ? await callAiGatewayVision(imageStr) : null;
@@ -405,26 +439,16 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
         expressionScoreVal = Math.max(0, Math.min(100, aiScores.expression ?? 85));
         auraScoreVal = Math.max(0, Math.min(100, aiScores.aura ?? 87));
       } else {
-        // Zero-cost deterministic local scoring (never blocks users when no cloud LLM key is configured)
-        scoringSource = 'DETERMINISTIC_TEST_FALLBACK';
-        // 2. Deterministic feature extraction for dev/test only (never used for prod rewards)
-        const hash = crypto.createHash('sha256').update(imageStr).digest();
-        const seed1 = hash[0] / 255;
-        const seed2 = hash[1] / 255;
-        const seed3 = hash[2] / 255;
-        const seed4 = hash[3] / 255;
-
-        photoCraftSharpness = quality.sharpness;
-        photoCraftFraming = quality.framing;
-        photoCraftLighting = quality.exposure;
-
-        // Derive biometric metrics within realistic bands based on cryptographic image characteristics
-        faceHarmony = Math.round(72 + seed1 * 24);         // 72 - 96
-        faceSkinClarity = Math.round(70 + seed2 * 25);     // 70 - 95
-        faceFeatureDefinition = Math.round(74 + seed3 * 22); // 74 - 96
-        faceSymmetry = Math.round(70 + seed4 * 25);         // 70 - 95
-        expressionScoreVal = Math.round(75 + seed1 * 20);   // 75 - 95
-        auraScoreVal = Math.round((faceHarmony + faceFeatureDefinition) / 2);
+        // Do NOT fabricate SHA-256 hash scores when neither on-device landmarks nor cloud AI are available.
+        throw new QualityGateError(
+          'Selfie failed quality gate check. Insufficient facial measurement data — face a light source and try another capture.',
+          [
+            { id: 'lighting', label: 'Lighting', status: 'Unverified', detail: 'Could not verify facial illumination' },
+            { id: 'clarity', label: 'Image clarity', status: 'Unverified', detail: 'On-device landmark extraction required' },
+            { id: 'skin', label: 'Skin appearance', status: 'Unavailable', detail: 'Not reliably measurable' },
+            { id: 'harmony', label: 'Facial harmony', status: 'Unconfirmed', detail: 'Measurement reliability unconfirmed' },
+          ]
+        );
       }
     }
   } else {
@@ -432,9 +456,17 @@ export async function scoreFace(input: ScoreFaceInput): Promise<ScoredFaceResult
     quality = evaluateQualityGate();
   }
 
-  // Check Quality Gate: throw error if rejected
+  // Check Quality Gate: throw structured QualityGateError if rejected
   if (!quality.passed) {
-    throw new Error(quality.rejectionReason || 'Selfie failed quality gate check. Please align face clearly.');
+    throw new QualityGateError(
+      quality.rejectionReason || 'Selfie failed quality gate check. Please align face clearly.',
+      quality.checks ?? [
+        { id: 'lighting', label: 'Lighting', status: 'Insufficient', detail: 'Insufficient visible facial detail' },
+        { id: 'clarity', label: 'Image clarity', status: 'Low detail', detail: 'Image clarity check failed' },
+        { id: 'skin', label: 'Skin appearance', status: 'Unavailable', detail: 'Not reliably measurable' },
+        { id: 'harmony', label: 'Facial harmony', status: 'Unconfirmed', detail: 'Measurement reliability unconfirmed' },
+      ]
+    );
   }
 
   // Photo Craft (30%): Lighting (15%), Sharpness (8%), Framing (7%)

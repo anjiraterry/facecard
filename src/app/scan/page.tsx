@@ -128,7 +128,10 @@ function ScanContent() {
     void loadDailyAllowance();
   }, [loadDailyAllowance]);
 
-  const consentReady = consentGrantedLocally || Boolean(user?.biometricVerified && user?.dob);
+  const consentReady =
+    consentGrantedLocally ||
+    Boolean((user as { hasPortraitConsent?: boolean } | null)?.hasPortraitConsent) ||
+    Boolean(user?.biometricVerified);
   const snapAllowed = Boolean(duelId) || freeScansRemaining > 0 || extraSnapUnlocked;
 
   const handleGrantConsent = async (e: React.FormEvent) => {
@@ -394,7 +397,16 @@ function ScanContent() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Preserve the exact orientation shown in the live viewfinder:
+    // Front camera ('user') is mirrored in preview, so mirror the captured canvas once.
+    ctx.save();
+    if (facingMode === 'user') {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
     setCapturedImage(dataUrl);
     if (liveness) {
@@ -963,45 +975,63 @@ function ScanContent() {
                 </div>
 
                 <div className="space-y-2.5">
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-[var(--text-main)]">
-                      <span>Photo Craft (Lighting & Framing)</span>
-                      <span className="font-mono font-bold">{breakdown.photoCraft}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
-                      <div className="h-full bg-[#0EA5E9] rounded-full" style={{ width: `${breakdown.photoCraft}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-[var(--text-main)]">
-                      <span>Facial Harmony & Balance</span>
-                      <span className="font-mono font-bold">{breakdown.harmony}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
-                      <div className="h-full bg-[#A855F7] rounded-full" style={{ width: `${breakdown.harmony}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-[var(--text-main)]">
-                      <span>Skin Clarity & Glow</span>
-                      <span className="font-mono font-bold">{breakdown.skinClarity}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
-                      <div className="h-full bg-[#38BDF8] rounded-full" style={{ width: `${breakdown.skinClarity}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-[var(--text-main)]">
-                      <span>Expression & Eye Contact</span>
-                      <span className="font-mono font-bold">{breakdown.expression}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
-                      <div className="h-full bg-[var(--accent-primary)] rounded-full" style={{ width: `${breakdown.expression}%` }} />
-                    </div>
-                  </div>
+                  {Array.isArray((breakdown as unknown as { components?: Array<{ id: string; label: string; weight: number; score: number }> }).components) ? (
+                    (breakdown as unknown as { components: Array<{ id: string; label: string; weight: number; score: number }> }).components.map((comp) => (
+                      <div key={comp.id} className="space-y-1">
+                        <div className="flex justify-between text-xs text-[var(--text-main)]">
+                          <span>
+                            {comp.label}{' '}
+                            <span className="text-[10px] text-[var(--text-muted)]">
+                              ({Math.round(comp.weight * 100)}%)
+                            </span>
+                          </span>
+                          <span className="font-mono font-bold">{comp.score}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
+                          <div className="h-full bg-[var(--primary)] rounded-full" style={{ width: `${comp.score}%` }} />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-[var(--text-main)]">
+                          <span>Visual Presentation</span>
+                          <span className="font-mono font-bold">{breakdown.photoCraft}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
+                          <div className="h-full bg-[#0EA5E9] rounded-full" style={{ width: `${breakdown.photoCraft}%` }} />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-[var(--text-main)]">
+                          <span>Pose &amp; Composition</span>
+                          <span className="font-mono font-bold">{breakdown.harmony}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
+                          <div className="h-full bg-[#A855F7] rounded-full" style={{ width: `${breakdown.harmony}%` }} />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-[var(--text-main)]">
+                          <span>Lighting Balance</span>
+                          <span className="font-mono font-bold">{breakdown.skinClarity}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
+                          <div className="h-full bg-[#38BDF8] rounded-full" style={{ width: `${breakdown.skinClarity}%` }} />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-[var(--text-main)]">
+                          <span>Expression &amp; Engagement</span>
+                          <span className="font-mono font-bold">{breakdown.expression}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[var(--bg-surface-warm)] overflow-hidden">
+                          <div className="h-full bg-[var(--accent-primary)] rounded-full" style={{ width: `${breakdown.expression}%` }} />
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs text-[var(--text-main)]">

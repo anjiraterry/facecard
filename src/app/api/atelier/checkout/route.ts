@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const addressId = typeof body.addressId === 'string' ? body.addressId.trim() : '';
+    const redeemPoints = typeof body.redeemPoints === 'number' ? body.redeemPoints : undefined;
     if (!addressId) {
       return jsonResponse({ error: 'addressId is required' }, 400);
     }
@@ -24,9 +25,9 @@ export async function POST(req: NextRequest) {
       user.id,
       'atelier-checkout',
       idempotencyKey,
-      hashRequest({ addressId }),
+      hashRequest({ addressId, redeemPoints }),
       async () => {
-        const created = await createCheckoutAndOrder({ userId: user.id, addressId });
+        const created = await createCheckoutAndOrder({ userId: user.id, addressId, redeemPoints });
         return {
           status: 201,
           body: toJsonSafe({ success: true, checkout: created.checkout, order: created.order }),

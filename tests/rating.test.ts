@@ -104,32 +104,16 @@ describe('Phase 4: AI Rating Engine & Fairness Gates', () => {
       );
     });
 
-    it('should evaluate and score realistic image buffers with genuine variation', async () => {
-      // Realistic image buffer with pseudo-random byte variation (like a real selfie)
+    it('should reject image buffers without real landmark or cloud vision measurements instead of fabricating scores', async () => {
       const buffer1 = Buffer.alloc(1000);
       buffer1[0] = 0xFF;
       buffer1[1] = 0xD8;
       buffer1[2] = 0xFF;
       for (let i = 16; i < 1000; i++) buffer1[i] = (i * 37 + 100) % 220 + 25;
 
-      const buffer2 = Buffer.alloc(1000);
-      buffer2[0] = 0xFF;
-      buffer2[1] = 0xD8;
-      buffer2[2] = 0xFF;
-      for (let i = 16; i < 1000; i++) buffer2[i] = (i * 73 + 45) % 210 + 30;
-
-      const res1 = await scoreFace({ imageBuffer: buffer1, toneMode: 'HYPE' });
-      const res2 = await scoreFace({ imageBuffer: buffer2, toneMode: 'HYPE' });
-
-      expect(res1.qualityGate.passed).toBe(true);
-      expect(res2.qualityGate.passed).toBe(true);
-      expect(res1.score).toBeGreaterThanOrEqual(40);
-      expect(res1.score).toBeLessThanOrEqual(100);
-      expect(res2.score).toBeGreaterThanOrEqual(40);
-      expect(res2.score).toBeLessThanOrEqual(100);
-
-      // Verify that two different photos don't just return identical numbers
-      expect(res1.breakdown.face.harmony).not.toBe(res2.breakdown.face.harmony);
+      await expect(scoreFace({ imageBuffer: buffer1, toneMode: 'HYPE' })).rejects.toThrow(
+        /failed quality gate check/i
+      );
     });
   });
 });

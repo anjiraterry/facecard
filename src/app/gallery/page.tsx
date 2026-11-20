@@ -18,12 +18,23 @@ import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { EmptyState, LoadingState } from '@/components/ui/StateViews';
 import { useToast } from '@/components/common/ToastProvider';
 import { SavedScanItem, scanService } from '@/services/scanService';
+import { exportImageForPhotos } from '@/lib/media/exportPhoto';
+
+interface HistoricalScanSummary {
+  id: string;
+  score: number;
+  band: string;
+  modelVersion?: string;
+  createdAt: string;
+  categoryScores?: { scoringVersion?: string } | null;
+}
 
 export default function GalleryPage() {
   const { showToast } = useToast();
   const [items, setItems] = useState<SavedScanItem[]>([]);
+  const [historyScans, setHistoryScans] = useState<HistoricalScanSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'ALL' | 'FAVORITES'>('ALL');
+  const [filter, setFilter] = useState<'HISTORY' | 'ALL' | 'FAVORITES'>('HISTORY');
   const [selected, setSelected] = useState<SavedScanItem | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -32,10 +43,14 @@ export default function GalleryPage() {
   const loadGallery = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await scanService.getSavedScans();
-      if (res.success) {
-        setItems(res.items || []);
+      const [savedRes, histRes] = await Promise.all([
+        scanService.getSavedScans(),
+        fetch('/api/scans', { credentials: 'include' }).then((r) => (r.ok ? r.json() : { scans: [] })),
+      ]);
+      if (savedRes.success) {
+        setItems(savedRes.items || []);
       }
+      setHistoryScans(histRes.scans || []);
     } catch {
       showToast('Could not load saved gallery', 'error');
     } finally {
@@ -63,15 +78,18 @@ export default function GalleryPage() {
     }
   };
 
-  const handleDownload = (item: SavedScanItem) => {
+  const handleDownload = async (item: SavedScanItem) => {
     if (!item.imageDataUrl) return;
-    const link = document.createElement('a');
-    link.href = item.imageDataUrl;
-    link.download = `facecard-scan-${item.score}-${item.id.slice(0, 6)}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Selfie downloaded', 'success');
+    try {
+      const res = await exportImageForPhotos({
+        dataUrl: item.imageDataUrl,
+        filename: `facecard-scan-${item.score}-${item.id.slice(0, 6)}.jpg`,
+        title: `Face Card · ${item.score}/100`,
+      });
+      showToast(res.message, 'success');
+    } catch {
+      showToast('Export cancelled or unsupported', 'error');
+    }
   };
 
   const handleShare = async (item: SavedScanItem) => {
@@ -183,8 +201,8 @@ export default function GalleryPage() {
         </SurfaceCard>
 
         {/* Filter Tabs */}
-        <div className="flex items-center p-1 rounded-full bg-[var(--surface)] border border-[var(--border)] max-w-xs">
-          {(['ALL', 'FAVORITES'] as const).map((tab) => (
+        <div className="flex items-center p-1 rounded-full bg-[var(--surface)] border border-[var(--border)] max-w-md">
+          {(['HISTORY', 'ALL', 'FAVORITES'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -195,13 +213,55 @@ export default function GalleryPage() {
                   : 'text-[var(--foreground-muted)] hover:text-[var(--foreground)]'
               }`}
             >
-              {tab === 'ALL' ? `All (${items.length})` : `Favorites (${items.filter((i) => i.isFavorite).length})`}
+              {tab === 'HISTORY'
+                ? `All scans (${historyScans.length})`
+                : tab === 'ALL'
+                  ? `Saved photos (${items.length})`
+                  : `Favorites (${items.filter((i) => i.isFavorite).length})`}
             </button>
           ))}
         </div>
 
         {loading ? (
-          <LoadingState label="Loading your saved scans..." />
+          <LoadingState label="Loading your analysis archive..." />
+        ) : filter === 'HISTORY' ? (
+          historyScans.length === 0 ? (
+            <EmptyState
+              title="No scans recorded yet"
+              description="Complete a portrait scan to build your historical analysis archive."
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {historyScans.map((sc) => (
+                <SurfaceCard key={sc.id} padding="md" className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-[var(--foreground-muted)]">
+                      {new Date(sc.createdAt).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </p>
+                    <p className="text-[11px] font-semibold text-[var(--accent-brand)]">
+                      {sc.categoryScores?.scoringVersion || sc.modelVersion || 'Legacy rubric'}
+                    </p>
+                    <Link
+                      href={`/gallery/${sc.id}`}
+                      className="inline-block text-xs font-semibold text-[var(--primary)] hover:underline pt-1"
+                    >
+                      View analysis →
+                    </Link>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-3xl font-serif font-bold tabular-nums">{sc.score}</span>
+                    <span className="block text-[10px] uppercase tracking-wider text-[var(--foreground-muted)]">
+                      {sc.band}
+                    </span>
+                  </div>
+                </SurfaceCard>
+              ))}
+            </div>
+          )
         ) : visibleItems.length === 0 ? (
           <EmptyState
             title={filter === 'FAVORITES' ? 'No favorites yet' : 'Your gallery is empty'}

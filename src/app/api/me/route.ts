@@ -87,6 +87,8 @@ export async function GET() {
       streakMultiplier,
       streakFreezesHeld: user.streak?.freezesHeld ?? 0,
       biometricVerified: !!user.consentAt,
+      hasPortraitConsent: Boolean(user.consentAt && (user.ageConfirmedAt || user.dateOfBirth)),
+      consentVersion: user.consentVersion ?? null,
       score: latestScan ? latestScan.score : null,
       band: latestScan ? latestScan.band : null,
       title: cardTitle,

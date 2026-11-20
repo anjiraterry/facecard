@@ -36,6 +36,7 @@ export interface TierMaterialSpec {
   /** Reflection opacity range [min, max] when interacting */
   reflectionRange: [number, number];
   reflectionTint: string;
+  backgroundImageUrl?: string | null;
 }
 
 export const TIER_MATERIALS: Record<Tier, TierMaterialSpec> = {
@@ -181,10 +182,51 @@ export const TIER_MATERIALS: Record<Tier, TierMaterialSpec> = {
 export function resolveCardMaterial(
   tier: Tier,
   skinId?: string,
-  frameId?: string
+  frameId?: string,
+  theme?: {
+    themeId: string;
+    name: string;
+    material: string;
+    textColor: string;
+    mutedTextColor?: string | null;
+    accentColor: string;
+    paletteFrom: string;
+    paletteTo: string;
+    backgroundImageUrl?: string | null;
+    reflectionIntensity: number;
+    engravingOpacity: number;
+  } | null
 ): TierMaterialSpec {
   const base = TIER_MATERIALS[tier] || TIER_MATERIALS.CLASSIC;
   let result: TierMaterialSpec = base;
+
+  if (theme) {
+    const materialKind =
+      theme.material === 'BRUSHED_METAL'
+        ? 'brushed'
+        : theme.material === 'PEARLESCENT'
+          ? 'pearlescent'
+          : theme.material === 'CERAMIC' || theme.material === 'STONE'
+            ? 'ceramic'
+            : 'satin';
+    result = {
+      ...result,
+      finishName: theme.name,
+      materialKind,
+      typography: theme.textColor,
+      mutedTypography: theme.mutedTextColor || theme.textColor,
+      badgeBorder: theme.accentColor,
+      badgeText: theme.textColor,
+      engravingDarkOpacity: theme.engravingOpacity,
+      reflectionRange: [
+        Math.max(0.03, theme.reflectionIntensity * 0.6),
+        Math.min(0.22, theme.reflectionIntensity * 1.2),
+      ],
+      backgroundImageUrl: theme.backgroundImageUrl ?? null,
+      baseGradient: `radial-gradient(110% 90% at 18% 12%, ${theme.accentColor}26 0%, transparent 58%), linear-gradient(135deg, ${theme.paletteFrom} 0%, ${theme.paletteTo} 100%)`,
+    };
+    return result;
+  }
 
   if (skinId) {
     if (skinId.includes('velvet-rose') || skinId.includes('velvet_rose')) {

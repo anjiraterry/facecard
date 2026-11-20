@@ -133,6 +133,13 @@ export async function DELETE(req: NextRequest) {
       data: { withdrawnAt: now },
     });
 
+    if (purpose === 'PORTRAIT_PROCESSING') {
+      await db.user.update({
+        where: { id: user.id },
+        data: { consentAt: null },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       purpose,
