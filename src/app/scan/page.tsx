@@ -86,15 +86,24 @@ function ScanContent() {
   const [duelResult, setDuelResult] = useState<{
     duelId: string;
     attemptNumber: number;
+    maxAttempts: number;
     attemptsRemaining: number;
+    currentRound: number;
+    bestScore: number;
+    isLockedIn: boolean;
+    opponentAttemptsUsed: number;
+    opponentMaxAttempts: number;
+    opponentLockedIn: boolean;
     status: string;
-    outcome?: 'WIN' | 'LOSS' | 'TIE' | 'PENDING';
+    outcome?: 'WIN' | 'LOSS' | 'DRAW' | 'TIE' | 'PENDING';
     payout?: number;
+    winBonus?: number;
     winnerId?: string | null;
     isWinner?: boolean;
-    challengerScore?: number;
-    opponentScore?: number;
+    challengerScore?: number | null;
+    opponentScore?: number | null;
   } | null>(null);
+  const [isLockingIn, setIsLockingIn] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSettingAvatar, setIsSettingAvatar] = useState(false);
   const [avatarSaved, setAvatarSaved] = useState(false);
@@ -382,6 +391,94 @@ function ScanContent() {
       setCameraError(null);
     }
   };
+
+  const handleLockInScore = async () => {
+    if (!duelResult || isLockingIn) return;
+    try {
+      setIsLockingIn(true);
+      const res = await faceoffService.lockInScore(duelResult.duelId);
+      const isCompleted = res.status === 'COMPLETED';
+      const isTie = res.status === 'TIE_REMATCH';
+      const winnerId = res.settlement?.winnerId ?? null;
+      const isWinner = Boolean(isCompleted && winnerId && user?.id && winnerId === user.id);
+      const isDraw = Boolean(isCompleted && !winnerId);
+      const isLoss = Boolean(isCompleted && winnerId && user?.id && winnerId !== user.id);
+      setDuelResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              isLockedIn: true,
+              bestScore: res.finalScore ?? prev.bestScore,
+              status: res.status,
+              outcome: isWinner ? 'WIN' : isLoss ? 'LOSS' : isDraw ? 'DRAW' : isTie ? 'TIE' : 'PENDING',
+              payout: isWinner ? (res.settlement?.payout ?? 0) : 0,
+              winBonus: isWinner ? (res.settlement?.winBonus ?? 0) : 0,
+              winnerId,
+              isWinner,
+              challengerScore: res.settlement?.challengerScore ?? prev.challengerScore,
+              opponentScore: res.settlement?.opponentScore ?? prev.opponentScore,
+            }
+          : prev
+      );
+      showToast(
+        res.bothLockedIn ? 'Score locked! Settling match...' : 'Your final score is locked in.',
+        'success'
+      );
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to lock in score', 'error');
+    } finally {
+      setIsLockingIn(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!duelResult?.duelId) return;
+    if (duelResult.status === 'COMPLETED' || duelResult.status === 'EXPIRED' || duelResult.status === 'CANCELLED') {
+      return;
+    }
+    const timer = setInterval(async () => {
+      try {
+        const res = await faceoffService.getDuelById(duelResult.duelId);
+        if (!res.success || !res.duel) return;
+        const d = res.duel;
+        const me = d.myRole === 'CHALLENGER' ? d.challenger : d.opponent;
+        const opp = d.myRole === 'CHALLENGER' ? d.opponent : d.challenger;
+        const isCompleted = d.status === 'COMPLETED';
+        const isTie = d.status === 'TIE_REMATCH';
+        const isWinner = Boolean(isCompleted && d.winnerId && user?.id && d.winnerId === user.id);
+        const isDraw = Boolean(isCompleted && !d.winnerId);
+        const isLoss = Boolean(isCompleted && d.winnerId && user?.id && d.winnerId !== user.id);
+
+        setDuelResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: d.status,
+                currentRound: d.currentRound,
+                maxAttempts: d.maxAttemptsPerRound,
+                attemptNumber: me ? me.attemptsUsed : prev.attemptNumber,
+                attemptsRemaining: me ? me.attemptsRemaining : prev.attemptsRemaining,
+                isLockedIn: me ? me.lockedIn : prev.isLockedIn,
+                bestScore: me?.score ?? prev.bestScore,
+                opponentAttemptsUsed: opp?.attemptsUsed ?? prev.opponentAttemptsUsed,
+                opponentMaxAttempts: d.maxAttemptsPerRound,
+                opponentLockedIn: opp?.lockedIn ?? prev.opponentLockedIn,
+                outcome: isWinner ? 'WIN' : isLoss ? 'LOSS' : isDraw ? 'DRAW' : isTie ? 'TIE' : 'PENDING',
+                payout: isWinner ? d.payout : 0,
+                winBonus: isWinner ? d.winBonus : 0,
+                winnerId: d.winnerId,
+                isWinner,
+                challengerScore: d.challenger.score,
+                opponentScore: d.opponent?.score ?? null,
+              }
+            : prev
+        );
+      } catch {
+        // Ignore transient polling errors
+      }
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [duelResult?.duelId, duelResult?.status, user?.id]);
 
   // Capture frame + extract on-device MediaPipe landmarks (zero cloud AI cost)
   const capturePhoto = async (liveness?: { passed: boolean; actionsCompleted: string[] }) => {
@@ -875,13 +972,18 @@ function ScanContent() {
                   </span>
                   {livenessResult?.verified && (
                     <span className="text-[10px] text-[var(--success)] font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Live Liveness Checked · Added to Persistent Face Card
+                      <CheckCircle2 className="w-3 h-3" />{' '}
+                      {duelResult
+                        ? 'Live Liveness Checked · Arena Match Attempt'
+                        : 'Live Liveness Checked · Added to Persistent Face Card'}
                     </span>
                   )}
                 </div>
               </div>
               <span className="text-xs font-black text-[var(--accent-brand)]">
-                +{pointsEarned} PTS
+                {duelResult
+                  ? `Attempt ${duelResult.attemptNumber} of ${duelResult.maxAttempts}`
+                  : `+${pointsEarned || 0} PTS`}
               </span>
             </div>
 
@@ -893,50 +995,81 @@ function ScanContent() {
                     <Swords className="w-5 h-5 text-[#D2B8C9]" />
                     <div>
                       <span className="text-xs font-black uppercase tracking-wider text-[#D2B8C9] block">
-                        Arena Clash Registered
+                        Arena Clash · Round {duelResult.currentRound}
                       </span>
                       <span className="text-sm font-bold text-white block">
-                        {duelResult.outcome === 'WIN' 
-                          ? `Victory! Pot Won: +${duelResult.payout} PTS` 
+                        {duelResult.outcome === 'WIN'
+                          ? `Victory!${(duelResult.payout ?? 0) + (duelResult.winBonus ?? 0) > 0 ? ` +${(duelResult.payout ?? 0) + (duelResult.winBonus ?? 0)} PTS` : ''}`
                           : duelResult.outcome === 'LOSS'
                           ? 'Defeat in this clash'
+                          : duelResult.outcome === 'DRAW'
+                          ? 'Match Ended in a Draw'
                           : duelResult.outcome === 'TIE'
-                          ? 'Sudden Death Tie!'
-                          : `Locked: ${resultCard.score} PTS for this Duel`}
+                          ? 'Tie — Rematch Round Required!'
+                          : duelResult.isLockedIn
+                          ? `Final score locked: ${duelResult.bestScore}/100`
+                          : `Best score: ${duelResult.bestScore}/100`}
                       </span>
                     </div>
                   </div>
                   <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-white/10 text-purple-200">
-                    Attempt {duelResult.attemptNumber}/2
+                    Attempt {duelResult.attemptNumber} of {duelResult.maxAttempts}
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between text-xs">
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between text-xs gap-3">
                   <div className="text-left">
-                    <span className="text-[10px] text-white/60 block">Your Best Score</span>
-                    <span className="text-base font-black text-white">★ {resultCard.score}</span>
+                    <span className="text-[10px] text-white/60 block">
+                      {duelResult.isLockedIn ? 'Final Score Locked' : 'Your Best Score'}
+                    </span>
+                    <span className="text-base font-black text-white">
+                      {duelResult.bestScore}/100
+                    </span>
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-white/60 block">Match Status</span>
-                    <span className="text-xs font-bold text-[#D2B8C9] uppercase">
-                      {duelResult.status === 'COMPLETED' ? 'Resolved' : 'Awaiting Opponent'}
+                    <span className="text-xs font-bold text-[#D2B8C9]">
+                      {duelResult.status === 'COMPLETED'
+                        ? 'Match completed'
+                        : duelResult.status === 'TIE_REMATCH'
+                        ? 'Rematch required'
+                        : duelResult.status === 'READY_TO_SETTLE' || duelResult.status === 'SETTLING'
+                        ? 'Settling match...'
+                        : !duelResult.isLockedIn
+                        ? `${duelResult.attemptsRemaining} attempt${duelResult.attemptsRemaining === 1 ? '' : 's'} remaining · Not locked`
+                        : duelResult.opponentAttemptsUsed === 0
+                        ? "Waiting for opponent's first scan"
+                        : !duelResult.opponentLockedIn && duelResult.opponentAttemptsUsed < duelResult.opponentMaxAttempts
+                        ? `Opponent has ${duelResult.opponentMaxAttempts - duelResult.opponentAttemptsUsed} attempt remaining`
+                        : !duelResult.opponentLockedIn
+                        ? 'Waiting for opponent to lock in'
+                        : 'Both participants ready'}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex gap-2 pt-1">
-                  {duelResult.attemptsRemaining > 0 && duelResult.status !== 'COMPLETED' && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {!duelResult.isLockedIn && duelResult.status !== 'COMPLETED' && duelResult.status !== 'EXPIRED' && (
+                    <button
+                      onClick={handleLockInScore}
+                      disabled={isLockingIn}
+                      className="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <span>{isLockingIn ? 'Locking In...' : 'Lock In Score'}</span>
+                    </button>
+                  )}
+                  {!duelResult.isLockedIn && duelResult.attemptsRemaining > 0 && duelResult.status !== 'COMPLETED' && (
                     <button
                       onClick={retakeScan}
-                      className="flex-1 py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/20 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/20 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Take 2nd Attempt</span>
+                      <span>Take Attempt {duelResult.attemptNumber + 1}</span>
                     </button>
                   )}
                   <Link
                     href="/faceoff"
-                    className="flex-1 py-2.5 px-3 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-xs font-bold text-[var(--primary-foreground)] text-center flex items-center justify-center gap-1.5 transition-colors"
+                    className="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-xs font-bold text-[var(--primary-foreground)] text-center flex items-center justify-center gap-1.5 transition-colors"
                   >
                     <span>Back to Arena</span>
                     <ArrowRight className="w-3.5 h-3.5" />

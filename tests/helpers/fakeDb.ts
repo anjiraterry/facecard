@@ -178,8 +178,15 @@ export function createFakeDb() {
   const faceOffTable = createTable(() => ({
     mode: 'STAKED',
     status: 'WAITING',
+    maxAttemptsPerRound: 2,
+    currentRound: 1,
+    scoringVersion: 'v2.0-presentation',
+    weightsVersion: 'default',
+    challengerStatus: 'WAITING',
+    opponentStatus: 'WAITING',
     rematchCount: 0,
     feeAmount: 0,
+    settlementAttempts: 0,
     stake: 0,
   }));
   const faceOff = {
@@ -226,7 +233,18 @@ export function createFakeDb() {
     },
   };
 
-  const faceOffAttempt = createTable();
+  const faceOffAttempt = createTable(() => ({
+    roundNumber: 1,
+    score: 0,
+    scoringVersion: 'v2.0-presentation',
+    verificationStatus: 'VERIFIED',
+  }));
+  const faceOffRound = createTable(() => ({
+    maxAttempts: 2,
+    isTie: false,
+    startedAt: new Date(),
+  }));
+  const faceOffEvent = createTable();
   const scan = createTable();
   const scanSlot = createTable();
   const shopItem = createTable(() => ({ active: true, maxOwned: 1 }));
@@ -254,6 +272,8 @@ export function createFakeDb() {
     tierUpgradeEvent,
     faceOff,
     faceOffAttempt,
+    faceOffRound,
+    faceOffEvent,
     scan,
     scanSlot,
     shopItem,

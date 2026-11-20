@@ -77,10 +77,20 @@ enum FaceOffMode {
 enum FaceOffStatus {
   WAITING
   ACTIVE
+  READY_TO_SETTLE
+  SETTLING
   TIE_REMATCH
   COMPLETED
   EXPIRED
   CANCELLED
+}
+
+enum FaceOffParticipantStatus {
+  WAITING
+  ATTEMPTS_AVAILABLE
+  LOCKED_IN
+  TIMED_OUT
+  WITHDRAWN
 }
 
 model User {
@@ -417,52 +427,107 @@ model Purchase {
 }
 
 model FaceOff {
-  id                   String        @id @default(uuid()) @db.Uuid
-  challengerId         String        @db.Uuid
-  opponentId           String?       @db.Uuid
-  inviteCode           String        @unique
-  mode                 FaceOffMode   @default(STAKED)
-  stake                Int           @default(0)
-  status               FaceOffStatus @default(WAITING)
-  challengerBestScanId String?       @db.Uuid
-  opponentBestScanId   String?       @db.Uuid
-  winnerId             String?       @db.Uuid
-  rematchCount         Int           @default(0)
-  feeAmount            Int           @default(0)
+  id                   String                   @id @default(uuid()) @db.Uuid
+  challengerId         String                   @db.Uuid
+  opponentId           String?                  @db.Uuid
+  inviteCode           String                   @unique
+  mode                 FaceOffMode              @default(STAKED)
+  stake                Int                      @default(0)
+  status               FaceOffStatus            @default(WAITING)
+  maxAttemptsPerRound  Int                      @default(2)
+  currentRound         Int                      @default(1)
+  scoringVersion       String                   @default("v2.0-presentation")
+  weightsVersion       String                   @default("default")
+  challengerStatus     FaceOffParticipantStatus @default(WAITING)
+  opponentStatus       FaceOffParticipantStatus @default(WAITING)
+  challengerBestScanId String?                  @db.Uuid
+  opponentBestScanId   String?                  @db.Uuid
+  challengerFinalScore Int?
+  opponentFinalScore   Int?
+  winnerId             String?                  @db.Uuid
+  outcomeReason        String?
+  rematchCount         Int                      @default(0)
+  feeAmount            Int                      @default(0)
+  settlementAttempts   Int                      @default(0)
+  lastSettlementError  String?
   challengerLockedAt   DateTime?
   opponentLockedAt     DateTime?
   expiresAt            DateTime
   resolvedAt           DateTime?
-  createdAt            DateTime      @default(now())
+  createdAt            DateTime                 @default(now())
 
-  challenger           User          @relation("ChallengerFaceOffs", fields: [challengerId], references: [id], onDelete: Restrict)
-  opponent             User?         @relation("OpponentFaceOffs", fields: [opponentId], references: [id], onDelete: Restrict)
-  winner               User?         @relation("WinnerFaceOffs", fields: [winnerId], references: [id], onDelete: SetNull)
-  challengerBestScan   Scan?         @relation("ChallengerBestScan", fields: [challengerBestScanId], references: [id], onDelete: SetNull)
-  opponentBestScan     Scan?         @relation("OpponentBestScan", fields: [opponentBestScanId], references: [id], onDelete: SetNull)
-  scans                Scan[]        @relation("FaceOffScans")
+  challenger           User                     @relation("ChallengerFaceOffs", fields: [challengerId], references: [id], onDelete: Restrict)
+  opponent             User?                    @relation("OpponentFaceOffs", fields: [opponentId], references: [id], onDelete: Restrict)
+  winner               User?                    @relation("WinnerFaceOffs", fields: [winnerId], references: [id], onDelete: SetNull)
+  challengerBestScan   Scan?                    @relation("ChallengerBestScan", fields: [challengerBestScanId], references: [id], onDelete: SetNull)
+  opponentBestScan     Scan?                    @relation("OpponentBestScan", fields: [opponentBestScanId], references: [id], onDelete: SetNull)
+  scans                Scan[]                   @relation("FaceOffScans")
   attempts             FaceOffAttempt[]
+  rounds               FaceOffRound[]
+  events               FaceOffEvent[]
   shareCards           ShareCard[]
 
   @@index([inviteCode])
   @@index([challengerId, status])
   @@index([opponentId, status])
+  @@index([status, expiresAt])
   @@index([expiresAt])
 }
 
 model FaceOffAttempt {
-  id            String   @id @default(uuid()) @db.Uuid
-  faceOffId     String   @db.Uuid
-  userId        String   @db.Uuid
-  scanId        String   @db.Uuid
-  attemptNumber Int      // 1 to 3
-  createdAt     DateTime @default(now())
+  id                 String   @id @default(uuid()) @db.Uuid
+  faceOffId          String   @db.Uuid
+  userId             String   @db.Uuid
+  scanId             String   @db.Uuid
+  roundNumber        Int      @default(1)
+  attemptNumber      Int      // 1 to maxAttemptsPerRound
+  score              Int      @default(0)
+  scoringVersion     String   @default("v2.0-presentation")
+  verificationStatus String   @default("VERIFIED")
+  submissionKey      String?
+  createdAt          DateTime @default(now())
 
-  faceOff       FaceOff  @relation(fields: [faceOffId], references: [id], onDelete: Cascade)
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scan          Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  faceOff            FaceOff  @relation(fields: [faceOffId], references: [id], onDelete: Cascade)
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scan               Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
 
-  @@index([faceOffId, userId])
+  @@unique([faceOffId, userId, roundNumber, attemptNumber])
+  @@unique([faceOffId, submissionKey])
+  @@index([faceOffId, userId, roundNumber])
+}
+
+model FaceOffRound {
+  id                   String    @id @default(uuid()) @db.Uuid
+  faceOffId            String    @db.Uuid
+  roundNumber          Int
+  maxAttempts          Int       @default(2)
+  challengerBestScanId String?   @db.Uuid
+  opponentBestScanId   String?   @db.Uuid
+  challengerScore      Int?
+  opponentScore        Int?
+  winnerId             String?   @db.Uuid
+  isTie                Boolean   @default(false)
+  startedAt            DateTime  @default(now())
+  endedAt              DateTime?
+
+  faceOff              FaceOff   @relation(fields: [faceOffId], references: [id], onDelete: Cascade)
+
+  @@unique([faceOffId, roundNumber])
+  @@index([faceOffId])
+}
+
+model FaceOffEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  faceOffId   String   @db.Uuid
+  roundNumber Int      @default(1)
+  actorUserId String?  @db.Uuid
+  eventType   String
+  detail      Json?
+  createdAt   DateTime @default(now())
+
+  faceOff     FaceOff  @relation(fields: [faceOffId], references: [id], onDelete: Cascade)
+
+  @@index([faceOffId, createdAt])
 }
 
 model ShareCard {

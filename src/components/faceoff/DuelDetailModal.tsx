@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -13,8 +13,10 @@ import {
   ExternalLink,
   Coins,
   Camera,
+  Trophy,
+  RefreshCw,
 } from 'lucide-react';
-import { DuelItem } from '@/services/faceoffService';
+import { DuelDetail, DuelItem, faceoffService } from '@/services/faceoffService';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { Button } from '@/components/ui/Button';
 
@@ -40,10 +42,44 @@ export function DuelDetailModal({
   currentUserScore = 0,
 }: DuelDetailModalProps) {
   const router = useRouter();
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
+  const [detail, setDetail] = useState<DuelDetail | null>(null);
+  const [isLockingIn, setIsLockingIn] = useState(false);
+  const [lockError, setLockError] = useState<string | null>(null);
+
+  const loadDetail = useCallback(async (duelId: string) => {
+    try {
+      const res = await faceoffService.getDuelById(duelId);
+      if (res.success && res.duel) {
+        setDetail(res.duel);
+      }
+    } catch {
+      // Ignore transient fetch failures
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!duel?.id) {
+      setDetail(null);
+      return;
+    }
+    void loadDetail(duel.id);
+    const interval = setInterval(() => {
+      if (
+        detail?.status === 'COMPLETED' ||
+        detail?.status === 'EXPIRED' ||
+        detail?.status === 'CANCELLED'
+      ) {
+        return;
+      }
+      void loadDetail(duel.id);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [duel?.id, detail?.status, loadDetail]);
 
   if (!duel) return null;
 
+  const activeStatus = detail?.status ?? duel.status;
   const isOpenWaiting = duel.handle === 'Waiting for Rival';
   const opponentHandle = isOpenWaiting
     ? 'Open Arena Slot'
@@ -55,6 +91,37 @@ export function DuelDetailModal({
     : `/friends/${duel.targetUserId || duel.opponentId || opponentHandle.replace(/^@/, '')}`;
   const totalPrize = duel.stakeAmount ? duel.stakeAmount * 2 : 0;
 
+  const me = detail
+    ? detail.myRole === 'CHALLENGER'
+      ? detail.challenger
+      : detail.myRole === 'OPPONENT'
+      ? detail.opponent
+      : null
+    : null;
+  const opp = detail
+    ? detail.myRole === 'CHALLENGER'
+      ? detail.opponent
+      : detail.myRole === 'OPPONENT'
+      ? detail.challenger
+      : null
+    : null;
+
+  const maxAttempts = detail?.maxAttemptsPerRound ?? duel.maxAttemptsPerRound ?? 2;
+
+  const handleLockIn = async () => {
+    if (isLockingIn) return;
+    try {
+      setIsLockingIn(true);
+      setLockError(null);
+      await faceoffService.lockInScore(duel.id);
+      await loadDetail(duel.id);
+    } catch (err) {
+      setLockError(err instanceof Error ? err.message : 'Failed to lock in score');
+    } finally {
+      setIsLockingIn(false);
+    }
+  };
+
   const copyLink = () => {
     if (typeof window !== 'undefined' && navigator.clipboard) {
       const url = duel.inviteCode
@@ -65,6 +132,36 @@ export function DuelDetailModal({
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  const isCompleted = activeStatus === 'COMPLETED';
+  const isTieRematch = activeStatus === 'TIE_REMATCH';
+  const isSettling = activeStatus === 'READY_TO_SETTLE' || activeStatus === 'SETTLING';
+  const isWinner = Boolean(isCompleted && detail?.winnerId && me && detail.winnerId === me.id);
+  const isDraw = Boolean(isCompleted && !detail?.winnerId);
+  const isLoss = Boolean(isCompleted && detail?.winnerId && me && detail.winnerId !== me.id);
+
+  const statusExplanation = (() => {
+    if (isCompleted) {
+      if (isWinner) return 'Match completed — you won!';
+      if (isLoss) return 'Match completed — opponent won this round.';
+      if (isDraw) return 'Match ended in a draw after rematch.';
+      return 'Match completed.';
+    }
+    if (activeStatus === 'EXPIRED') return 'Match expired before completion.';
+    if (activeStatus === 'CANCELLED') return 'Match was cancelled.';
+    if (isSettling) return 'Both participants locked in — settling match...';
+    if (isTieRematch) return 'Round 1 ended in a tie! Complete Round 2 rematch.';
+    if (activeStatus === 'WAITING') return 'Waiting for an opponent to accept the challenge.';
+    if (me && opp) {
+      if (!me.lockedIn && me.attemptsUsed === 0) return 'Take your first match scan to enter the round.';
+      if (!me.lockedIn) return `You have ${me.attemptsRemaining} attempt${me.attemptsRemaining === 1 ? '' : 's'} left. You can lock in your best score now.`;
+      if (opp.attemptsUsed === 0) return "Waiting for opponent's first scan.";
+      if (!opp.lockedIn && opp.attemptsRemaining > 0) return `Opponent has ${opp.attemptsRemaining} remaining attempt${opp.attemptsRemaining === 1 ? '' : 's'}.`;
+      if (!opp.lockedIn) return 'Waiting for opponent to lock in.';
+      return 'Both participants ready.';
+    }
+    return 'Match in progress.';
+  })();
 
   return (
     <div
@@ -86,6 +183,11 @@ export function DuelDetailModal({
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-surface-warm)] text-[var(--text-secondary)]">
               {duel.mode === 'STAKED' ? `${duel.stakeAmount} PTS Stake` : 'Friendly Match'}
             </span>
+            {detail && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-surface-warm)] text-[var(--text-muted)]">
+                Round {detail.currentRound}
+              </span>
+            )}
           </div>
 
           <button
@@ -99,85 +201,143 @@ export function DuelDetailModal({
         </div>
 
         <div className="p-5 space-y-4 overflow-y-auto">
+          {/* Status Banner */}
+          <div className="p-3 rounded-2xl bg-[var(--bg-surface-warm)] border border-[var(--border-subtle)] flex items-center justify-between gap-2 text-xs">
+            <span className="font-semibold text-[var(--text-main)]">{statusExplanation}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[var(--bg-surface)] text-[var(--accent-brand)] shrink-0">
+              {activeStatus.replace(/_/g, ' ')}
+            </span>
+          </div>
+
+          {/* Outcome Summary for Completed Matches */}
+          {isCompleted && detail && (
+            <div className="p-4 rounded-2xl bg-[var(--surface-accent)] border border-[var(--border-strong)] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Trophy className="w-5 h-5 text-[var(--accent-brand)]" />
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-[var(--accent-brand)] block">
+                    {isWinner ? 'Arena Victory' : isDraw ? 'Draw · Stakes Refunded' : isLoss ? 'Arena Defeat' : 'Match Settled'}
+                  </span>
+                  <span className="text-xs text-[var(--text-muted)]">
+                    Final: {detail.challenger.score ?? '—'}/100 vs {detail.opponent?.score ?? '—'}/100
+                  </span>
+                </div>
+              </div>
+              {isWinner && (detail.payout > 0 || detail.winBonus > 0) && (
+                <span className="text-xs font-black text-emerald-500">
+                  +{detail.payout + detail.winBonus} PTS
+                </span>
+              )}
+            </div>
+          )}
+
           <section className="grid grid-cols-2 gap-3 relative">
+            {/* Left Card: You (if participant) or Challenger */}
+            <div className="p-4 rounded-2xl bg-[var(--bg-surface-warm)] border border-[var(--border-subtle)] space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-full bg-[var(--bg-secondary)] text-[var(--text-main)] font-bold flex items-center justify-center text-xs border border-[var(--border-card)]">
+                    {me ? 'YOU' : 'CH'}
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-semibold text-[var(--text-muted)] block uppercase tracking-[0.08em]">
+                      {me ? 'You' : 'Challenger'}
+                    </span>
+                    <span className="text-xs font-bold text-[var(--text-main)] truncate block">
+                      {me ? me.handle : detail?.challenger.handle || opponentHandle}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-3 space-y-1 text-xs tabular-nums">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--text-muted)]">Lethality</span>
+                    <span className="font-bold text-[var(--text-main)]">
+                      {me
+                        ? me.score !== null
+                          ? `${me.score}/100`
+                          : '—'
+                        : detail?.challenger.score !== null && detail?.challenger.score !== undefined
+                        ? `${detail.challenger.score}/100`
+                        : detail?.challenger.scoreHidden
+                        ? '••'
+                        : currentUserScore || '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--text-muted)]">Attempts</span>
+                    <span className="font-semibold text-[var(--accent-brand)]">
+                      {me ? `${me.attemptsUsed} / ${maxAttempts}` : `0 / ${maxAttempts}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--text-muted)]">Status</span>
+                    <span className="font-semibold text-[var(--text-main)]">
+                      {me?.lockedIn ? 'Locked In' : 'Not Locked'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Card: Opponent */}
             <div className="p-4 rounded-2xl bg-[var(--bg-surface-warm)] border border-[var(--border-subtle)] space-y-3 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-2.5">
                   <UserAvatar
-                    name={duel.handle || duel.opponentName}
-                    src={duel.iconAvatar || duel.image}
+                    name={opp?.handle || duel.handle || duel.opponentName}
+                    src={opp?.avatar || duel.iconAvatar || duel.image}
                     size="md"
                     className="w-10 h-10 ring-1 ring-[var(--border-card)]"
                   />
                   <div className="min-w-0">
                     <span className="text-[10px] font-semibold text-[var(--text-muted)] block uppercase tracking-[0.08em]">
-                      Challenger
+                      Opponent
                     </span>
                     <span className="text-xs font-bold text-[var(--text-main)] truncate block">
-                      {opponentHandle}
+                      {opp ? opp.handle : opponentHandle}
                     </span>
                   </div>
                 </div>
 
                 <div className="mt-3 space-y-1 text-xs tabular-nums">
                   <div className="flex items-center justify-between">
-                    <span className="text-[var(--text-muted)]">Index</span>
-                    <span className="font-bold text-[var(--text-main)]">{duel.score}</span>
+                    <span className="text-[var(--text-muted)]">Lethality</span>
+                    <span className="font-bold text-[var(--text-main)]">
+                      {opp
+                        ? opp.score !== null
+                          ? `${opp.score}/100`
+                          : opp.scoreHidden || opp.attemptsUsed > 0
+                          ? '••'
+                          : '—'
+                        : '—'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[var(--text-muted)]">Division</span>
-                    <span className="font-semibold text-[var(--accent-brand)]">{duel.requiredTier || duel.tier}</span>
+                    <span className="text-[var(--text-muted)]">Attempts</span>
+                    <span className="font-semibold text-[var(--accent-brand)]">
+                      {opp ? `${opp.attemptsUsed} / ${maxAttempts}` : `0 / ${maxAttempts}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--text-muted)]">Status</span>
+                    <span className="font-semibold text-[var(--text-main)]">
+                      {opp ? (opp.lockedIn ? 'Locked In' : opp.attemptsUsed > 0 ? 'Scanning' : 'Waiting') : 'Open'}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {profileUrl ? (
+              {profileUrl && (
                 <Link
                   href={profileUrl}
                   onClick={onClose}
-                  className="w-full py-2 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-main)] text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  className="w-full py-1.5 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-main)] text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
                 >
-                  <span>View Profile</span>
+                  <span>Profile</span>
                   <ExternalLink className="w-3 h-3" />
                 </Link>
-              ) : (
-                <div className="w-full py-2 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-muted)] text-[11px] font-medium text-center">
-                  Open Challenge
-                </div>
               )}
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[var(--bg-surface-warm)] border border-[var(--border-subtle)] space-y-3 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-full bg-[var(--bg-secondary)] text-[var(--text-main)] font-bold flex items-center justify-center text-xs border border-[var(--border-card)]">
-                    YOU
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-semibold text-[var(--text-muted)] block uppercase tracking-[0.08em]">
-                      Contender
-                    </span>
-                    <span className="text-xs font-bold text-[var(--text-main)] truncate block">
-                      {duel.isMine ? 'Awaiting Rival' : 'Your Rating'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-3 space-y-1 text-xs tabular-nums">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[var(--text-muted)]">Your Index</span>
-                    <span className="font-bold text-[var(--text-main)]">{currentUserScore || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[var(--text-muted)]">Your Tier</span>
-                    <span className="font-semibold text-[var(--accent-brand)]">{currentUserTier}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-full py-2 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-muted)] text-[11px] font-medium text-center">
-                {duel.sameTier === false ? 'Tier Mismatch' : 'Parity Verified'}
-              </div>
             </div>
 
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[var(--accent-primary)] text-[var(--bg-page)] font-bold text-[10px] flex items-center justify-center shadow-[var(--shadow-sm)] border-2 border-[var(--bg-surface)]">
@@ -202,8 +362,8 @@ export function DuelDetailModal({
                 <span className="font-semibold text-[var(--text-main)]">{duel.stake}</span>
               </div>
               <div>
-                <span className="block">Division Parity</span>
-                <span className="font-semibold text-[var(--text-main)]">{duel.requiredTier || duel.tier}</span>
+                <span className="block">Attempts Per Round</span>
+                <span className="font-semibold text-[var(--text-main)]">{maxAttempts} attempts (best kept)</span>
               </div>
             </div>
           </section>
@@ -214,11 +374,17 @@ export function DuelDetailModal({
               <span>Arena Match Rules</span>
             </h3>
             <ul className="space-y-1.5 text-xs text-[var(--text-muted)]">
-              <li>• <strong className="text-[var(--text-main)]">Same-Tier Parity:</strong> Both contenders match within the same tier.</li>
-              <li>• <strong className="text-[var(--text-main)]">10-Minute Window:</strong> Capture your match scan before the timer closes.</li>
-              <li>• <strong className="text-[var(--text-main)]">Zero Photo Storage:</strong> Evaluated in ephemeral memory only.</li>
+              <li>• <strong className="text-[var(--text-main)]">Two Attempts:</strong> Best valid Lethality Score counts; auto-locks after 2nd attempt.</li>
+              <li>• <strong className="text-[var(--text-main)]">Concealed Scores:</strong> Opponent score stays hidden until both participants lock in.</li>
+              <li>• <strong className="text-[var(--text-main)]">Tie Policy:</strong> Ties trigger 1 rematch round; a second tie ends in a draw.</li>
             </ul>
           </section>
+
+          {lockError && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-500 font-medium">
+              {lockError}
+            </div>
+          )}
         </div>
 
         <div className="p-5 pt-3.5 border-t border-[var(--border-subtle)] space-y-2">
@@ -235,16 +401,8 @@ export function DuelDetailModal({
             </Button>
           ) : duel.isMine ? (
             <div className="space-y-2">
-              {duel.status === 'WAITING' ? (
+              {activeStatus === 'WAITING' ? (
                 <>
-                  <div className="p-3 rounded-2xl bg-[var(--status-warning-bg)] border border-[var(--status-warning)]/25 text-center space-y-1">
-                    <span className="text-[11px] font-semibold text-[var(--status-warning)] uppercase tracking-wider block">
-                      Awaiting Opponent Confirmation
-                    </span>
-                    <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                      Share your invite link. Once accepted, both contenders submit their match scans.
-                    </p>
-                  </div>
                   <Button variant="primary" size="md" fullWidth onClick={copyLink}>
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     <span>{copied ? 'Duel Link Copied' : 'Copy Match Invite Link'}</span>
@@ -261,23 +419,41 @@ export function DuelDetailModal({
                     </Button>
                   )}
                 </>
-              ) : duel.status === 'ACTIVE' ? (
+              ) : activeStatus === 'ACTIVE' || activeStatus === 'TIE_REMATCH' ? (
                 <>
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    fullWidth
-                    onClick={() => {
-                      onClose();
-                      router.push(`/scan?duelId=${duel.id}`);
-                    }}
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>Take Match Scan</span>
-                  </Button>
-                  <Button variant="ghost" size="sm" fullWidth onClick={copyLink}>
-                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    <span>{copied ? 'Duel Link Copied' : 'Copy Match Invite Link'}</span>
+                  {(!me || (!me.lockedIn && me.attemptsRemaining > 0)) && (
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      fullWidth
+                      onClick={() => {
+                        onClose();
+                        router.push(`/scan?duelId=${duel.id}`);
+                      }}
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>
+                        {me && me.attemptsUsed > 0
+                          ? `Take Attempt ${me.attemptsUsed + 1} of ${maxAttempts}`
+                          : 'Take Match Scan'}
+                      </span>
+                    </Button>
+                  )}
+                  {me && me.attemptsUsed > 0 && !me.lockedIn && (
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      fullWidth
+                      isLoading={isLockingIn}
+                      onClick={handleLockIn}
+                    >
+                      <Lock className="w-4 h-4" />
+                      <span>{isLockingIn ? 'Locking In...' : `Lock In My Score (${me.score ?? 0}/100)`}</span>
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" fullWidth onClick={() => loadDetail(duel.id)}>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Refresh Match Status</span>
                   </Button>
                 </>
               ) : (

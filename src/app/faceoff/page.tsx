@@ -72,7 +72,13 @@ function FaceOffContent() {
 
   // 2. Ongoing matches where the user is a contender (exclude CANCELLED / EXPIRED / COMPLETED)
   const myActiveClashes = liveDuels.filter(
-    (d) => d.isMine && (d.status === 'WAITING' || d.status === 'ACTIVE')
+    (d) =>
+      d.isMine &&
+      (d.status === 'WAITING' ||
+        d.status === 'ACTIVE' ||
+        d.status === 'TIE_REMATCH' ||
+        d.status === 'READY_TO_SETTLE' ||
+        d.status === 'SETTLING')
   );
 
   // 3. Open arena matchmaking by division
@@ -309,6 +315,14 @@ function FaceOffContent() {
                       <span className="py-1 px-2.5 rounded-xl bg-[var(--warning-surface)] text-amber-600 dark:text-amber-400 text-[10px] font-bold border border-amber-500/20">
                         Awaiting Opponent
                       </span>
+                    ) : duel.status === 'READY_TO_SETTLE' || duel.status === 'SETTLING' ? (
+                      <span className="py-1 px-2.5 rounded-xl bg-purple-500/15 text-purple-400 text-[10px] font-bold border border-purple-500/20">
+                        Settling...
+                      </span>
+                    ) : duel.myLockedIn ? (
+                      <span className="py-1 px-2.5 rounded-xl bg-emerald-500/15 text-emerald-500 text-[10px] font-bold border border-emerald-500/20">
+                        Locked In · View
+                      </span>
                     ) : (
                       <button
                         onClick={(e) => {
@@ -318,7 +332,7 @@ function FaceOffContent() {
                         className="py-1 px-3 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] text-[11px] font-bold flex items-center gap-1 shadow-xs transition-transform active:scale-95 cursor-pointer"
                       >
                         <Camera className="w-3 h-3" />
-                        <span>Take Match Scan</span>
+                        <span>{duel.status === 'TIE_REMATCH' ? 'Rematch Scan' : 'Take Match Scan'}</span>
                       </button>
                     )}
                   </div>

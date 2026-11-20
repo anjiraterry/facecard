@@ -31,14 +31,22 @@ export interface ScanResultResponse {
   duel?: {
     duelId: string;
     attemptNumber: number;
+    maxAttempts: number;
     attemptsRemaining: number;
+    currentRound: number;
+    bestScore: number;
+    isLockedIn: boolean;
+    opponentAttemptsUsed: number;
+    opponentMaxAttempts: number;
+    opponentLockedIn: boolean;
     status: string;
-    outcome?: 'WIN' | 'LOSS' | 'TIE' | 'PENDING';
+    outcome?: 'WIN' | 'LOSS' | 'DRAW' | 'TIE' | 'PENDING';
     payout?: number;
+    winBonus?: number;
     winnerId?: string | null;
     isWinner?: boolean;
-    challengerScore?: number;
-    opponentScore?: number;
+    challengerScore?: number | null;
+    opponentScore?: number | null;
   };
   evaluatedAt: string;
   scoringVersion?: string;

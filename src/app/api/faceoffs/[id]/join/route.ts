@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequiredUser } from '@/lib/auth/session';
 import { joinFaceOff, FaceOffError } from '@/lib/faceoff';
+import { EconomyConfig } from '@/lib/economy';
 
 export async function POST(
   req: NextRequest,
@@ -17,7 +18,7 @@ export async function POST(
       duelId: duel?.id ?? duelId,
       status: duel?.status ?? 'ACTIVE',
       message: 'You have entered the Arena duel! Complete your selfie scan to lock in your score.',
-      attemptsRemaining: 3,
+      attemptsRemaining: duel?.maxAttemptsPerRound ?? EconomyConfig.ARENA.ATTEMPTS_PER_DUEL,
     });
   } catch (error) {
     if (error instanceof FaceOffError) {

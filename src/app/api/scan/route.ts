@@ -14,7 +14,11 @@ import { getSessionUser } from '@/lib/auth/session';
 import { postLedger, isUniqueViolation, InsufficientBalanceError } from '@/lib/ledger';
 import { hashRequest, parseIdempotencyKey, runIdempotent } from '@/lib/idempotency';
 import { Band, ScanSource, ScanSlotState, Tier, User, FaceOffStatus } from '@prisma/client';
-import { resolveFaceOff } from '@/lib/faceoff';
+import {
+  FaceOffError,
+  recordFaceOffAttempt,
+  recordFaceOffEvent,
+} from '@/lib/faceoff';
 import { evaluateSkinAppearance } from '@/lib/vision/skinAppearanceEngine';
 import { generateImprovementPlan } from '@/lib/insights/improvementEngine';
 import {
@@ -149,32 +153,93 @@ async function performScan(
       return { status: 403, body: { error: 'You are not a contender in this face-off duel' } };
     }
 
-    const existingAttempts = await db.faceOffAttempt.count({
-      where: { faceOffId: duel.id, userId: user.id },
-    });
-
-    const allowedAttempts = EconomyConfig.ARENA.ATTEMPTS_PER_DUEL * ((duel.rematchCount ?? 0) + 1);
-    if (existingAttempts >= allowedAttempts) {
+    const roundNumber = duel.currentRound ?? 1;
+    const maxAttempts = duel.maxAttemptsPerRound ?? EconomyConfig.ARENA.ATTEMPTS_PER_DUEL;
+    const alreadyLocked = isChallenger ? Boolean(duel.challengerLockedAt) : Boolean(duel.opponentLockedAt);
+    if (alreadyLocked) {
       return {
         status: 400,
         body: {
-          error: `Duel attempt limit reached for this round (${allowedAttempts}/${allowedAttempts}). Your score has already been locked in.`,
+          error: 'Your score for this round is already locked in.',
           attemptsRemaining: 0,
         },
       };
     }
 
-    // Quality gate + vision scoring
+    const existingAttempts = await db.faceOffAttempt.count({
+      where: { faceOffId: duel.id, userId: user.id, roundNumber },
+    });
+
+    if (existingAttempts >= maxAttempts) {
+      return {
+        status: 400,
+        body: {
+          error: `Duel attempt limit reached for this round (${maxAttempts}/${maxAttempts}). Your score has already been locked in.`,
+          attemptsRemaining: 0,
+        },
+      };
+    }
+
+    await recordFaceOffEvent(db, {
+      faceOffId: duel.id,
+      roundNumber,
+      actorUserId: user.id,
+      eventType: 'SCAN_STARTED',
+      detail: { attemptIndex: existingAttempts + 1, maxAttempts },
+    });
+
+    // Quality gate + vision scoring (failed quality/provider does NOT consume an Arena attempt)
     let scoredResult;
     try {
       scoredResult = await scoreFace({ imageBuffer: imageBase64, featureVector, toneMode });
     } catch (error) {
+      if (error instanceof QualityGateError) {
+        return {
+          status: 422,
+          body: {
+            error: error.message,
+            qualityGateFailed: true,
+            retakeRequired: true,
+            checks: error.checks,
+          },
+        };
+      }
       return {
         status: 422,
-        body: { error: error instanceof Error ? error.message : 'Selfie failed the quality check.', qualityGateFailed: true },
+        body: {
+          error: error instanceof Error ? error.message : 'Selfie failed the quality check.',
+          qualityGateFailed: true,
+          retakeRequired: true,
+        },
       };
     }
     imageBase64 = ''; // Zero data retention
+
+    const activeWeights = await getActiveLethalityWeights();
+    const lethalityEval = computeLethalityScore({
+      ...lethalityInputsFromPresentation({
+        lighting: scoredResult.breakdown.photoCraft.lighting,
+        sharpness: scoredResult.breakdown.photoCraft.sharpness,
+        framing: scoredResult.breakdown.photoCraft.framing,
+        expression: scoredResult.breakdown.expression,
+        aura: scoredResult.breakdown.aura,
+      }),
+      provenance: featureVector ? 'FEATURE_VECTOR' : 'LOCAL_PRESENTATION',
+      weights: activeWeights.weights,
+    });
+
+    const arenaScore = lethalityEval.lethalityScore;
+    const arenaBand = getVerdictBand(arenaScore);
+
+    // Rubric compatibility check against pinned match version
+    if (duel.scoringVersion && duel.scoringVersion !== lethalityEval.scoringVersion) {
+      return {
+        status: 409,
+        body: {
+          error: `Scoring rubric mismatch: match requires ${duel.scoringVersion}, engine produced ${lethalityEval.scoringVersion}.`,
+        },
+      };
+    }
 
     const flatBreakdown = {
       photoCraft: Math.round(
@@ -191,103 +256,121 @@ async function performScan(
     };
 
     const scanId = randomUUID();
-    const attemptNumber = existingAttempts + 1;
-
-    await db.$transaction(async (tx) => {
-      await tx.scan.create({
-        data: {
-          id: scanId,
-          userId: user.id,
-          score: scoredResult.score,
-          band: scoredResult.band as Band,
-          categoryScores: JSON.parse(JSON.stringify(flatBreakdown)),
-          modelVersion: 'v1.2-neon',
-          promptVersion: 'p2.0',
-          scanIndexOfDay: 1,
-          dayKey: todayKey,
-          source: ScanSource.FACEOFF,
-          faceOffId: duel.id,
-        },
-      });
-
-      await tx.faceOffAttempt.create({
-        data: {
-          faceOffId: duel.id,
-          userId: user.id,
-          scanId,
-          attemptNumber,
-        },
-      });
-
-      const currentBestScore = isChallenger
-        ? duel.challengerBestScan?.score ?? -1
-        : duel.opponentBestScan?.score ?? -1;
-
-      const isRematch = duel.status === FaceOffStatus.TIE_REMATCH;
-      if (isRematch || scoredResult.score > currentBestScore) {
-        await tx.faceOff.update({
-          where: { id: duel.id },
-          data: isChallenger ? { challengerBestScanId: scanId } : { opponentBestScanId: scanId },
-        });
-      }
+    await db.scan.create({
+      data: {
+        id: scanId,
+        userId: user.id,
+        score: arenaScore,
+        band: arenaBand as Band,
+        categoryScores: JSON.parse(JSON.stringify({
+          ...flatBreakdown,
+          scoringVersion: lethalityEval.scoringVersion,
+          weightsVersion: activeWeights.version,
+          components: lethalityEval.components,
+        })),
+        modelVersion: lethalityEval.scoringVersion,
+        promptVersion: activeWeights.version,
+        scanIndexOfDay: 1,
+        dayKey: todayKey,
+        source: ScanSource.FACEOFF,
+        faceOffId: duel.id,
+      },
     });
 
-    // Check if both contenders have submitted at least one score
-    let duelResolution: any = null;
+    let attemptOutcome;
+    try {
+      attemptOutcome = await recordFaceOffAttempt({
+        duelId: duel.id,
+        userId: user.id,
+        scanId,
+        score: arenaScore,
+        scoringVersion: lethalityEval.scoringVersion,
+        verificationStatus: liveness?.verified ? 'LIVENESS_VERIFIED' : 'VERIFIED',
+        submissionKey: `scan:${user.id}:${duel.id}:${scanId}`,
+      });
+    } catch (err) {
+      if (err instanceof FaceOffError) {
+        return { status: err.status, body: { error: err.message } };
+      }
+      throw err;
+    }
+
     const refreshedDuel = await db.faceOff.findUnique({
       where: { id: duel.id },
       include: { challengerBestScan: true, opponentBestScan: true },
     });
 
-    if (refreshedDuel?.challengerBestScanId && refreshedDuel?.opponentBestScanId && refreshedDuel.status !== FaceOffStatus.COMPLETED) {
-      const roundAttemptsCap = EconomyConfig.ARENA.ATTEMPTS_PER_DUEL * ((refreshedDuel.rematchCount ?? 0) + 1);
-      const [cAttempts, oAttempts] = await Promise.all([
-        db.faceOffAttempt.count({ where: { faceOffId: duel.id, userId: refreshedDuel.challengerId } }),
-        refreshedDuel.opponentId
-          ? db.faceOffAttempt.count({ where: { faceOffId: duel.id, userId: refreshedDuel.opponentId } })
-          : Promise.resolve(0),
-      ]);
-      const bothExhausted = cAttempts >= roundAttemptsCap && oAttempts >= roundAttemptsCap;
-      const bothLocked = Boolean(refreshedDuel.challengerLockedAt && refreshedDuel.opponentLockedAt);
+    const otherUserId = isChallenger ? refreshedDuel?.opponentId : refreshedDuel?.challengerId;
+    const opponentAttemptsUsed = otherUserId
+      ? await db.faceOffAttempt.count({
+          where: {
+            faceOffId: duel.id,
+            userId: otherUserId,
+            roundNumber: refreshedDuel?.currentRound ?? roundNumber,
+          },
+        })
+      : 0;
+    const opponentLockedIn = isChallenger
+      ? Boolean(refreshedDuel?.opponentLockedAt)
+      : Boolean(refreshedDuel?.challengerLockedAt);
 
-      if (bothExhausted || bothLocked) {
-        try {
-          duelResolution = await resolveFaceOff(duel.id);
-        } catch (err) {
-          console.warn('Auto duel resolution deferred or already completed:', err);
-        }
-      }
-    }
+    const duelResolution = attemptOutcome.settlementResult;
+    const isCompleted = duelResolution?.status === 'COMPLETED' || refreshedDuel?.status === FaceOffStatus.COMPLETED;
+    const isTie = duelResolution?.status === 'TIE_REMATCH' || refreshedDuel?.status === FaceOffStatus.TIE_REMATCH;
+    const winnerId = duelResolution && 'winnerId' in duelResolution
+      ? duelResolution.winnerId ?? null
+      : refreshedDuel?.winnerId ?? null;
+    const isWinner = Boolean(isCompleted && winnerId && winnerId === user.id);
+    const isDraw = Boolean(isCompleted && !winnerId);
+    const isLoss = Boolean(isCompleted && winnerId && winnerId !== user.id);
+    const scoresRevealed = isCompleted || isTie;
 
-    const attemptsRemaining = Math.max(0, EconomyConfig.ARENA.ATTEMPTS_PER_DUEL - attemptNumber);
-    const isWinner = duelResolution ? duelResolution.winnerId === user.id : false;
-    const isTie = duelResolution?.status === 'TIE_REMATCH';
-    const isLoss = Boolean(duelResolution && !isWinner && !isTie);
+    const challengerScoreVal = scoresRevealed
+      ? (duelResolution && 'challengerScore' in duelResolution
+          ? duelResolution.challengerScore
+          : refreshedDuel?.challengerFinalScore ?? refreshedDuel?.challengerBestScan?.score ?? null)
+      : null;
+    const opponentScoreVal = scoresRevealed
+      ? (duelResolution && 'opponentScore' in duelResolution
+          ? duelResolution.opponentScore
+          : refreshedDuel?.opponentFinalScore ?? refreshedDuel?.opponentBestScan?.score ?? null)
+      : null;
 
     return {
       status: 200,
       body: {
         success: true,
         scanId,
-        score: scoredResult.score,
-        band: scoredResult.band,
+        score: arenaScore,
+        scoringVersion: lethalityEval.scoringVersion,
+        weightsVersion: activeWeights.version,
+        band: arenaBand,
         verdictLine: scoredResult.verdictLine,
         categoryBreakdown: flatBreakdown,
+        pointsEarned: 0,
         duelId: duel.id,
         duel: {
           duelId: duel.id,
-          attemptNumber,
-          attemptsRemaining,
+          attemptNumber: attemptOutcome.attemptNumber,
+          maxAttempts: attemptOutcome.maxAttempts,
+          attemptsRemaining: attemptOutcome.attemptsRemaining,
+          currentRound: attemptOutcome.roundNumber,
+          bestScore: attemptOutcome.bestScore,
+          isLockedIn: attemptOutcome.isLockedIn,
+          opponentAttemptsUsed,
+          opponentMaxAttempts: attemptOutcome.maxAttempts,
+          opponentLockedIn,
           status: duelResolution?.status ?? (refreshedDuel?.status || 'ACTIVE'),
-          outcome: isWinner ? 'WIN' : isLoss ? 'LOSS' : isTie ? 'TIE' : 'PENDING',
-          payout: isWinner ? (duelResolution.payout || 0) : 0,
-          winnerId: duelResolution?.winnerId ?? null,
+          outcome: isWinner ? 'WIN' : isLoss ? 'LOSS' : isDraw ? 'DRAW' : isTie ? 'TIE' : 'PENDING',
+          payout: isWinner && duelResolution && 'payout' in duelResolution ? (duelResolution.payout || 0) : 0,
+          winBonus: isWinner && duelResolution && 'winBonus' in duelResolution ? (duelResolution.winBonus || 0) : 0,
+          winnerId,
           isWinner,
-          challengerScore: refreshedDuel?.challengerBestScan?.score,
-          opponentScore: refreshedDuel?.opponentBestScan?.score,
+          challengerScore: challengerScoreVal,
+          opponentScore: opponentScoreVal,
         },
-        attemptNumber,
-        attemptsRemaining,
+        attemptNumber: attemptOutcome.attemptNumber,
+        attemptsRemaining: attemptOutcome.attemptsRemaining,
         qualityGate: scoredResult.qualityGate,
         liveness: liveness ?? { verified: false, actions: [] },
         evaluatedAt: scoredResult.evaluatedAt,

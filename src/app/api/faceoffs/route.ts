@@ -93,6 +93,20 @@ export async function GET(req: NextRequest) {
         stakeAmount: f.stake,
         mode: f.mode,
         status: f.status,
+        currentRound: f.currentRound,
+        maxAttemptsPerRound: f.maxAttemptsPerRound,
+        rematchCount: f.rematchCount,
+        winnerId: f.winnerId,
+        outcomeReason: f.outcomeReason,
+        challengerLockedIn: Boolean(f.challengerLockedAt),
+        opponentLockedIn: Boolean(f.opponentLockedAt),
+        myLockedIn: sessionUser
+          ? isChallenger
+            ? Boolean(f.challengerLockedAt)
+            : f.opponentId === sessionUser.id
+            ? Boolean(f.opponentLockedAt)
+            : false
+          : false,
         expiresAt: f.expiresAt,
         isMine,
         canJoin,

@@ -66,9 +66,9 @@ describe('Phase 3 & Phase 8: Face-Off PvP Arena Engine & Integrity', () => {
       expect(code1).not.toBe(code2);
     });
 
-    it('should enforce 24-hour expiry limit and 3-attempt limit', () => {
+    it('should enforce 24-hour expiry limit and 2-attempt limit', () => {
       expect(EconomyConfig.ARENA.EXPIRY_MINUTES).toBe(1440);
-      expect(EconomyConfig.ARENA.ATTEMPTS_PER_DUEL).toBe(3);
+      expect(EconomyConfig.ARENA.ATTEMPTS_PER_DUEL).toBe(2);
     });
   });
 

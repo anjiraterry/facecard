@@ -42,7 +42,7 @@ export const EconomyConfig = {
     WIN_BONUS_POINTS: 25,     // bonus awarded on victory
     MAX_DUELS_PER_DAY: 5,
     EXPIRY_MINUTES: 60 * 24,  // 24 hours
-    ATTEMPTS_PER_DUEL: 3,
+    ATTEMPTS_PER_DUEL: 2,
   },
 
   // Scoring Weights

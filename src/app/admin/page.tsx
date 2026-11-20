@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { BeautyIntelligenceAdminPanel } from '@/components/admin/BeautyIntelligenceAdminPanel';
 import { AtelierRewardsAdminPanel } from '@/components/admin/AtelierRewardsAdminPanel';
+import { ArenaDiagnosticsPanel } from '@/components/admin/ArenaDiagnosticsPanel';
 import { CardThemeStudioPanel } from '@/components/admin/CardThemeStudioPanel';
 import {
   LayoutDashboard,
@@ -52,6 +53,7 @@ type NavSection =
   | 'boutique'
   | 'card_themes'
   | 'economy'
+  | 'arena'
   | 'approvals'
   | 'support'
   | 'moderation'
@@ -547,6 +549,7 @@ export default function ControlCentrePage() {
         { id: 'atelier_orders', label: 'Orders & Fulfilment', icon: <ShoppingBag className="w-4 h-4" />, perm: 'atelier.read' },
         { id: 'atelier_inventory', label: 'Catalogue & Stock', icon: <ShoppingBag className="w-4 h-4" />, perm: 'atelier.read' },
         { id: 'atelier_rewards', label: 'Atelier Rewards', icon: <Coins className="w-4 h-4" />, perm: 'atelier.read' },
+        { id: 'arena', label: 'Arena Face-Offs', icon: <Flag className="w-4 h-4" />, perm: 'economy.reconcile' },
       ],
     },
     {
@@ -1112,6 +1115,8 @@ export default function ControlCentrePage() {
           {activeNav === 'atelier_rewards' && (
             <AtelierRewardsAdminPanel onToast={(type, text) => notify(type, text)} />
           )}
+
+          {activeNav === 'arena' && <ArenaDiagnosticsPanel />}
 
           {activeNav === 'card_themes' && (
             <CardThemeStudioPanel onToast={(type, text) => notify(type, text)} />

@@ -1,19 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, 
-  Swords, 
-  Flame, 
-  CheckCircle2, 
-  Coins, 
-  Copy, 
-  Check, 
-  ExternalLink, 
-  User, 
-  AlertCircle 
+import {
+  ArrowLeft,
+  Swords,
+  CheckCircle2,
+  Coins,
+  Copy,
+  Check,
+  ExternalLink,
+  User,
+  AlertCircle,
+  Camera,
+  Lock,
+  Trophy,
 } from 'lucide-react';
 import { BottomNav } from '@/components/navigation/BottomNav';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
@@ -21,32 +23,7 @@ import { UserAvatar } from '@/components/common/UserAvatar';
 import { useCard } from '@/hooks/useCard';
 import { useFaceoff } from '@/hooks/useFaceoff';
 import { useToast } from '@/components/common/ToastProvider';
-
-interface DuelDetailResponse {
-  id: string;
-  inviteCode?: string;
-  challenger: {
-    id: string;
-    displayName: string;
-    handle: string;
-    score: number;
-    tier: string;
-    avatar: string;
-  };
-  opponent: {
-    id: string;
-    displayName: string;
-    handle: string;
-    score: number;
-    tier: string;
-    avatar: string;
-  } | null;
-  mode: string;
-  stakeAmount: number;
-  status: string;
-  winnerId: string | null;
-  expiresAt: string;
-}
+import { DuelDetail, faceoffService } from '@/services/faceoffService';
 
 function DuelDetailPageContent() {
   const params = useParams();
@@ -57,37 +34,45 @@ function DuelDetailPageContent() {
   const { activeCard } = useCard();
   const { joinDuel } = useFaceoff();
 
-  const [duel, setDuel] = useState<DuelDetailResponse | null>(null);
+  const [duel, setDuel] = useState<DuelDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
+  const [isLockingIn, setIsLockingIn] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadDuel = useCallback(async () => {
     if (!duelId) {
       setIsLoading(false);
       return;
     }
-
-    fetch(`/api/faceoffs/${duelId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (isMounted && data.success && data.duel) {
-          setDuel(data.duel);
-        } else if (isMounted) {
-          setDuel(null);
-        }
-      })
-      .catch((err) => {
-        console.warn('Failed to load duel:', err);
-        if (isMounted) setDuel(null);
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
-      });
-
-    return () => { isMounted = false; };
+    try {
+      const data = await faceoffService.getDuelById(duelId);
+      if (data.success && data.duel) {
+        setDuel(data.duel);
+      } else {
+        setDuel(null);
+      }
+    } catch (err) {
+      console.warn('Failed to load duel:', err);
+    } finally {
+      setIsLoading(false);
+    }
   }, [duelId]);
+
+  useEffect(() => {
+    void loadDuel();
+  }, [loadDuel]);
+
+  useEffect(() => {
+    if (!duel?.id) return;
+    if (duel.status === 'COMPLETED' || duel.status === 'EXPIRED' || duel.status === 'CANCELLED') {
+      return;
+    }
+    const timer = setInterval(() => {
+      void loadDuel();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [duel?.id, duel?.status, loadDuel]);
 
   const handleAcceptDuel = async () => {
     if (!duel) return;
@@ -96,15 +81,28 @@ function DuelDetailPageContent() {
       const res = await joinDuel(duel.id);
       if (res.success) {
         showToast('Duel accepted! Proceeding to selfie scan...');
-        setTimeout(() => router.push(`/scan?duelId=${duel.id}`), 1000);
+        setTimeout(() => router.push(`/scan?duelId=${duel.id}`), 800);
       } else {
         showToast(res.message || 'Could not enter duel');
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to join duel';
-      showToast(msg);
+      showToast(err instanceof Error ? err.message : 'Failed to join duel');
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  const handleLockIn = async () => {
+    if (!duel || isLockingIn) return;
+    try {
+      setIsLockingIn(true);
+      await faceoffService.lockInScore(duel.id);
+      await loadDuel();
+      showToast('Score locked in!', 'success');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to lock in score', 'error');
+    } finally {
+      setIsLockingIn(false);
     }
   };
 
@@ -154,28 +152,32 @@ function DuelDetailPageContent() {
   }
 
   const isExpired = new Date(duel.expiresAt).getTime() <= Date.now();
-  const canJoin = duel.status === 'WAITING' && !isExpired && activeCard?.id !== duel.challenger.id;
-  const isMine = activeCard?.id === duel.challenger.id;
+  const canJoin = duel.status === 'WAITING' && !isExpired && !duel.isParticipant && activeCard?.id !== duel.challenger.id;
+  const me = duel.myRole === 'CHALLENGER' ? duel.challenger : duel.myRole === 'OPPONENT' ? duel.opponent : null;
   const totalPrize = duel.stakeAmount ? duel.stakeAmount * 2 : 0;
   const challengerProfileUrl = `/friends/${duel.challenger.handle.replace(/^@/, '')}`;
+  const isActiveRound = duel.status === 'ACTIVE' || duel.status === 'TIE_REMATCH';
+
+  const formatScore = (score: number | null, hidden?: boolean, attemptsUsed?: number) => {
+    if (score !== null && score !== undefined) return `${score}/100`;
+    if (hidden || (attemptsUsed && attemptsUsed > 0)) return '••';
+    return '—';
+  };
 
   return (
     <div className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text-main)] font-sans antialiased pb-32 md:pl-16 lg:pl-52">
-      {/* Dynamic Ambient Background */}
-      <div 
+      <div
         className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-75 dark:opacity-25"
         style={{
           background: `
             radial-gradient(ellipse at 50% -10%, rgba(244, 114, 182, 0.06) 0%, transparent 55%),
             radial-gradient(ellipse at 85% 35%, rgba(251, 146, 60, 0.05) 0%, transparent 45%),
             radial-gradient(ellipse at 15% 70%, rgba(99, 102, 241, 0.04) 0%, transparent 50%)
-          `
+          `,
         }}
       />
 
       <main className="relative z-10 max-w-6xl xl:max-w-7xl mx-auto px-5 sm:px-8 pt-5 space-y-5">
-        
-        {/* Top Header */}
         <header className="relative flex items-center justify-between h-10 px-1">
           <Link
             href="/faceoff"
@@ -196,7 +198,6 @@ function DuelDetailPageContent() {
           </div>
         </header>
 
-        {/* Division & Status Pill */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-[#251E24] text-white dark:bg-white dark:text-[#251E24]">
@@ -207,11 +208,31 @@ function DuelDetailPageContent() {
             </span>
           </div>
           <span className="text-xs font-bold text-[var(--text-muted)]">
-            {duel.status === 'WAITING' ? (isExpired ? 'Expired' : 'Awaiting Opponent') : duel.status}
+            Round {duel.currentRound} · {duel.status.replace(/_/g, ' ')}
           </span>
         </div>
 
-        {/* Contender Stand-Off Cards */}
+        {duel.status === 'COMPLETED' && (
+          <div className="p-4 rounded-[24px] bg-[var(--surface-accent)] border border-[var(--border-strong)] flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Trophy className="w-5 h-5 text-[var(--accent-brand)]" />
+              <div>
+                <span className="text-xs font-black uppercase tracking-wider text-[var(--accent-brand)] block">
+                  {duel.winnerId ? 'Match Completed' : 'Draw · Stakes Refunded'}
+                </span>
+                <span className="text-xs text-[var(--text-muted)]">
+                  Final: {duel.challenger.score ?? '—'}/100 vs {duel.opponent?.score ?? '—'}/100
+                </span>
+              </div>
+            </div>
+            {(duel.payout > 0 || duel.winBonus > 0) && (
+              <span className="text-xs font-black text-emerald-500">
+                +{duel.payout + duel.winBonus} PTS
+              </span>
+            )}
+          </div>
+        )}
+
         <section className="grid grid-cols-2 gap-3 relative">
           {/* Challenger */}
           <div className="p-4 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] shadow-sm space-y-3 flex flex-col justify-between">
@@ -232,12 +253,22 @@ function DuelDetailPageContent() {
 
               <div className="mt-3 space-y-1 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-[var(--text-muted)]">Score</span>
-                  <span className="font-mono font-black text-[var(--text-main)]">★ {duel.challenger.score}</span>
+                  <span className="text-[var(--text-muted)]">Lethality</span>
+                  <span className="font-mono font-black text-[var(--text-main)]">
+                    {formatScore(duel.challenger.score, duel.challenger.scoreHidden, duel.challenger.attemptsUsed)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--text-muted)]">Tier</span>
-                  <span className="font-bold text-[var(--accent-brand)]">{duel.challenger.tier}</span>
+                  <span className="text-[var(--text-muted)]">Attempts</span>
+                  <span className="font-bold text-[var(--accent-brand)]">
+                    {duel.challenger.attemptsUsed} / {duel.maxAttemptsPerRound}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Status</span>
+                  <span className="font-bold text-[var(--text-main)]">
+                    {duel.challenger.lockedIn ? 'Locked In' : 'Open'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -272,12 +303,22 @@ function DuelDetailPageContent() {
 
                   <div className="mt-3 space-y-1 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-[var(--text-muted)]">Score</span>
-                      <span className="font-mono font-black text-[var(--text-main)]">★ {duel.opponent.score}</span>
+                      <span className="text-[var(--text-muted)]">Lethality</span>
+                      <span className="font-mono font-black text-[var(--text-main)]">
+                        {formatScore(duel.opponent.score, duel.opponent.scoreHidden, duel.opponent.attemptsUsed)}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[var(--text-muted)]">Tier</span>
-                      <span className="font-bold text-[var(--accent-brand)]">{duel.opponent.tier}</span>
+                      <span className="text-[var(--text-muted)]">Attempts</span>
+                      <span className="font-bold text-[var(--accent-brand)]">
+                        {duel.opponent.attemptsUsed} / {duel.maxAttemptsPerRound}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-muted)]">Status</span>
+                      <span className="font-bold text-[var(--text-main)]">
+                        {duel.opponent.lockedIn ? 'Locked In' : 'Open'}
+                      </span>
                     </div>
                   </div>
                 </>
@@ -312,7 +353,6 @@ function DuelDetailPageContent() {
           </div>
         </section>
 
-        {/* Stakes Bounty Pool Card */}
         <section className="p-4 rounded-[28px] bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-[var(--border-card)] space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
@@ -330,40 +370,64 @@ function DuelDetailPageContent() {
               <span className="font-bold text-[var(--text-main)]">{duel.stakeAmount} PTS</span>
             </div>
             <div>
-              <span className="block font-medium">Division Class</span>
-              <span className="font-bold text-[var(--text-main)]">{duel.challenger.tier}</span>
+              <span className="block font-medium">Attempts Per Round</span>
+              <span className="font-bold text-[var(--text-main)]">{duel.maxAttemptsPerRound} attempts (best kept)</span>
             </div>
           </div>
         </section>
 
-        {/* Official Arena Rules */}
         <section className="p-4 rounded-[28px] bg-[var(--surface)] border border-[var(--border-card)] space-y-2.5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             <span>Arena Clash Protocols</span>
           </h3>
           <div className="space-y-2 text-xs text-[var(--text-muted)]">
-            <p>• <strong>Weight-Class Parity:</strong> Contenders compete within verified rating tiers.</p>
-            <p>• <strong>In-Memory Evaluation:</strong> Zero persistent storage of facial biometric data.</p>
+            <p>• <strong>Two Attempts:</strong> Best valid Lethality Score counts; auto-locks after attempt 2.</p>
+            <p>• <strong>Concealed Scores:</strong> Opponent score stays hidden until both participants lock in.</p>
             <p>• <strong>Instant Settlement:</strong> Points ledger updates immediately when both scores are locked.</p>
           </div>
         </section>
 
-        {/* Action Controls */}
         <section className="space-y-2 pt-2">
           {canJoin ? (
             <button
               disabled={isJoining}
               onClick={handleAcceptDuel}
-              className="w-full py-4 rounded-full bg-[#251E24] dark:bg-white hover:bg-[#3A2F38] dark:hover:bg-zinc-200 text-white dark:text-[#251E24] font-bold text-xs flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-transform"
+              className="w-full py-4 rounded-full bg-[#251E24] dark:bg-white hover:bg-[#3A2F38] dark:hover:bg-zinc-200 text-white dark:text-[#251E24] font-bold text-xs flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-transform cursor-pointer"
             >
               <Swords className="w-4 h-4" />
               <span>{isJoining ? 'Entering Clash...' : `Accept Duel & Take Selfie (${duel.stakeAmount} PTS)`}</span>
             </button>
-          ) : isMine ? (
+          ) : duel.isParticipant && isActiveRound && me && !me.lockedIn ? (
+            <>
+              {me.attemptsRemaining > 0 && (
+                <button
+                  onClick={() => router.push(`/scan?duelId=${duel.id}`)}
+                  className="w-full py-4 rounded-full bg-[#251E24] dark:bg-white hover:bg-[#3A2F38] dark:hover:bg-zinc-200 text-white dark:text-[#251E24] font-bold text-xs flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-transform cursor-pointer"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>
+                    {me.attemptsUsed > 0
+                      ? `Take Attempt ${me.attemptsUsed + 1} of ${duel.maxAttemptsPerRound}`
+                      : 'Take Match Scan'}
+                  </span>
+                </button>
+              )}
+              {me.attemptsUsed > 0 && (
+                <button
+                  disabled={isLockingIn}
+                  onClick={handleLockIn}
+                  className="w-full py-3.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-transform cursor-pointer disabled:opacity-50"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>{isLockingIn ? 'Locking In...' : `Lock In My Score (${me.score ?? 0}/100)`}</span>
+                </button>
+              )}
+            </>
+          ) : duel.isParticipant ? (
             <button
               onClick={copyLink}
-              className="w-full py-3.5 rounded-full bg-[#251E24] dark:bg-white text-white dark:text-[#251E24] font-bold text-xs flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-transform"
+              className="w-full py-3.5 rounded-full bg-[#251E24] dark:bg-white text-white dark:text-[#251E24] font-bold text-xs flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-transform cursor-pointer"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               <span>{copied ? 'Duel Link Copied!' : 'Copy Match Invite Link'}</span>
@@ -382,7 +446,6 @@ function DuelDetailPageContent() {
             <span>View Challenger Profile ({duel.challenger.handle})</span>
           </Link>
         </section>
-
       </main>
 
       <BottomNav />
