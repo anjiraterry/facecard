@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ITEM_GRADIENTS, CATEGORY_LABELS } from '@/app/api/shop/items/route';
+import { ITEM_GRADIENTS, CATEGORY_LABELS } from '@/lib/shop/constants';
 
 describe('Phase 6: Shop & Customization Economy', () => {
   it('should categorize cosmetic and consumable items properly', () => {

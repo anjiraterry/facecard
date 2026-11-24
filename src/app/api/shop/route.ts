@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
-import { ITEM_GRADIENTS, CATEGORY_LABELS } from './items/route';
+import { ITEM_GRADIENTS, CATEGORY_LABELS } from '@/lib/shop/constants';
 
 export const dynamic = 'force-dynamic';
 

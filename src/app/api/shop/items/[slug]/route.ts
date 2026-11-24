@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth/session';
 import { EconomyConfig } from '@/lib/economy';
-import { ITEM_GRADIENTS, CATEGORY_LABELS } from '../route';
+import { ITEM_GRADIENTS, CATEGORY_LABELS } from '@/lib/shop/constants';
 import { deriveItemLifecycleDetails, resolveCustomerPrimaryAction } from '@/lib/boutique/itemDetails';
 import { expireStaleActiveEffects } from '@/lib/boutique/effects';
 import { Tier } from '@prisma/client';
